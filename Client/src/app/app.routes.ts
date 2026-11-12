@@ -24,7 +24,10 @@ export const routes: Routes = [
         path: 'inventario',
         loadChildren: () => import('./features/inventario/inventario.routes').then((m) => m.INVENTARIO_ROUTES),
       },
-      placeholder('sobres', 'Sobres'),
+      {
+        path: 'sobres',
+        loadChildren: () => import('./features/sobres/sobres.routes').then((m) => m.SOBRES_ROUTES),
+      },
       placeholder('gastos', 'Gastos'),
       placeholder('reportes', 'Reportes'),
       {
