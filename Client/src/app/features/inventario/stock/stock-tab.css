@@ -1,0 +1,72 @@
+/* Table on the left, the day on the right (stacks on narrow windows). */
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.main {
+  flex: 3 1 640px;
+  min-width: 0;
+}
+
+.side {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zero {
+  color: var(--c-muted);
+}
+
+.sub-cell {
+  color: var(--c-muted);
+}
+
+.inactive td {
+  color: var(--c-muted);
+}
+
+.reminder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-color: var(--c-warn-ink);
+  background: var(--c-warn-soft);
+}
+
+.low {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.today {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.move {
+  padding-top: 10px;
+  border-top: 1px solid var(--c-line-soft);
+}
+
+.move__main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.move .sub a {
+  color: inherit;
+}
+
+.move.voided {
+  opacity: 0.6;
+}

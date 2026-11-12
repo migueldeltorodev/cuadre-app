@@ -1,0 +1,121 @@
+.form {
+  max-width: 980px;
+}
+
+.opt {
+  color: var(--c-muted);
+  font-weight: 400;
+}
+
+.reasons {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reasons__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reason {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.reason input {
+  accent-color: var(--c-accent);
+}
+
+.reason--on {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+
+.lines td {
+  vertical-align: middle;
+}
+
+.cell-product {
+  width: 34%;
+}
+
+.cell-qty {
+  width: 26%;
+}
+
+.qty-input {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.qty-input .input.num {
+  flex: 1 1 90px;
+  min-width: 0;
+  text-align: right;
+}
+
+.unit {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.unit-text {
+  font-size: 13.5px;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+.add {
+  max-width: 420px;
+}
+
+.problem-row td {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-color: var(--c-ok);
+  max-width: 760px;
+}
+
+.done__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.diffs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diffs li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14.5px;
+  padding-top: 6px;
+  border-top: 1px solid var(--c-line-soft);
+}

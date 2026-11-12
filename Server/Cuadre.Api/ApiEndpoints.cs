@@ -127,9 +127,41 @@ public static class ApiEndpoints
         public const string Void = $"{Base}/{{id:guid}}/void";
     }
 
-    /// <summary>Read-only until inventory (slice 4).</summary>
+    /// <summary>No DELETE: locations hold movements, so they are deactivated (RF-INV-01).</summary>
     public static class Locations
     {
-        public const string GetAll = $"{ApiBase}/locations";
+        private const string Base = $"{ApiBase}/locations";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>
+    /// Transfers, exits and counts. One POST per kind (each has its own shape); one history and one void for all.
+    /// Like purchases: no PUT, no DELETE.
+    /// </summary>
+    public static class StockOperations
+    {
+        private const string Base = $"{ApiBase}/stock-operations";
+
+        public const string CreateTransfer = $"{Base}/transfers";
+        public const string CreateExit = $"{Base}/exits";
+        public const string CreateCount = $"{Base}/counts";
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>Read-only views over the stock ledger.</summary>
+    public static class Inventory
+    {
+        private const string Base = $"{ApiBase}/inventory";
+
+        public const string Stock = $"{Base}/stock";
+        public const string Movements = $"{Base}/movements";
+        public const string ShoppingList = $"{Base}/shopping-list";
+        public const string Kardex = $"{ApiBase}/products/{{id:guid}}/kardex";
     }
 }

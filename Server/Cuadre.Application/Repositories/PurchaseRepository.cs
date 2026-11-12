@@ -285,29 +285,7 @@ public class PurchaseRepository : IPurchaseRepository
         IReadOnlyList<StockMovement> stockMovements, IReadOnlyList<CashMovement> cashMovements,
         CancellationToken cancellationToken)
     {
-        foreach (var movement in stockMovements)
-        {
-            await connection.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO stock_movements (id, product_id, location_id, date, kind, quantity_milli,
-                                             unit_cost_usd_micros, unit_cost_cup_micros, purchase_id,
-                                             purchase_line_id, created_at)
-                VALUES (@Id, @ProductId, @LocationId, @Date, @Kind, @QuantityMilli,
-                        @UnitCostUsdMicros, @UnitCostCupMicros, @PurchaseId, @PurchaseLineId, @CreatedAt)
-                """, new
-            {
-                movement.Id,
-                movement.ProductId,
-                movement.LocationId,
-                movement.Date,
-                Kind = movement.Kind.ToString(),
-                movement.QuantityMilli,
-                movement.UnitCostUsdMicros,
-                movement.UnitCostCupMicros,
-                movement.PurchaseId,
-                movement.PurchaseLineId,
-                movement.CreatedAt
-            }, transaction, cancellationToken: cancellationToken));
-        }
+        await StockLedger.AppendAsync(connection, transaction, stockMovements, cancellationToken);
 
         foreach (var movement in cashMovements)
         {
@@ -329,14 +307,10 @@ public class PurchaseRepository : IPurchaseRepository
         }
     }
 
-    private static async Task RecalculateCostsAsync(IDbConnection connection, IDbTransaction transaction,
-        Purchase purchase, DateTime now, CancellationToken cancellationToken)
-    {
-        foreach (var productId in purchase.Lines.Select(line => line.ProductId).Distinct())
-        {
-            await ProductCostLedger.RecalculateAsync(connection, transaction, productId, now, cancellationToken);
-        }
-    }
+    private static Task RecalculateCostsAsync(IDbConnection connection, IDbTransaction transaction,
+        Purchase purchase, DateTime now, CancellationToken cancellationToken) =>
+        StockLedger.RecalculateCostsAsync(connection, transaction, purchase.Lines.Select(line => line.ProductId), now,
+            cancellationToken);
 
     private static object ToFilterParameters(GetAllPurchasesOptions options, bool paged) => new
     {

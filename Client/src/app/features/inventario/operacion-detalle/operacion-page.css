@@ -1,0 +1,39 @@
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tag {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  font-size: 13px;
+  color: var(--c-ink-2);
+}
+
+/* Destructive but reversible-by-record: red only on the final button. */
+.void {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-color: var(--c-bad);
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.totals__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+p.sub {
+  margin: 0;
+}

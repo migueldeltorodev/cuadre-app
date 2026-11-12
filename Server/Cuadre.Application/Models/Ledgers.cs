@@ -17,14 +17,23 @@ public class StockMovement
     public long? UnitCostCupMicros { get; init; }
     public Guid? PurchaseId { get; init; }
     public Guid? PurchaseLineId { get; init; }
+
+    /// <summary>Transfers, exits and counts (slice 4).</summary>
+    public Guid? OperationId { get; init; }
+
     public required DateTime CreatedAt { get; init; }
 }
 
-/// <summary>Append only (names are stored): slice 4 adds Transfer, Exit, Count...</summary>
+/// <summary>Append only (names are stored): later slices add Sale...</summary>
 public enum StockMovementKind
 {
     Purchase,
-    PurchaseVoid
+    PurchaseVoid,
+    TransferOut,
+    TransferIn,
+    Exit,
+    CountAdjustment,
+    OperationVoid
 }
 
 /// <summary>

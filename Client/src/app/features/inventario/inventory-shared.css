@@ -1,0 +1,194 @@
+/* Shared by the Inventario tabs and pages: tables, filters, pager. Each component adds its own file on top. */
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.crumbs {
+  font-size: 13.5px;
+  color: var(--c-muted);
+}
+
+.crumbs a {
+  text-decoration: none;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filters .field {
+  flex: 0 1 170px;
+}
+
+.filters .field--wide {
+  flex: 1 1 240px;
+  max-width: 340px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--c-ink-2);
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-accent);
+}
+
+.table-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  overflow-x: auto;
+}
+
+.table-card__head {
+  padding: 22px 24px 8px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--c-muted);
+  padding: 14px 12px;
+}
+
+.table td {
+  padding: 13px 12px;
+  border-top: 1px solid var(--c-line-soft);
+  vertical-align: top;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 24px;
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 24px;
+}
+
+.end {
+  text-align: right !important;
+}
+
+.name {
+  color: var(--c-ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.name:hover {
+  color: var(--c-link);
+}
+
+.sub {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--c-muted);
+  margin-top: 2px;
+}
+
+.products {
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strong {
+  font-weight: 500;
+}
+
+.muted {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 13.5px;
+}
+
+.in {
+  color: var(--c-ok-ink);
+}
+
+.out,
+.negative {
+  color: var(--c-bad-ink);
+}
+
+.voided td {
+  color: var(--c-muted);
+}
+
+.voided .qty {
+  text-decoration: line-through;
+}
+
+.none {
+  color: var(--c-muted);
+  text-align: center;
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  font-size: 13.5px;
+  color: var(--c-muted);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.btn--danger {
+  border-color: transparent;
+  background: var(--c-bad);
+  color: #ffffff;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

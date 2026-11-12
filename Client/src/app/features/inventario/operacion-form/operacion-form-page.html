@@ -1,0 +1,285 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/inventario">Inventario</a> <span aria-hidden="true">/</span>
+  <a [routerLink]="copy().backLink">{{ copy().backLabel }}</a> <span aria-hidden="true">/</span> Nuevo
+</nav>
+
+<div>
+  <h1 class="page-title">{{ copy().title }}</h1>
+  <p class="page-subtitle">{{ copy().lead }}</p>
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (loaded()) {
+  @if (confirmed(); as op) {
+    <!-- ===== Confirmed ===== -->
+    <section class="card done" aria-labelledby="done-title">
+      <h2 class="card__title" id="done-title">{{ operationKindLabel(op.kind) }} #{{ op.number }} confirmado</h2>
+      <p class="card__lead">
+        @switch (op.kind) {
+          @case ('Transfer') {
+            Pasó de {{ op.locationName }} a {{ op.toLocationName }}:
+            {{ op.lines.length }} {{ op.lines.length === 1 ? 'producto' : 'productos' }}.
+          }
+          @case ('Exit') {
+            {{ exitReasonLabel(op.exitReason) }} desde {{ op.locationName }}.
+            @if (confirmedValueCents() !== null) {
+              Valor a costo: <strong class="num">{{ formatMoney(confirmedValueCents()!) }}</strong>.
+            }
+          }
+          @case ('Count') {
+            @if (changedLines().length === 0) {
+              Todo cuadró en {{ op.locationName }}: lo contado es lo que había.
+            } @else {
+              Se ajustaron {{ changedLines().length }} {{ changedLines().length === 1 ? 'producto' : 'productos' }}.
+              @if ((confirmedValueCents() ?? 0) > 0) {
+                Faltante a costo: <strong class="num">{{ formatMoney(confirmedValueCents()!) }}</strong> (va al reporte de pérdidas).
+              } @else if ((confirmedValueCents() ?? 0) < 0) {
+                Sobrante a costo: <strong class="num">{{ formatMoney(-confirmedValueCents()!) }}</strong>.
+              }
+            }
+          }
+        }
+      </p>
+
+      @if (op.kind === 'Count' && changedLines().length > 0) {
+        <ul class="diffs">
+          @for (line of changedLines(); track line.id) {
+            <li>
+              <span>{{ line.productName }}</span>
+              <span class="num" [class.out]="line.quantityMilli < 0" [class.in]="line.quantityMilli > 0">
+                {{ formatSignedQuantity(line.quantityMilli, line.stockUnit) }}
+              </span>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (op.warnings.length > 0) {
+        <div class="alert alert--warn" role="status">
+          Quedaron en negativo:
+          @for (warning of op.warnings; track warning.productId) {
+            <div>· {{ warning.productName }} en {{ warning.locationName }}:
+              <span class="num">{{ formatQuantityWithUnit(warning.balanceMilli, warning.stockUnit) }}</span></div>
+          }
+          <div class="sub">Seguramente falta cargar una compra o un traslado.</div>
+        </div>
+      }
+
+      <div class="done__actions">
+        <a class="btn" [routerLink]="['/inventario/operaciones', op.id]">Ver la operación</a>
+        <a class="btn" routerLink="/inventario/stock">Volver al stock</a>
+        <button class="btn btn--primary" type="button" (click)="startAnother()">Registrar otro</button>
+      </div>
+    </section>
+  } @else {
+    <!-- ===== The form ===== -->
+    <form class="form" [formGroup]="form" (ngSubmit)="confirm()" novalidate>
+      <section class="card form" aria-label="Datos">
+        <div class="form__row">
+          <label class="field">
+            <span class="field__label">{{ copy().locationLabel }}</span>
+            <select class="input" formControlName="locationId" (change)="onLocationChange($any($event.target).value)"
+              [class.input--invalid]="invalid(form.controls.locationId)">
+              @for (location of activeLocations(); track location.id) {
+                <option [value]="location.id">{{ location.name }}</option>
+              }
+            </select>
+          </label>
+          @if (kind() === 'Transfer') {
+            <label class="field">
+              <span class="field__label">Hasta</span>
+              <select class="input" formControlName="toLocationId"
+                [class.input--invalid]="submitted() && !form.controls.toLocationId.value">
+                <option value="" disabled>Elegí el destino…</option>
+                @for (location of destinations(); track location.id) {
+                  <option [value]="location.id">{{ location.name }}</option>
+                }
+              </select>
+              @if (destinations().length === 0) {
+                <span class="field__error">Hace falta otra ubicación activa.</span>
+              }
+            </label>
+          }
+          <label class="field">
+            <span class="field__label">Fecha</span>
+            <input class="input num" type="date" formControlName="date"
+              [class.input--invalid]="invalid(form.controls.date)" />
+          </label>
+        </div>
+
+        @if (kind() === 'Exit') {
+          <fieldset class="reasons">
+            <legend class="field__label">Motivo</legend>
+            <div class="reasons__list">
+              @for (reason of reasons; track reason.code) {
+                <label class="reason" [class.reason--on]="form.controls.reason.value === reason.code">
+                  <input type="radio" formControlName="reason" [value]="reason.code" />
+                  <span>{{ reason.label }}</span>
+                </label>
+              }
+            </div>
+            @if (reasonHint()) {
+              <span class="field__hint">{{ reasonHint() }}</span>
+            } @else if (submitted()) {
+              <span class="field__error">Elegí el motivo.</span>
+            }
+          </fieldset>
+        }
+      </section>
+
+      <!-- Lines -->
+      <section class="table-card" aria-labelledby="lines-title">
+        <h2 class="visually-hidden" id="lines-title">Productos</h2>
+        <table class="table lines" formArrayName="lines">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th class="end">{{ isCount() ? 'Debería haber' : 'Hay en ' + locationName() }}</th>
+              <th>{{ copy().quantityHeader }}</th>
+              <th class="end">{{ isCount() ? 'Diferencia' : 'Queda' }}</th>
+              <th><span class="visually-hidden">Quitar</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines.controls; track line; let i = $index) {
+              @let view = lineViews()[i];
+              <tr [formGroupName]="i">
+                <td class="cell-product">
+                  @if (isCount()) {
+                    <span class="strong">{{ view?.product?.name }}</span>
+                    <div class="sub num">{{ view?.product?.code }}</div>
+                  } @else {
+                    <select class="input" formControlName="productId"
+                      [class.input--invalid]="invalid(line.controls.productId)" [attr.aria-label]="'Producto de la línea ' + (i + 1)">
+                      <option value="" disabled>Elegí el producto…</option>
+                      @for (product of products(); track product.productId) {
+                        @if (product.isActive || product.productId === line.controls.productId.value) {
+                          <option [value]="product.productId">{{ product.name }} · {{ product.code }}</option>
+                        }
+                      }
+                    </select>
+                  }
+                </td>
+                <td class="end num">
+                  @if (view?.product; as product) {
+                    <span [class.negative]="view.availableMilli < 0">{{ formatQuantityWithUnit(view.availableMilli, product.stockUnit) }}</span>
+                    @if (altText(product, view.availableMilli)) {
+                      <div class="sub">{{ altText(product, view.availableMilli) }}</div>
+                    }
+                  }
+                </td>
+                <td class="cell-qty">
+                  <div class="qty-input">
+                    <input class="input num" formControlName="quantity" inputmode="decimal" autocomplete="off"
+                      [class.input--invalid]="invalid(line.controls.quantity)"
+                      [placeholder]="isCount() ? 'sin contar' : ''"
+                      [attr.aria-label]="copy().quantityHeader + ' de la línea ' + (i + 1)" />
+                    @if ((view?.units?.length ?? 0) > 1) {
+                      <select class="input unit" formControlName="unit" aria-label="Unidad">
+                        @for (unit of view.units; track unit.value) {
+                          <option [value]="unit.value">{{ unit.label }}</option>
+                        }
+                      </select>
+                    } @else if (view?.units?.length === 1) {
+                      <span class="unit-text">{{ view.units[0].label }}</span>
+                    }
+                  </div>
+                  @if (view?.convertedText) {
+                    <div class="sub num">{{ view.convertedText }}</div>
+                  }
+                </td>
+                <td class="end num">
+                  @if (view?.product && view?.resultMilli !== null) {
+                    @if (isCount()) {
+                      <span class="strong" [class.out]="view.resultMilli! < 0" [class.in]="view.resultMilli! > 0">
+                        {{ view.resultMilli === 0 ? 'Cuadra' : formatSignedQuantity(view.resultMilli!, view.product!.stockUnit) }}
+                      </span>
+                    } @else {
+                      <span [class.negative]="view.resultMilli! < 0">
+                        {{ formatQuantityWithUnit(view.resultMilli!, view.product!.stockUnit) }}
+                      </span>
+                    }
+                  }
+                </td>
+                <td class="end">
+                  <button class="btn btn--ghost btn--small" type="button"
+                    [disabled]="!isCount() && lines.length === 1"
+                    (click)="removeLine(i)" [attr.aria-label]="'Quitar la línea ' + (i + 1)">Quitar</button>
+                </td>
+              </tr>
+              @if (view?.problem) {
+                <tr class="problem-row">
+                  <td colspan="5"><span class="field__error">{{ view.problem }}</span></td>
+                </tr>
+              }
+            } @empty {
+              <tr>
+                <td colspan="5" class="none">
+                  {{ isCount() ? 'El sistema no tiene nada en ' + locationName() + '. Agregá lo que encuentres.' : '' }}
+                </td>
+              </tr>
+            }
+            <tr>
+              <td colspan="5">
+                @if (isCount()) {
+                  <select class="input add" aria-label="Agregar un producto al conteo"
+                    (change)="addLine($any($event.target).value); $any($event.target).value = ''">
+                    <option value="">+ Agregar un producto que no figura acá…</option>
+                    @for (product of productsNotInLines(); track product.productId) {
+                      <option [value]="product.productId">{{ product.name }} · {{ product.code }}</option>
+                    }
+                  </select>
+                } @else {
+                  <button class="btn btn--ghost" type="button" (click)="addLine()">+ Agregar producto</button>
+                }
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      @if (negativeLines() > 0) {
+        <p class="alert alert--warn" role="status">
+          {{ locationName() }} quedaría en negativo en {{ negativeLines() }}
+          {{ negativeLines() === 1 ? 'producto' : 'productos' }}. Se puede confirmar igual, pero seguramente falta
+          cargar una compra o un traslado.
+        </p>
+      }
+      @if (isCount()) {
+        <p class="muted">
+          {{ countedLines() }} {{ countedLines() === 1 ? 'producto contado' : 'productos contados' }}. "Debería haber" es lo de
+          hoy; la app compara con lo que había en la fecha del conteo.
+        </p>
+      }
+
+      <label class="field">
+        <span class="field__label">Nota <span class="opt">(opcional)</span></span>
+        <input class="input" formControlName="notes" autocomplete="off" />
+      </label>
+
+      @if (error(); as e) {
+        <div class="alert alert--bad" role="alert">
+          {{ e.message }}
+          @for (message of e.fields | keyvalue; track message.key) {
+            <div>· {{ message.value }}</div>
+          }
+        </div>
+      }
+      @if (submitted() && (form.invalid || hasLineProblems())) {
+        <p class="alert alert--warn" role="alert">Revisá los datos marcados en rojo.</p>
+      } @else if (submitted() && isCount() && countedLines() === 0) {
+        <p class="alert alert--warn" role="alert">Escribí lo contado en al menos un producto.</p>
+      }
+
+      <div class="form__actions">
+        <a class="btn" [routerLink]="copy().backLink">Cancelar</a>
+        <button class="btn btn--primary" type="submit" [disabled]="saving()">
+          {{ saving() ? copy().confirming : copy().confirm }}
+        </button>
+      </div>
+    </form>
+  }
+}
