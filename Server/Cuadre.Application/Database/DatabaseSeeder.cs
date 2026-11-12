@@ -8,7 +8,8 @@ namespace Cuadre.Application.Database;
 /// Factory defaults (RF-CFG-03, RF-CAJ-01). Runs at EVERY startup after the migrations and is idempotent:
 ///  - the settings row is inserted only if missing (INSERT OR IGNORE on the fixed id 1);
 ///  - cash boxes and payment methods only on a fresh install (no cash box at all). They are never deleted,
-///    only deactivated, so "no rows" really means "first run".
+///    only deactivated, so "no rows" really means "first run";
+///  - locations (Almacén, Mostrador) the same way, checked on their own so existing installs get them too.
 /// Kept out of the migrations so the integration tests can wipe every table and re-seed.
 /// </summary>
 public sealed class DatabaseSeeder
@@ -54,8 +55,26 @@ public sealed class DatabaseSeeder
             await InsertPaymentMethodAsync("Enzona", bankCup);
         }
 
+        // Locations (RF-INV-01): never deleted either, so "none" means first run of slice 3+.
+        var hasLocations = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "SELECT EXISTS(SELECT 1 FROM locations)", transaction: transaction,
+            cancellationToken: cancellationToken));
+
+        if (!hasLocations)
+        {
+            await InsertLocationAsync("Almacén", LocationKind.Storage);
+            await InsertLocationAsync("Mostrador", LocationKind.Counter);
+        }
+
         transaction.Commit();
         return;
+
+        Task InsertLocationAsync(string name, LocationKind kind) =>
+            connection.ExecuteAsync(new CommandDefinition("""
+                INSERT INTO locations (id, name, kind, is_active, created_at, updated_at)
+                VALUES (@id, @name, @kind, 1, @now, @now)
+                """, new { id = Guid.NewGuid(), name, kind = kind.ToString(), now },
+                transaction, cancellationToken: cancellationToken));
 
         Task InsertCashBoxAsync(Guid id, string name, Currency currency, CashBoxKind kind) =>
             connection.ExecuteAsync(new CommandDefinition("""
