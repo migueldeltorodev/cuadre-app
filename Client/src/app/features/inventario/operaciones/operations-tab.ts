@@ -50,7 +50,7 @@ const COPY: Record<StockOperationType, KindCopy> = {
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './operations-tab.html',
-  styleUrls: ['../inventory-shared.css'],
+  styleUrls: ['../../../shared/ui/list-page.css'],
 })
 export default class OperationsTab implements OnInit {
   /** Route data (withComponentInputBinding). */

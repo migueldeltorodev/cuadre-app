@@ -95,7 +95,7 @@ interface SupplierGroup {
       }
     }
   `,
-  styleUrls: ['../inventory-shared.css'],
+  styleUrls: ['../../../shared/ui/list-page.css'],
   styles: `
     .group-head {
       display: flex;

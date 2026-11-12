@@ -114,7 +114,7 @@ const COPY: Record<StockOperationType, Copy> = {
   imports: [ReactiveFormsModule, RouterLink, KeyValuePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './operacion-form-page.html',
-  styleUrls: ['../inventory-shared.css', './operacion-form-page.css'],
+  styleUrls: ['../../../shared/ui/list-page.css', './operacion-form-page.css'],
 })
 export default class OperacionFormPage implements OnInit {
   /** Route data. */

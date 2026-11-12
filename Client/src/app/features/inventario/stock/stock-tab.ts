@@ -39,7 +39,7 @@ interface CountReminder {
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './stock-tab.html',
-  styleUrls: ['../inventory-shared.css', './stock-tab.css'],
+  styleUrls: ['../../../shared/ui/list-page.css', './stock-tab.css'],
 })
 export default class StockTab implements OnInit {
   private readonly inventoryApi = inject(InventoryApi);

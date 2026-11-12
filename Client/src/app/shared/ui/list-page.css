@@ -1,4 +1,4 @@
-/* Shared by the Inventario tabs and pages: tables, filters, pager. Each component adds its own file on top. */
+/* Shared by list and detail pages (Inventario, Sobres): tables, filters, pager. Each component adds its own file on top. */
 
 :host {
   display: flex;

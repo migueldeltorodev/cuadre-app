@@ -17,7 +17,7 @@ import { exitReasonLabel, formatSignedQuantity, operationKindLabel, operationSta
   imports: [ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './operacion-page.html',
-  styleUrls: ['../inventory-shared.css', './operacion-page.css'],
+  styleUrls: ['../../../shared/ui/list-page.css', './operacion-page.css'],
 })
 export default class OperacionPage implements OnInit {
   /** Route param (withComponentInputBinding). */

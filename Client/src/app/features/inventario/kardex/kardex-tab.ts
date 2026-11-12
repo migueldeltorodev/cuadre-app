@@ -15,7 +15,7 @@ import { formatSignedQuantity, movementLabel, movementLink } from '../inventory-
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kardex-tab.html',
-  styleUrls: ['../inventory-shared.css'],
+  styleUrls: ['../../../shared/ui/list-page.css'],
 })
 export default class KardexTab implements OnInit {
   /** ?producto=… (withComponentInputBinding): links from the stock and the operations land here. */
