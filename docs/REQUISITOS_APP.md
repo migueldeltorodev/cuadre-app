@@ -368,6 +368,12 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | D-17 | La merma no se repone desde ningún sobre: es pérdida directa y se informa. | Simplicidad; la tolerancia ya la contempla. |
 | D-18 | Los faltantes de caja se registran como pendientes de reclamo y se siguen hasta resolverlos. | Normalmente se resuelven con el dependiente; si no, tiene que quedar historial para reclamar. |
 | D-19 | El % del dependiente se calcula sobre A1 (lo cobrado). | Regla del negocio: "sobre lo real". |
+| D-20 | % por defecto: Ganancia 5% · Dueño 50% · Impuestos 15% · Operación 30%. Rigen "desde el principio" hasta que se cargue un reparto nuevo. | Tabla del libro para un ingreso real chico. |
+| D-21 | Cada movimiento de caja pertenece a un sobre: en cada caja, la suma de sus sobres es el saldo de la caja. | Así los sobres nunca mienten sobre la plata real. |
+| D-22 | Saldo inicial por caja y sobre: se escribe lo que hay físicamente y la app mueve la diferencia con lo que ya tenía registrado (por ejemplo, las compras anteriores). | Arrancar con la plata real sin borrar el historial. |
+| D-23 | Las compras y sus costos asociados se pagan siempre desde Reposición. | Reposición recibe A2 justamente para reponer mercadería. |
+| D-24 | El consumo de la casa mueve su costo de Dueño a Reposición dentro de la caja de efectivo CUP; no sale efectivo. | RN-11 sin inventar un movimiento de plata que no existió. |
+| D-25 | Un reparto nuevo no puede empezar antes del último; si empieza el mismo día, lo reemplaza. | Los % con los que se repartió un día pasado no cambian (RF-PF-05). |
 
 ---
 
@@ -375,7 +381,7 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 
 | # | Pregunta |
 |---|---|
-| P-01 | **% por defecto de Profit First.** Propuesta inicial según la tabla del libro para ingreso real chico: Ganancia 5% · Dueño 50% · Impuestos 15% · Operación 30%. Falta confirmar. |
+| ~~P-01~~ | Resuelta → D-20. |
 | ~~P-02~~ | Resuelta → D-17. |
 | ~~P-03~~ | Resuelta → D-18. |
 | ~~P-04~~ | Resuelta → D-19. |
@@ -408,3 +414,4 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | 1.0 | 10/11/2026 | Consolidación de todas las decisiones de la sesión de requisitos (v0.1 a v0.5). |
 | 1.1 | 10/11/2026 | Resueltas P-02, P-03 y P-04: merma como pérdida (RN-06b), faltantes y sobrantes con seguimiento (RN-06c, RF-CIE-12 a 14), % del dependiente sobre A1. Nuevo RF-REP-08. |
 | 1.2 | 10/11/2026 | Sin impresora: la planilla de conteo y la lista de precios se muestran en pantalla para copiarlas a mano (RF-CIE-01, RF-PRD-09); la impresión pasa a futuro. Interfaz adaptable (RNF-01b). |
+| 1.3 | 12/11/2026 | Etapa 5 (sobres): resuelta P-01 y nuevas D-20 a D-25. La deuda interna (RF-PF-09) y la evaluación por período (RF-PF-10) quedan para la etapa 6, con el cierre. |
