@@ -1,0 +1,158 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.crumbs {
+  font-size: 13.5px;
+  color: var(--c-muted);
+}
+
+.crumbs a {
+  text-decoration: none;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tag {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  font-size: 13px;
+  color: var(--c-ink-2);
+}
+
+/* Destructive but reversible-by-record: red only on the final button. */
+.void {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-color: var(--c-bad);
+}
+
+.btn--danger {
+  border-color: transparent;
+  background: var(--c-bad);
+  color: #ffffff;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 28px;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14.5px;
+}
+
+.fact span:first-child {
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.table-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  overflow-x: auto;
+}
+
+.table-card__head {
+  padding: 22px 24px 8px;
+}
+
+.table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--c-muted);
+  padding: 12px;
+}
+
+.table td {
+  padding: 14px 12px;
+  border-top: 1px solid var(--c-line-soft);
+  vertical-align: top;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 24px;
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 24px;
+}
+
+.end {
+  text-align: right !important;
+}
+
+.name {
+  color: var(--c-ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.name:hover {
+  color: var(--c-link);
+}
+
+.sub {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--c-muted);
+  margin-top: 2px;
+}
+
+p.sub {
+  margin: 4px 0 0;
+}
+
+.strong {
+  font-weight: 500;
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.totals__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}

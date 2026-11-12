@@ -1,0 +1,335 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/compras">Compras</a> <span aria-hidden="true">/</span> Nueva
+</nav>
+
+<h1 class="page-title">Nueva compra</h1>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (loaded()) {
+  <div class="layout">
+    <div class="main">
+      @if (confirmed(); as purchase) {
+        <!-- ===== Confirmed ===== -->
+        <section class="card done" aria-labelledby="done-title">
+          <h2 class="card__title" id="done-title">Compra #{{ purchase.number }} confirmada</h2>
+          <p class="card__lead">
+            Entró la mercadería de {{ purchase.supplierName }} y salió la plata de la caja.
+            Total de mercadería: <strong class="num">{{ formatMoney(purchase.goodsTotalCents, purchase.currency) }}</strong>.
+          </p>
+          <div class="done__actions">
+            <a class="btn" [routerLink]="['/compras', purchase.id]">Ver la compra</a>
+            <button class="btn btn--primary" type="button" (click)="startAnother()">Registrar otra</button>
+          </div>
+        </section>
+      } @else {
+        <!-- ===== The form ===== -->
+        <form class="form" [formGroup]="form" (ngSubmit)="confirm()" novalidate>
+          <section class="card form" aria-labelledby="who-title">
+            <h2 class="visually-hidden" id="who-title">Datos de la compra</h2>
+            <div class="form__row">
+              <label class="field">
+                <span class="field__label">Proveedor</span>
+                <select class="input" formControlName="supplierId"
+                  [class.input--invalid]="invalid(form.controls.supplierId)">
+                  <option value="" disabled>Elegí uno…</option>
+                  @for (supplier of activeSuppliers(); track supplier.id) {
+                    <option [value]="supplier.id">{{ supplier.name }}</option>
+                  }
+                </select>
+                @if (activeSuppliers().length === 0) {
+                  <span class="field__hint">No hay proveedores. <a routerLink="/productos/proveedores">Crear uno</a></span>
+                } @else if (invalid(form.controls.supplierId)) {
+                  <span class="field__error">Elegí el proveedor.</span>
+                }
+              </label>
+              <label class="field">
+                <span class="field__label">Fecha</span>
+                <input class="input num" type="date" formControlName="date"
+                  [class.input--invalid]="invalid(form.controls.date)" />
+              </label>
+            </div>
+
+            <div class="form__row">
+              <label class="field">
+                <span class="field__label">Se pagó en</span>
+                <select class="input" formControlName="currency" (change)="onCurrencyChange($any($event.target).value)">
+                  <option value="USD">USD</option>
+                  <option value="CUP">CUP</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">Tasa de ese día</span>
+                <span class="input input--affix" [class.input--invalid]="invalid(form.controls.rate)">
+                  <input formControlName="rate" inputmode="decimal" autocomplete="off" aria-label="Tasa de ese día" />
+                  <span class="input__affix">CUP por USD</span>
+                </span>
+                @if (invalid(form.controls.rate)) {
+                  <span class="field__error">Escribí la tasa (ej. 338).</span>
+                } @else {
+                  <span class="field__hint">La que pagaste de verdad. Con ella se pasa el costo a USD.</span>
+                }
+              </label>
+            </div>
+
+            <div class="form__row">
+              <label class="field">
+                <span class="field__label">Entra a</span>
+                <select class="input" formControlName="locationId">
+                  @for (location of activeLocations(); track location.id) {
+                    <option [value]="location.id">{{ location.name }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">Se paga desde</span>
+                <select class="input" formControlName="cashBoxId" [class.input--invalid]="invalid(form.controls.cashBoxId)">
+                  <option value="" disabled>Elegí la caja…</option>
+                  @for (box of boxesFor(currency()); track box.id) {
+                    <option [value]="box.id">{{ box.name }}</option>
+                  }
+                </select>
+                @if (boxesFor(currency()).length === 0) {
+                  <span class="field__error">No hay ninguna caja activa en {{ currency() }}.</span>
+                }
+              </label>
+            </div>
+          </section>
+
+          <!-- Lines -->
+          <section class="table-card" aria-labelledby="lines-title">
+            <h2 class="visually-hidden" id="lines-title">Productos</h2>
+            <table class="table" formArrayName="lines">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Costo unitario</th>
+                  <th class="end">Subtotal</th>
+                  <th><span class="visually-hidden">Quitar</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of lines.controls; track line; let i = $index) {
+                  @let view = lineViews()[i];
+                  <tr [formGroupName]="i">
+                    <td class="cell-product">
+                      <select class="input" formControlName="productId"
+                        [class.input--invalid]="invalid(line.controls.productId)" [attr.aria-label]="'Producto de la línea ' + (i + 1)">
+                        <option value="" disabled>Elegí el producto…</option>
+                        @for (product of products(); track product.id) {
+                          <option [value]="product.id">{{ product.name }} · {{ product.code }}</option>
+                        }
+                      </select>
+                      @if (view?.product) {
+                        <div class="sub">{{ view.conversionText }}</div>
+                      }
+                    </td>
+                    <td class="cell-qty">
+                      <span class="input input--affix" [class.input--invalid]="invalid(line.controls.quantity)">
+                        <input formControlName="quantity" inputmode="decimal" autocomplete="off"
+                          [attr.aria-label]="'Cantidad de la línea ' + (i + 1)" />
+                        <span class="input__affix">{{ view?.quantityUnit }}</span>
+                      </span>
+                      @if (view?.showFactor) {
+                        <label class="factor">
+                          <span>Este lote: 1 =</span>
+                          <input class="input input--tiny num" formControlName="factor" inputmode="decimal"
+                            autocomplete="off" [placeholder]="view.factorPlaceholder" />
+                          <span>{{ view.factorUnit }}</span>
+                        </label>
+                      }
+                      @if (view?.stockText) {
+                        <div class="sub num">{{ view.stockText }}</div>
+                      }
+                    </td>
+                    <td class="cell-cost">
+                      <span class="input input--affix" [class.input--invalid]="invalid(line.controls.unitCost)">
+                        <input formControlName="unitCost" inputmode="decimal" autocomplete="off"
+                          [attr.aria-label]="'Costo unitario de la línea ' + (i + 1)" />
+                        <span class="input__affix">{{ view?.costUnit }}</span>
+                      </span>
+                    </td>
+                    <td class="end num strong">
+                      {{ view?.subtotalCents != null ? formatHundredths(view.subtotalCents!) : '—' }}
+                    </td>
+                    <td class="end">
+                      <button class="btn btn--ghost btn--small" type="button" [disabled]="lines.length === 1"
+                        (click)="removeLine(i)" [attr.aria-label]="'Quitar la línea ' + (i + 1)">Quitar</button>
+                    </td>
+                  </tr>
+                  @if (view?.problem) {
+                    <tr class="problem-row">
+                      <td colspan="5"><span class="field__error">{{ view.problem }}</span></td>
+                    </tr>
+                  }
+                }
+                <tr>
+                  <td colspan="5">
+                    <button class="btn btn--ghost" type="button" (click)="addLine()">+ Agregar producto</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Charges -->
+          <section class="card form" aria-labelledby="charges-title" formArrayName="charges">
+            <div class="card__head">
+              <div>
+                <h2 class="card__title" id="charges-title">Gastos de la compra</h2>
+                <p class="card__lead">Flete, descarga… Se reparten en el costo de cada producto según lo que vale.</p>
+              </div>
+              <button class="btn btn--small" type="button" (click)="addCharge()">+ Agregar gasto</button>
+            </div>
+            @for (charge of charges.controls; track charge; let i = $index) {
+              <div class="charge" [formGroupName]="i">
+                <label class="field">
+                  <span class="field__label">Qué</span>
+                  <input class="input" formControlName="description" autocomplete="off"
+                    [class.input--invalid]="invalid(charge.controls.description)" />
+                </label>
+                <label class="field field--narrow">
+                  <span class="field__label">Moneda</span>
+                  <select class="input" formControlName="currency"
+                    (change)="onChargeCurrencyChange(i, $any($event.target).value)">
+                    <option value="CUP">CUP</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label">Importe</span>
+                  <input class="input num" formControlName="amount" inputmode="decimal" autocomplete="off"
+                    [class.input--invalid]="invalid(charge.controls.amount)" />
+                </label>
+                <label class="field">
+                  <span class="field__label">Se paga desde</span>
+                  <select class="input" formControlName="cashBoxId" [class.input--invalid]="invalid(charge.controls.cashBoxId)">
+                    <option value="" disabled>Elegí la caja…</option>
+                    @for (box of boxesFor(charge.controls.currency.value); track box.id) {
+                      <option [value]="box.id">{{ box.name }}</option>
+                    }
+                  </select>
+                </label>
+                <button class="btn btn--ghost btn--small charge__remove" type="button" (click)="removeCharge(i)"
+                  [attr.aria-label]="'Quitar el gasto ' + (i + 1)">Quitar</button>
+              </div>
+            } @empty {
+              <p class="muted">Sin gastos: el costo es solo el de la mercadería.</p>
+            }
+          </section>
+
+          <!-- Totals -->
+          <section class="card totals" aria-label="Totales">
+            <div class="totals__row"><span>Mercadería</span><span class="num">{{ formatMoney(goodsTotalCents(), currency()) }}</span></div>
+            @for (charge of charges.controls; track charge; let i = $index) {
+              @let c = chargeViews()[i];
+              @if (c?.amountCents != null) {
+                <div class="totals__row">
+                  <span>{{ charge.controls.description.value || 'Gasto' }}</span>
+                  <span class="num">
+                    {{ formatMoney(c.amountCents!, charge.controls.currency.value) }}
+                    @if (c.differs && c.approxCents != null) {
+                      <span class="muted">≈ {{ formatMoney(c.approxCents!, currency()) }}</span>
+                    }
+                  </span>
+                </div>
+              }
+            }
+            <div class="totals__line"></div>
+            <div class="totals__row totals__row--total">
+              <span>Total</span>
+              <span class="num">
+                {{ formatMoney(totalCents(), currency()) }}
+                @if (totalOther(); as other) { <span class="muted">· {{ other }}</span> }
+              </span>
+            </div>
+          </section>
+
+          <label class="field">
+            <span class="field__label">Nota <span class="opt">(opcional)</span></span>
+            <input class="input" formControlName="notes" autocomplete="off" placeholder="Factura 1234, pagado a medias…" />
+          </label>
+
+          @if (error(); as e) {
+            <div class="alert alert--bad" role="alert">
+              {{ e.message }}
+              @for (message of e.fields | keyvalue; track message.key) {
+                <div>· {{ message.value }}</div>
+              }
+            </div>
+          }
+          @if (submitted() && (form.invalid || hasLineProblems())) {
+            <p class="alert alert--warn" role="alert">Revisá los datos marcados en rojo.</p>
+          }
+
+          <div class="form__actions">
+            <a class="btn" routerLink="/compras">Cancelar</a>
+            <button class="btn btn--primary" type="submit" [disabled]="saving()">
+              {{ saving() ? 'Confirmando…' : 'Confirmar compra' }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+
+    <!-- ===== Prices ===== -->
+    <aside class="card prices" aria-labelledby="prices-title">
+      <div>
+        <h2 class="card__title" id="prices-title">Así cambian tus precios</h2>
+        <p class="card__lead">
+          @if (confirmed()) {
+            Con esta compra cambió el costo promedio. Vos decidís si adoptás el precio sugerido.
+          } @else {
+            Al confirmar, el costo promedio de cada producto se recalcula con esta compra (incluidos los gastos)
+            y te muestro el precio sugerido. Vos decidís si lo adoptás.
+          }
+        </p>
+      </div>
+
+      @if (confirmed(); as purchase) {
+        @for (suggestion of purchase.priceSuggestions; track suggestion.productId) {
+          @let decision = decisions()[suggestion.productId];
+          <div class="suggestion">
+            <div class="suggestion__name">
+              <a [routerLink]="['/productos', suggestion.productId]">{{ suggestion.productName }}</a>
+            </div>
+            <div class="suggestion__prices num">
+              <span class="muted">{{ suggestion.currentPriceCents === null ? 'Sin precio' : formatHundredths(suggestion.currentPriceCents) }}</span>
+              <span aria-hidden="true">→</span>
+              <strong>{{ formatHundredths(suggestion.suggestedPriceCents) }}</strong>
+              <span class="muted">sugerido</span>
+            </div>
+            @switch (decision) {
+              @case ('used') {
+                <span class="pill pill--ok">Precio cambiado a {{ formatHundredths(suggestion.suggestedPriceCents) }}</span>
+              }
+              @case ('kept') {
+                <span class="pill pill--muted">Se mantiene el precio</span>
+              }
+              @default {
+                <div class="suggestion__actions">
+                  <button class="btn btn--primary btn--small" type="button" [disabled]="decision === 'saving'"
+                    (click)="usePrice(suggestion.productId, suggestion.suggestedPriceCents)">
+                    Usar {{ formatHundredths(suggestion.suggestedPriceCents) }}
+                  </button>
+                  @if (suggestion.currentPriceCents !== null) {
+                    <button class="btn btn--small" type="button" [disabled]="decision === 'saving'"
+                      (click)="keepPrice(suggestion.productId)">Mantener</button>
+                  }
+                </div>
+              }
+            }
+          </div>
+        } @empty {
+          <p class="muted">Ningún precio cambia: los sugeridos coinciden con los que ya tenés.</p>
+        }
+        @if (decisionError(); as message) {
+          <p class="field__error" role="alert">{{ message }}</p>
+        }
+      }
+    </aside>
+  </div>
+}
