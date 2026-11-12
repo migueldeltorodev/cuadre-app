@@ -1,0 +1,8 @@
+# Line endings are decided by the repo, not by each PC's git config:
+# text files are stored with LF and checked out with the platform's native ending.
+* text=auto
+
+# Binary assets: never touch
+*.ico binary
+*.png binary
+*.woff2 binary
