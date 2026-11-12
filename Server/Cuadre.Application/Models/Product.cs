@@ -49,6 +49,25 @@ public class Product
     public DateTime UpdatedAt { get; set; }
 
     public bool AllowsDecimals => StockUnit.AllowsDecimals();
+
+    // ---- Read-only, filled by queries (stock ledger + product_costs cache). Never written with the product. ----
+
+    /// <summary>Total stock in all locations: SUM of the stock ledger.</summary>
+    public long StockMilli { get; init; }
+
+    /// <summary>Null until the first purchase (RN-01).</summary>
+    public long? AvgCostUsdMicros { get; init; }
+
+    /// <summary>Historical CUP cost per stock unit (RN-02). Null until the first purchase.</summary>
+    public long? AvgCostCupMicros { get; init; }
+
+    public DateOnly? LastPurchaseDate { get; init; }
+
+    public AverageCost? AverageCost =>
+        AvgCostUsdMicros is { } usd && AvgCostCupMicros is { } cup ? new AverageCost(usd, cup) : null;
+
+    /// <summary>Suggested price, margin, colchón alert. Computed by the service; null without purchases.</summary>
+    public ProductPricing? Pricing { get; set; }
 }
 
 public enum PriceChangeReason
@@ -81,3 +100,6 @@ public class GetAllProductsOptions
     public int Page { get; init; }
     public int PageSize { get; init; }
 }
+
+/// <summary>Accepting a suggested price (RF-CMP-04) or a quick manual change from the product screen.</summary>
+public sealed record SetSalePrice(Guid ProductId, long SalePriceCents, Guid? PurchaseId);

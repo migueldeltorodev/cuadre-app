@@ -22,6 +22,9 @@ public interface IProductService
 
     Task<Result<IEnumerable<ProductPriceChange>>> GetPriceHistoryAsync(Guid productId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Accepts a suggested price after a purchase (reason Purchase) or a quick manual change.</summary>
+    Task<Result<Product>> SetSalePriceAsync(SetSalePrice request, CancellationToken cancellationToken = default);
 }
 
 public class ProductService : IProductService
@@ -31,17 +34,25 @@ public class ProductService : IProductService
     private readonly ISupplierRepository _supplierRepository;
     private readonly IValidator<Product> _validator;
     private readonly IValidator<GetAllProductsOptions> _optionsValidator;
+    private readonly IValidator<SetSalePrice> _salePriceValidator;
+    private readonly IBusinessSettingsRepository _settingsRepository;
+    private readonly IExchangeRateRepository _exchangeRateRepository;
     private readonly TimeProvider _clock;
 
     public ProductService(IProductRepository repository, ICategoryRepository categoryRepository,
         ISupplierRepository supplierRepository, IValidator<Product> validator,
-        IValidator<GetAllProductsOptions> optionsValidator, TimeProvider clock)
+        IValidator<GetAllProductsOptions> optionsValidator, IValidator<SetSalePrice> salePriceValidator,
+        IBusinessSettingsRepository settingsRepository, IExchangeRateRepository exchangeRateRepository,
+        TimeProvider clock)
     {
         _repository = repository;
         _categoryRepository = categoryRepository;
         _supplierRepository = supplierRepository;
         _validator = validator;
         _optionsValidator = optionsValidator;
+        _salePriceValidator = salePriceValidator;
+        _settingsRepository = settingsRepository;
+        _exchangeRateRepository = exchangeRateRepository;
         _clock = clock;
     }
 
@@ -73,22 +84,28 @@ public class ProductService : IProductService
             : null;
 
         await _repository.CreateAsync(product, priceChange, cancellationToken);
-        return Result.Ok(product);
+        return await GetByIdAsync(product.Id, cancellationToken);
     }
 
     public async Task<Result<Product>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var product = await _repository.GetByIdAsync(id, cancellationToken);
-        return product is null
-            ? Result.Fail(NotFoundError.For<Product>(id))
-            : Result.Ok(product);
+        if (product is null)
+        {
+            return Result.Fail(NotFoundError.For<Product>(id));
+        }
+
+        await AttachPricingAsync([product], cancellationToken);
+        return Result.Ok(product);
     }
 
     public async Task<IEnumerable<Product>> GetAllAsync(GetAllProductsOptions options,
         CancellationToken cancellationToken = default)
     {
         await _optionsValidator.ValidateOrThrowAsync(options, cancellationToken);
-        return await _repository.GetAllAsync(options, cancellationToken);
+        var products = (await _repository.GetAllAsync(options, cancellationToken)).ToList();
+        await AttachPricingAsync(products, cancellationToken);
+        return products;
     }
 
     public Task<int> GetCountAsync(GetAllProductsOptions options, CancellationToken cancellationToken = default)
@@ -113,6 +130,14 @@ public class ProductService : IProductService
                 "Un producto que ya tiene precio no puede quedar sin precio. Cambialo por el nuevo valor."));
         }
 
+        // The ledger stores quantities in the stock unit: changing it would silently turn 100 lb into 100 kg.
+        if (product.StockUnit != existing.StockUnit
+            && await _repository.HasStockMovementsAsync(product.Id, cancellationToken))
+        {
+            return Result.Fail(new BusinessRuleError(
+                "Este producto ya tiene movimientos de stock: no se puede cambiar la unidad en que se vende."));
+        }
+
         var ruleCheck = await CheckDataRulesAsync(product, existing.UsualSupplierId, cancellationToken);
         if (ruleCheck.IsFailed)
         {
@@ -129,7 +154,7 @@ public class ProductService : IProductService
             : null;
 
         await _repository.UpdateAsync(product, priceChange, cancellationToken);
-        return Result.Ok(product);
+        return await GetByIdAsync(product.Id, cancellationToken);
     }
 
     public async Task<Result<string>> GetNextCodeAsync(Guid categoryId, CancellationToken cancellationToken = default)
@@ -157,6 +182,49 @@ public class ProductService : IProductService
         }
 
         return Result.Ok(await _repository.GetPriceHistoryAsync(productId, cancellationToken));
+    }
+
+    public async Task<Result<Product>> SetSalePriceAsync(SetSalePrice request,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _repository.GetByIdAsync(request.ProductId, cancellationToken);
+        if (existing is null)
+        {
+            return Result.Fail(NotFoundError.For<Product>(request.ProductId));
+        }
+
+        await _salePriceValidator.ValidateOrThrowAsync(request, cancellationToken);
+
+        // Same price: nothing to record (accepting a suggestion twice must not duplicate the history).
+        if (existing.SalePriceCents != request.SalePriceCents)
+        {
+            var now = _clock.UtcNow();
+            var priceChange = NewPriceChange(existing.Id, request.SalePriceCents, existing.SalePriceCents, now,
+                request.PurchaseId is null ? PriceChangeReason.Manual : PriceChangeReason.Purchase);
+            await _repository.UpdateSalePriceAsync(existing.Id, request.SalePriceCents, now, priceChange,
+                cancellationToken);
+        }
+
+        return await GetByIdAsync(existing.Id, cancellationToken);
+    }
+
+    /// <summary>One settings read and one rate read for the whole page, then pure math per product.</summary>
+    private async Task AttachPricingAsync(IReadOnlyCollection<Product> products, CancellationToken cancellationToken)
+    {
+        if (products.All(product => product.AverageCost is null))
+        {
+            return;
+        }
+
+        var settings = await _settingsRepository.GetAsync(cancellationToken)
+                       ?? throw new InvalidOperationException("Business settings are missing.");
+        var todayRate = (await _exchangeRateRepository.GetLatestOnOrBeforeAsync(_clock.Today(), cancellationToken))
+            ?.CupPerUsdCents;
+
+        foreach (var product in products)
+        {
+            product.Pricing = ProductPricingRules.Build(product, settings, todayRate);
+        }
     }
 
     /// <summary>
@@ -223,14 +291,14 @@ public class ProductService : IProductService
     }
 
     private ProductPriceChange NewPriceChange(Guid productId, long priceCents, long? previousPriceCents,
-        DateTime now) => new()
+        DateTime now, PriceChangeReason reason = PriceChangeReason.Manual) => new()
     {
         Id = Guid.NewGuid(),
         ProductId = productId,
         PriceCents = priceCents,
         PreviousPriceCents = previousPriceCents,
         EffectiveDate = _clock.Today(),
-        Reason = PriceChangeReason.Manual,
+        Reason = reason,
         CreatedAt = now
     };
 }
