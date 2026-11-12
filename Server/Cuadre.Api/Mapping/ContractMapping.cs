@@ -168,6 +168,261 @@ public static class ContractMapping
         };
     }
 
+    // ---------- Categories ----------
+
+    public static Category MapToCategory(this CreateCategoryRequest request)
+    {
+        return new Category
+        {
+            Id = Guid.NewGuid(),
+            ParentId = request.ParentId,
+            Name = request.Name.Trim(),
+            CodePrefix = BlankToNull(request.CodePrefix)
+        };
+    }
+
+    public static CategoryChanges MapToCategoryChanges(this UpdateCategoryRequest request, Guid id)
+    {
+        return new CategoryChanges(id, request.Name.Trim(), BlankToNull(request.CodePrefix));
+    }
+
+    public static CategoryResponse MapToResponse(this Category category)
+    {
+        return new CategoryResponse
+        {
+            Id = category.Id,
+            ParentId = category.ParentId,
+            Name = category.Name,
+            CodePrefix = category.CodePrefix,
+            ProductCount = category.ProductCount,
+            CreatedAt = category.CreatedAt,
+            UpdatedAt = category.UpdatedAt
+        };
+    }
+
+    public static CategoriesResponse MapToResponse(this IEnumerable<Category> categories)
+    {
+        return new CategoriesResponse { Items = categories.Select(MapToResponse) };
+    }
+
+    // ---------- Suppliers ----------
+
+    public static Supplier MapToSupplier(this CreateSupplierRequest request)
+    {
+        return new Supplier
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name.Trim(),
+            ContactName = BlankToNull(request.ContactName),
+            Phone = BlankToNull(request.Phone),
+            Notes = BlankToNull(request.Notes),
+            IsActive = true
+        };
+    }
+
+    public static Supplier MapToSupplier(this UpdateSupplierRequest request, Guid id)
+    {
+        return new Supplier
+        {
+            Id = id,
+            Name = request.Name.Trim(),
+            ContactName = BlankToNull(request.ContactName),
+            Phone = BlankToNull(request.Phone),
+            Notes = BlankToNull(request.Notes),
+            IsActive = request.IsActive
+        };
+    }
+
+    public static SupplierResponse MapToResponse(this Supplier supplier)
+    {
+        return new SupplierResponse
+        {
+            Id = supplier.Id,
+            Name = supplier.Name,
+            ContactName = supplier.ContactName,
+            Phone = supplier.Phone,
+            Notes = supplier.Notes,
+            IsActive = supplier.IsActive,
+            CreatedAt = supplier.CreatedAt,
+            UpdatedAt = supplier.UpdatedAt
+        };
+    }
+
+    public static SuppliersResponse MapToResponse(this IEnumerable<Supplier> suppliers)
+    {
+        return new SuppliersResponse { Items = suppliers.Select(MapToResponse) };
+    }
+
+    // ---------- Products ----------
+
+    public static Product MapToProduct(this CreateProductRequest request)
+    {
+        // A blank code stays "" here: the service generates it from the category prefix.
+        return request.MapToProduct(Guid.NewGuid(), request.Code ?? "", isActive: true);
+    }
+
+    public static Product MapToProduct(this UpdateProductRequest request, Guid id)
+    {
+        return request.MapToProduct(id, request.Code, request.IsActive);
+    }
+
+    private static Product MapToProduct(this ProductRequestBase request, Guid id, string code, bool isActive)
+    {
+        return new Product
+        {
+            Id = id,
+            Code = code.Trim().ToUpperInvariant(),
+            Barcode = BlankToNull(request.Barcode),
+            Name = request.Name.Trim(),
+            Brand = BlankToNull(request.Brand),
+            Presentation = BlankToNull(request.Presentation),
+            CategoryId = request.CategoryId,
+            SubcategoryId = request.SubcategoryId,
+            UsualSupplierId = request.UsualSupplierId,
+            PurchaseUnit = request.PurchaseUnit.ToModel(),
+            StockUnit = request.StockUnit.ToModel(),
+            ConversionFactorMilli = request.ConversionFactorMilli,
+            SalePriceCents = request.SalePriceCents,
+            MinStockMilli = request.MinStockMilli,
+            ShrinkageToleranceBps = request.ShrinkageToleranceBps,
+            ExchangeBufferCents = request.ExchangeBufferCents,
+            MarkupBps = request.MarkupBps,
+            IsPerishable = request.IsPerishable,
+            IsActive = isActive,
+            Notes = BlankToNull(request.Notes)
+        };
+    }
+
+    public static ProductResponse MapToResponse(this Product product)
+    {
+        return new ProductResponse
+        {
+            Id = product.Id,
+            Code = product.Code,
+            Barcode = product.Barcode,
+            Name = product.Name,
+            Brand = product.Brand,
+            Presentation = product.Presentation,
+            CategoryId = product.CategoryId,
+            SubcategoryId = product.SubcategoryId,
+            UsualSupplierId = product.UsualSupplierId,
+            PurchaseUnit = product.PurchaseUnit.ToContract(),
+            StockUnit = product.StockUnit.ToContract(),
+            ConversionFactorMilli = product.ConversionFactorMilli,
+            AllowsDecimals = product.AllowsDecimals,
+            SalePriceCents = product.SalePriceCents,
+            IsPriceChangedSinceListed = product.SalePriceCents != product.ListedPriceCents,
+            MinStockMilli = product.MinStockMilli,
+            ShrinkageToleranceBps = product.ShrinkageToleranceBps,
+            ExchangeBufferCents = product.ExchangeBufferCents,
+            MarkupBps = product.MarkupBps,
+            IsPerishable = product.IsPerishable,
+            IsActive = product.IsActive,
+            Notes = product.Notes,
+            CreatedAt = product.CreatedAt,
+            UpdatedAt = product.UpdatedAt
+        };
+    }
+
+    public static ProductsResponse MapToResponse(this IEnumerable<Product> products,
+        int page, int pageSize, int total)
+    {
+        return new ProductsResponse
+        {
+            Items = products.Select(MapToResponse),
+            Page = page,
+            PageSize = pageSize,
+            Total = total
+        };
+    }
+
+    public static GetAllProductsOptions MapToOptions(this GetAllProductsRequest request)
+    {
+        return new GetAllProductsOptions
+        {
+            Search = request.Search,
+            CategoryId = request.CategoryId,
+            IncludeInactive = request.IncludeInactive.GetValueOrDefault(),
+            Page = request.Page.GetValueOrDefault(PagedRequest.DefaultPage),
+            PageSize = request.PageSize.GetValueOrDefault(PagedRequest.DefaultPageSize)
+        };
+    }
+
+    public static PriceHistoryResponse MapToResponse(this IEnumerable<ProductPriceChange> changes)
+    {
+        return new PriceHistoryResponse
+        {
+            Items = changes.Select(change => new PriceChangeResponse
+            {
+                Id = change.Id,
+                PriceCents = change.PriceCents,
+                PreviousPriceCents = change.PreviousPriceCents,
+                EffectiveDate = change.EffectiveDate,
+                Reason = change.Reason.ToContract(),
+                CreatedAt = change.CreatedAt
+            })
+        };
+    }
+
+    public static UnitsResponse MapToUnitsResponse(this IEnumerable<MeasureUnit> units)
+    {
+        return new UnitsResponse
+        {
+            Items = units.Select(unit => new UnitResponse
+            {
+                Code = unit.ToContract(),
+                AllowsDecimals = unit.AllowsDecimals()
+            })
+        };
+    }
+
+    // ---------- Price list ----------
+
+    public static PriceListCopyResponse MapToResponse(this PriceListCopy copy)
+    {
+        return new PriceListCopyResponse
+        {
+            Id = copy.Id,
+            CopiedAt = copy.CopiedAt,
+            ProductCount = copy.ProductCount,
+            ChangedCount = copy.ChangedCount
+        };
+    }
+
+    /// <summary>The repository already sorts by category, so grouping keeps that order.</summary>
+    public static PriceListResponse MapToResponse(this PriceList priceList)
+    {
+        return new PriceListResponse
+        {
+            LastCopy = priceList.LastCopy?.MapToResponse(),
+            ChangedCount = priceList.ChangedCount,
+            Groups = priceList.Entries
+                .GroupBy(entry => new { entry.CategoryId, entry.CategoryName })
+                .Select(group => new PriceListGroupResponse
+                {
+                    CategoryId = group.Key.CategoryId,
+                    CategoryName = group.Key.CategoryName,
+                    Entries = group.Select(entry => new PriceListEntryResponse
+                    {
+                        ProductId = entry.ProductId,
+                        Code = entry.Code,
+                        Name = entry.Name,
+                        Brand = entry.Brand,
+                        Presentation = entry.Presentation,
+                        StockUnit = entry.StockUnit.ToContract(),
+                        SubcategoryName = entry.SubcategoryName,
+                        SalePriceCents = entry.SalePriceCents,
+                        ListedPriceCents = entry.ListedPriceCents,
+                        IsChanged = entry.IsChanged
+                    }).ToList()
+                })
+                .ToList()
+        };
+    }
+
+    private static string? BlankToNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     // ---------- Enums ----------
     // Inbound: an undefined value (a client can send "currency": 5) is passed through as-is so the
     // validator's IsInEnum rejects it with a 400, instead of a 500 here.
@@ -199,5 +454,40 @@ public static class ContractMapping
         CashBoxKind.Cash => CashBoxType.Cash,
         CashBoxKind.Bank => CashBoxType.Bank,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+    };
+
+    private static MeasureUnit ToModel(this UnitCode code) => code switch
+    {
+        UnitCode.Each => MeasureUnit.Each,
+        UnitCode.Pound => MeasureUnit.Pound,
+        UnitCode.Kilogram => MeasureUnit.Kilogram,
+        UnitCode.Liter => MeasureUnit.Liter,
+        UnitCode.Sack => MeasureUnit.Sack,
+        UnitCode.Box => MeasureUnit.Box,
+        UnitCode.Pack => MeasureUnit.Pack,
+        UnitCode.Dozen => MeasureUnit.Dozen,
+        UnitCode.Bag => MeasureUnit.Bag,
+        _ => (MeasureUnit)(int)code
+    };
+
+    private static UnitCode ToContract(this MeasureUnit unit) => unit switch
+    {
+        MeasureUnit.Each => UnitCode.Each,
+        MeasureUnit.Pound => UnitCode.Pound,
+        MeasureUnit.Kilogram => UnitCode.Kilogram,
+        MeasureUnit.Liter => UnitCode.Liter,
+        MeasureUnit.Sack => UnitCode.Sack,
+        MeasureUnit.Box => UnitCode.Box,
+        MeasureUnit.Pack => UnitCode.Pack,
+        MeasureUnit.Dozen => UnitCode.Dozen,
+        MeasureUnit.Bag => UnitCode.Bag,
+        _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null)
+    };
+
+    private static PriceChangeKind ToContract(this PriceChangeReason reason) => reason switch
+    {
+        PriceChangeReason.Manual => PriceChangeKind.Manual,
+        PriceChangeReason.Purchase => PriceChangeKind.Purchase,
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null)
     };
 }

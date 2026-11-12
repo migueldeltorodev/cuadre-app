@@ -57,4 +57,55 @@ public static class ApiEndpoints
         public const string Get = $"{Base}/{{date}}";
         public const string Upsert = $"{Base}/{{date}}";
     }
+
+    /// <summary>The only catalog resource with DELETE: allowed while nothing uses the category.</summary>
+    public static class Categories
+    {
+        private const string Base = $"{ApiBase}/categories";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Update = $"{Base}/{{id:guid}}";
+        public const string Delete = $"{Base}/{{id:guid}}";
+    }
+
+    public static class Suppliers
+    {
+        private const string Base = $"{ApiBase}/suppliers";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>"next-code" is a literal segment, so it never collides with {id:guid}.</summary>
+    public static class Products
+    {
+        private const string Base = $"{ApiBase}/products";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string NextCode = $"{Base}/next-code";
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Update = $"{Base}/{{id:guid}}";
+        public const string PriceHistory = $"{Base}/{{id:guid}}/price-history";
+    }
+
+    /// <summary>The fixed list of measure units (read-only, defined in code).</summary>
+    public static class Units
+    {
+        public const string GetAll = $"{ApiBase}/units";
+    }
+
+    public static class PriceList
+    {
+        private const string Base = $"{ApiBase}/price-list";
+
+        public const string Get = Base;
+
+        /// <summary>POST = "ya lo copié al cartel".</summary>
+        public const string Copies = $"{Base}/copies";
+    }
 }
