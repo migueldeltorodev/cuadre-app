@@ -30,6 +30,8 @@ public class StockOperationService : IStockOperationService
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IProductRepository _productRepository;
     private readonly ILocationRepository _locationRepository;
+    private readonly IEnvelopeRepository _envelopeRepository;
+    private readonly ICashBoxRepository _cashBoxRepository;
     private readonly IValidator<StockOperation> _validator;
     private readonly IValidator<VoidStockOperation> _voidValidator;
     private readonly IValidator<GetAllStockOperationsOptions> _optionsValidator;
@@ -37,6 +39,7 @@ public class StockOperationService : IStockOperationService
 
     public StockOperationService(IStockOperationRepository repository, IInventoryRepository inventoryRepository,
         IProductRepository productRepository, ILocationRepository locationRepository,
+        IEnvelopeRepository envelopeRepository, ICashBoxRepository cashBoxRepository,
         IValidator<StockOperation> validator, IValidator<VoidStockOperation> voidValidator,
         IValidator<GetAllStockOperationsOptions> optionsValidator, TimeProvider clock)
     {
@@ -44,6 +47,8 @@ public class StockOperationService : IStockOperationService
         _inventoryRepository = inventoryRepository;
         _productRepository = productRepository;
         _locationRepository = locationRepository;
+        _envelopeRepository = envelopeRepository;
+        _cashBoxRepository = cashBoxRepository;
         _validator = validator;
         _voidValidator = voidValidator;
         _optionsValidator = optionsValidator;
@@ -84,7 +89,14 @@ public class StockOperationService : IStockOperationService
         operation.UpdatedAt = now;
         operation.Number = await _repository.GetNextNumberAsync(cancellationToken);
 
-        await _repository.CreateAsync(operation, Movements(operation, now), now, cancellationToken);
+        var cashMovements = await HouseConsumptionMovementsAsync(operation, now, cancellationToken);
+        if (cashMovements.IsFailed)
+        {
+            return cashMovements.ToResult();
+        }
+
+        await _repository.CreateAsync(operation, Movements(operation, now), cashMovements.Value, now,
+            cancellationToken);
 
         var saved = await _repository.GetByIdAsync(operation.Id, cancellationToken)
                     ?? throw new InvalidOperationException("The stock operation was not found right after saving it.");
@@ -143,10 +155,77 @@ public class StockOperationService : IStockOperationService
         operation.VoidedAt = now;
         operation.UpdatedAt = now;
 
-        await _repository.VoidAsync(operation, ReversalMovements(operation, _clock.Today(), now), now,
+        // The envelope move of a house consumption goes back too, in the same box and envelopes.
+        var cashReversals = (await _repository.GetCashMovementsAsync(operation.Id, cancellationToken))
+            .Select(movement => new CashMovement
+            {
+                Id = Guid.NewGuid(),
+                CashBoxId = movement.CashBoxId,
+                EnvelopeId = movement.EnvelopeId,
+                Date = _clock.Today(),
+                Kind = CashMovementKind.StockOperationVoid,
+                AmountCents = -movement.AmountCents,
+                Description = $"Anulación de la salida #{operation.Number}",
+                StockOperationId = operation.Id,
+                CreatedAt = now
+            })
+            .ToList();
+
+        await _repository.VoidAsync(operation, ReversalMovements(operation, _clock.Today(), now), cashReversals, now,
             cancellationToken);
 
         return Result.Ok(await _repository.GetByIdAsync(operation.Id, cancellationToken) ?? operation);
+    }
+
+    /// <summary>
+    /// Consumo de la casa (RN-11, D-13): an owner's withdrawal in kind. Its value at historical cost leaves the Dueño
+    /// envelope and goes to Reposición, because those goods have to be bought again. No cash actually moves, so both
+    /// rows go to the same box: the main CUP cash box. Products never bought have no cost and move nothing.
+    /// </summary>
+    private async Task<Result<List<CashMovement>>> HouseConsumptionMovementsAsync(StockOperation operation,
+        DateTime now, CancellationToken cancellationToken)
+    {
+        if (operation.Kind != StockOperationKind.Exit || operation.ExitReason != ExitReason.HouseConsumption)
+        {
+            return Result.Ok(new List<CashMovement>());
+        }
+
+        var valueCents = operation.Lines.Sum(line => line.ValueCupCents ?? 0);
+        if (valueCents <= 0)
+        {
+            return Result.Ok(new List<CashMovement>());
+        }
+
+        var box = (await _cashBoxRepository.GetAllAsync(cancellationToken))
+            .FirstOrDefault(b => b.IsActive && b.Currency == Currency.CUP && b.Kind == CashBoxKind.Cash);
+        if (box is null)
+        {
+            return Result.Fail(new BusinessRuleError(
+                "Hace falta una caja de efectivo en CUP activa para pasar el consumo de la casa de Dueño a Reposición."));
+        }
+
+        var owner = await _envelopeRepository.GetByRoleAsync(EnvelopeRole.OwnerPay, cancellationToken);
+        var replenishment = await _envelopeRepository.GetByRoleAsync(EnvelopeRole.Replenishment, cancellationToken);
+        var description = $"Consumo de la casa (salida #{operation.Number})";
+
+        return Result.Ok(new List<CashMovement>
+        {
+            NewCashMovement(owner.Id, -valueCents),
+            NewCashMovement(replenishment.Id, valueCents)
+        });
+
+        CashMovement NewCashMovement(Guid envelopeId, long amountCents) => new()
+        {
+            Id = Guid.NewGuid(),
+            CashBoxId = box.Id,
+            EnvelopeId = envelopeId,
+            Date = operation.Date,
+            Kind = CashMovementKind.HouseConsumption,
+            AmountCents = amountCents,
+            Description = description,
+            StockOperationId = operation.Id,
+            CreatedAt = now
+        };
     }
 
     private async Task<Result> CheckLocationsAsync(StockOperation operation, CancellationToken cancellationToken)

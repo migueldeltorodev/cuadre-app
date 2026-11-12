@@ -38,17 +38,28 @@ public enum StockMovementKind
 
 /// <summary>
 /// One row of the cash ledger. Box balance = SUM(AmountCents) in the box's currency.
-/// Negative = money out. Envelopes (slice 5) will be attached to these rows.
+/// Negative = money out. Every row belongs to ONE envelope (slice 5), so per box the envelopes add up to the box.
 /// </summary>
 public class CashMovement
 {
     public required Guid Id { get; init; }
     public required Guid CashBoxId { get; init; }
+
+    /// <summary>What the money is for (D-10). Purchases always use Reposición.</summary>
+    public required Guid EnvelopeId { get; init; }
+
     public required DateOnly Date { get; init; }
     public required CashMovementKind Kind { get; init; }
     public required long AmountCents { get; init; }
     public required string Description { get; init; }
     public Guid? PurchaseId { get; init; }
+
+    /// <summary>Opening, move between envelopes, withdrawal, tax payment (slice 5).</summary>
+    public Guid? EnvelopeOperationId { get; init; }
+
+    /// <summary>Consumo de la casa (RN-11): the exit that took the goods home.</summary>
+    public Guid? StockOperationId { get; init; }
+
     public required DateTime CreatedAt { get; init; }
 }
 
@@ -57,5 +68,26 @@ public enum CashMovementKind
 {
     Purchase,
     PurchaseCharge,
-    PurchaseVoid
+    PurchaseVoid,
+
+    /// <summary>Saldo inicial: sets an envelope to what is physically there (target − balance).</summary>
+    Opening,
+
+    /// <summary>Movimiento entre sobres: one row out of an envelope, one into another, same box.</summary>
+    EnvelopeTransfer,
+
+    /// <summary>Retiro: money taken out of the business (the owner's pay, the profit).</summary>
+    Withdrawal,
+
+    /// <summary>Pago de impuestos, from the Impuestos envelope (RF-IMP-01).</summary>
+    TaxPayment,
+
+    /// <summary>Consumo de la casa (RN-11): out of Dueño, into Reposición, at historical cost. No cash moves.</summary>
+    HouseConsumption,
+
+    /// <summary>Reversal of an envelope operation.</summary>
+    EnvelopeOperationVoid,
+
+    /// <summary>Reversal of the envelope move of a voided house consumption exit.</summary>
+    StockOperationVoid
 }
