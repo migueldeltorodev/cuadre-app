@@ -31,6 +31,10 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IPriceListRepository, PriceListRepository>();
         services.AddScoped<IPriceListService, PriceListService>();
+        services.AddScoped<ILocationRepository, LocationRepository>();
+        services.AddScoped<ILocationService, LocationService>();
+        services.AddScoped<IPurchaseRepository, PurchaseRepository>();
+        services.AddScoped<IPurchaseService, PurchaseService>();
 
         // Validators are SINGLETON: they must stay pure (shape/format rules only, no repositories).
         // Data-dependent rules (uniqueness, existence) live in the service and return ConflictError/NotFoundError.
