@@ -12,6 +12,9 @@ public class Location
     public DateTime UpdatedAt { get; set; }
 }
 
+/// <summary>What can change in a location: the kind is fixed once created.</summary>
+public sealed record LocationChanges(Guid Id, string Name, bool IsActive);
+
 /// <summary>
 /// Storage = the warehouse (purchases land here by default).
 /// Counter = the shop counter, the only place counted at the daily close (D-04).
