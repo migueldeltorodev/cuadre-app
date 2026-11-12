@@ -1,6 +1,9 @@
+using Cuadre.Api.Endpoints.AllocationPlans;
 using Cuadre.Api.Endpoints.App;
 using Cuadre.Api.Endpoints.CashBoxes;
 using Cuadre.Api.Endpoints.Categories;
+using Cuadre.Api.Endpoints.EnvelopeOperations;
+using Cuadre.Api.Endpoints.Envelopes;
 using Cuadre.Api.Endpoints.ExchangeRates;
 using Cuadre.Api.Endpoints.Inventory;
 using Cuadre.Api.Endpoints.Locations;
@@ -37,6 +40,9 @@ public static class EndpointsExtensions
         v1.MapPurchaseEndpoints();
         v1.MapStockOperationEndpoints();
         v1.MapInventoryEndpoints();
+        v1.MapEnvelopeEndpoints();
+        v1.MapAllocationPlanEndpoints();
+        v1.MapEnvelopeOperationEndpoints();
 
         return app;
     }
