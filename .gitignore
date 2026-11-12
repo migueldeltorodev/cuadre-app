@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# Local data (dev database, logs, backups, Edge profile) — NEVER commit business data
+.data/
+
+# Angular build is published into the API (generated)
+Server/Cuadre.Api/wwwroot/
+
+# Node / Angular
+node_modules/
+Client/.angular/
+Client/dist/
+
+# IDEs / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+.DS_Store

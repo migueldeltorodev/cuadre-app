@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Server/">
+    <Project Path="Server/Cuadre.Api/Cuadre.Api.csproj" />
+    <Project Path="Server/Cuadre.Application/Cuadre.Application.csproj" />
+    <Project Path="Server/Cuadre.Contracts/Cuadre.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Cuadre.Api.Tests.Integration/Cuadre.Api.Tests.Integration.csproj" />
+    <Project Path="Tests/Cuadre.Application.Tests/Cuadre.Application.Tests.csproj" />
+  </Folder>
+</Solution>
