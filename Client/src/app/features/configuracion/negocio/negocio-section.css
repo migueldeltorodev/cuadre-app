@@ -1,0 +1,45 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--c-muted);
+}
+
+.days {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.days__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Toggle chips: filled = no close that day. */
+.day {
+  width: 48px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--c-line-strong);
+  background: var(--c-surface);
+  color: var(--c-ink-2);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.day--on {
+  background: var(--c-accent-soft);
+  border-color: var(--c-accent);
+  color: var(--c-accent-ink);
+}
+
+.threshold {
+  max-width: 320px;
+}

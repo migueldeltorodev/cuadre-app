@@ -1,0 +1,115 @@
+<!-- Today's rate + history -->
+<section class="card rate" aria-labelledby="rate-title">
+  <div class="card__head">
+    <div>
+      <h2 class="card__title" id="rate-title">Tasa del dólar</h2>
+      <p class="card__lead">Informal, referencia elTOQUE. Se carga a mano, una por día.</p>
+    </div>
+    @if (rateStore.current(); as current) {
+      <button class="btn btn--small" [class.btn--primary]="current.isMissing" type="button" (click)="openRate()">
+        {{ current.isMissing ? 'Cargar la de hoy' : 'Corregir la de hoy' }}
+      </button>
+    }
+  </div>
+
+  @if (rateStore.current(); as current) {
+    @if (current.isMissing) {
+      <p class="alert alert--warn" role="status">
+        Todavía no cargaste la tasa de hoy ({{ current.today }}).
+        @if (current.latest) {
+          La última es {{ formatMoney(current.latest.cupPerUsdCents) }}, del {{ current.latest.date }}.
+        }
+      </p>
+    } @else if (current.latest) {
+      <div class="rate__today">
+        <span class="rate__value num">{{ formatHundredths(current.latest.cupPerUsdCents) }}</span>
+        <span class="rate__unit">CUP por 1 USD · hoy</span>
+      </div>
+    }
+  }
+
+  @if (history().length > 0) {
+    <div class="rows">
+      @for (rate of history(); track rate.date) {
+        <div class="row">
+          <div class="row__main">
+            <div class="row__title num">{{ rate.date }}</div>
+          </div>
+          <span class="num rate__amount">{{ formatMoney(rate.cupPerUsdCents) }}</span>
+          <button class="btn btn--ghost btn--small" type="button" (click)="openRate(rate)"
+            [attr.aria-label]="'Corregir la tasa del ' + rate.date">Corregir</button>
+        </div>
+      }
+    </div>
+  }
+</section>
+
+<!-- Pricing parameters -->
+@if (settingsStore.settings()) {
+  <form class="card form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div>
+      <h2 class="card__title">Precios</h2>
+      <p class="card__lead">
+        Precio sugerido = costo en USD × (tasa de compra + colchón) × (1 + recargo), redondeado.
+        Cada producto puede tener su propio colchón y recargo.
+      </p>
+    </div>
+
+    <div class="form__row">
+      <label class="field">
+        <span class="field__label">Colchón sobre la tasa</span>
+        <span class="input input--affix" [class.input--invalid]="invalid('buffer')">
+          <span class="input__affix">+</span>
+          <input formControlName="buffer" inputmode="decimal" autocomplete="off" aria-label="Colchón en CUP" />
+          <span class="input__affix">CUP</span>
+        </span>
+        @if (invalid('buffer')) {
+          <span class="field__error">Entre 0 y 10,000 CUP.</span>
+        } @else {
+          <span class="field__hint">Te cubre si la tasa sube antes de reponer.</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Recargo por defecto</span>
+        <span class="input input--affix" [class.input--invalid]="invalid('markup')">
+          <input formControlName="markup" inputmode="decimal" autocomplete="off" aria-label="Recargo en porcentaje" />
+          <span class="input__affix">%</span>
+        </span>
+        @if (invalid('markup')) {
+          <span class="field__error">Entre 0 y 1000 %.</span>
+        } @else {
+          <span class="field__hint">{{ marginText() || 'Sobre el costo.' }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Redondear precios a</span>
+        <span class="input input--affix" [class.input--invalid]="invalid('rounding')">
+          <input formControlName="rounding" inputmode="decimal" autocomplete="off" aria-label="Redondeo en CUP" />
+          <span class="input__affix">CUP</span>
+        </span>
+        @if (invalid('rounding')) {
+          <span class="field__error">Entre 0.01 y 1,000 CUP.</span>
+        } @else {
+          <span class="field__hint">1 = pesos enteros; 5 = múltiplos de 5.</span>
+        }
+      </label>
+    </div>
+
+    @if (feedback.error(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="form__actions">
+      @if (feedback.saved()) {
+        <span class="pill pill--ok" role="status">Guardado ✓</span>
+      }
+      <button class="btn btn--primary" type="submit" [disabled]="feedback.saving() || form.pristine">
+        {{ feedback.saving() ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
+    </div>
+  </form>
+} @else if (settingsStore.loadFailed()) {
+  <p class="alert alert--bad" role="alert">No se pudo leer la configuración. ¿Está corriendo el servidor?</p>
+}

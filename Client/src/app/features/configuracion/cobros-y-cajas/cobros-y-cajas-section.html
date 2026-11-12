@@ -1,0 +1,68 @@
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (cashBoxes(); as boxes) {
+  <section class="card" aria-labelledby="boxes-title">
+    <div class="card__head">
+      <div>
+        <h2 class="card__title" id="boxes-title">Cajas</h2>
+        <p class="card__lead">Dónde está la plata: el efectivo, el banco, los dólares.</p>
+      </div>
+      <button class="btn btn--small" type="button" (click)="openCashBox()">+ Agregar caja</button>
+    </div>
+
+    <div class="rows">
+      @for (box of boxes; track box.id) {
+        <div class="row" [class.row--inactive]="!box.isActive">
+          <div class="row__main">
+            <div class="row__title">{{ box.name }}</div>
+            <div class="row__sub">
+              {{ box.currency }} · {{ typeLabels[box.kind] }}
+              @if (methodsInto(box.id); as count) {
+                · recibe {{ count }} {{ count === 1 ? 'forma de cobro' : 'formas de cobro' }}
+              }
+            </div>
+          </div>
+          @if (box.isActive) {
+            <span class="pill pill--ok">Activa</span>
+          } @else {
+            <span class="pill pill--muted">Inactiva</span>
+          }
+          <button class="btn btn--ghost btn--small" type="button" (click)="openCashBox(box)"
+            [attr.aria-label]="'Editar ' + box.name">Editar</button>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="methods-title">
+    <div class="card__head">
+      <div>
+        <h2 class="card__title" id="methods-title">Formas de cobro</h2>
+        <p class="card__lead">Cómo te pagan. Cada una deja la plata en una caja.</p>
+      </div>
+      <button class="btn btn--small" type="button" (click)="openPaymentMethod()">+ Agregar forma de cobro</button>
+    </div>
+
+    <div class="rows">
+      @for (method of paymentMethods(); track method.id) {
+        <div class="row" [class.row--inactive]="!method.isActive">
+          <div class="row__main">
+            <div class="row__title">{{ method.name }}</div>
+            <div class="row__sub">Entra a: {{ boxName(method.cashBoxId) }}</div>
+          </div>
+          @if (method.isActive) {
+            <span class="pill pill--ok">Activa</span>
+          } @else {
+            <span class="pill pill--muted">Inactiva</span>
+          }
+          <button class="btn btn--ghost btn--small" type="button" (click)="openPaymentMethod(method)"
+            [attr.aria-label]="'Editar ' + method.name">Editar</button>
+        </div>
+      } @empty {
+        <p class="card__lead">Todavía no hay formas de cobro.</p>
+      }
+    </div>
+  </section>
+}

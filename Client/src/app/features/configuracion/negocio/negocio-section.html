@@ -1,0 +1,69 @@
+@if (store.settings()) {
+  <form class="card form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="card__head">
+      <div>
+        <h2 class="card__title">Datos del negocio</h2>
+        <p class="card__lead">Aparecen en el menú y, más adelante, en los reportes y respaldos.</p>
+      </div>
+    </div>
+
+    <div class="form__row">
+      <label class="field">
+        <span class="field__label">Nombre</span>
+        <input class="input" formControlName="name" [class.input--invalid]="invalid('name')" autocomplete="off" />
+        @if (invalid('name')) {
+          <span class="field__error">El nombre es obligatorio (hasta 120 letras).</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Dirección <span class="optional">(opcional)</span></span>
+        <input class="input" formControlName="address" [class.input--invalid]="invalid('address')" autocomplete="off" />
+      </label>
+    </div>
+
+    <fieldset class="field days">
+      <legend class="field__label">Días sin cierre</legend>
+      <span class="field__hint">Esos días la app no te pide el cierre (por ejemplo, si cerrás el domingo).</span>
+      <div class="days__list">
+        @for (day of weekdays; track day.value) {
+          <button type="button" class="day" [class.day--on]="isClosed(day.value)" [attr.aria-pressed]="isClosed(day.value)"
+            [attr.aria-label]="day.long" (click)="toggleDay(day.value)">
+            {{ day.short }}
+          </button>
+        }
+      </div>
+      @if (form.controls.closedDays.value.length === 7) {
+        <span class="field__error">Al menos un día tiene que tener cierre.</span>
+      }
+    </fieldset>
+
+    <label class="field threshold">
+      <span class="field__label">Avisar si la caja no cuadra por más de</span>
+      <span class="input input--affix" [class.input--invalid]="invalid('cashThreshold')">
+        <input formControlName="cashThreshold" inputmode="decimal" autocomplete="off" aria-label="Umbral de diferencia de caja" />
+        <span class="input__affix">CUP</span>
+      </span>
+      @if (invalid('cashThreshold')) {
+        <span class="field__error">Escribí un monto, por ejemplo 50 o 50.50.</span>
+      } @else {
+        <span class="field__hint">Por encima de eso, el cierre te pide una nota que explique la diferencia.</span>
+      }
+    </label>
+
+    @if (feedback.error(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="form__actions">
+      @if (feedback.saved()) {
+        <span class="pill pill--ok" role="status">Guardado ✓</span>
+      }
+      <button class="btn btn--primary" type="submit" [disabled]="feedback.saving() || form.pristine">
+        {{ feedback.saving() ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
+    </div>
+  </form>
+} @else if (store.loadFailed()) {
+  <p class="alert alert--bad" role="alert">No se pudo leer la configuración. ¿Está corriendo el servidor?</p>
+}
