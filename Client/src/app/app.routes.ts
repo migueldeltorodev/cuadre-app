@@ -12,7 +12,10 @@ export const routes: Routes = [
     children: [
       { path: '', title: 'Inicio · Cuadre', loadComponent: () => import('./features/inicio/inicio-page') },
       placeholder('cierre', 'Cierre del día'),
-      placeholder('productos', 'Productos'),
+      {
+        path: 'productos',
+        loadChildren: () => import('./features/productos/productos.routes').then((m) => m.PRODUCTOS_ROUTES),
+      },
       placeholder('compras', 'Compras'),
       placeholder('inventario', 'Inventario'),
       placeholder('sobres', 'Sobres'),

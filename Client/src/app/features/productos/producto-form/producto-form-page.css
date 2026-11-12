@@ -1,0 +1,52 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 880px;
+}
+
+.crumbs {
+  font-size: 13.5px;
+  color: var(--c-muted);
+}
+
+.crumbs a {
+  text-decoration: none;
+}
+
+.opt {
+  font-weight: 400;
+  color: var(--c-muted);
+}
+
+.factor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.factor__input {
+  width: 140px;
+}
+
+.textarea {
+  min-height: 84px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-accent);
+}

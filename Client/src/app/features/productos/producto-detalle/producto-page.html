@@ -1,0 +1,126 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span> {{ product()?.name ?? '…' }}
+</nav>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">
+    {{ e.status === 404 ? 'Ese producto no existe.' : e.message }}
+  </p>
+}
+
+@if (product(); as p) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">{{ p.name }}</h1>
+      <div class="tags">
+        <span class="tag">{{ categories().pathOf(p) }}</span>
+        <span class="tag">{{ saleUnitText() }}</span>
+        <span class="tag num">{{ p.code }}</span>
+        @if (p.brand) {
+          <span class="tag">{{ p.brand }}</span>
+        }
+        @if (p.presentation) {
+          <span class="tag">{{ p.presentation }}</span>
+        }
+        @if (state(); as s) {
+          @if (s.tone !== 'ok') {
+            <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+          }
+        }
+      </div>
+    </div>
+    <a class="btn" [routerLink]="['/productos', p.id, 'editar']">Editar</a>
+  </header>
+
+  <div class="columns">
+    <section class="card price-card" aria-labelledby="price-title">
+      <div>
+        <div class="label" id="price-title">Precio de venta</div>
+        @if (p.salePriceCents !== null) {
+          <div class="big num">
+            {{ formatHundredths(p.salePriceCents) }} <span class="big__unit">CUP {{ perUnit(p.stockUnit) }}</span>
+          </div>
+          <div class="label-line">
+            @if (p.isPriceChangedSinceListed) {
+              Este precio todavía no está en el cartel. <a routerLink="/productos/lista-de-precios">Ver la lista</a>
+            } @else {
+              Es el mismo que está en el cartel.
+            }
+          </div>
+        } @else {
+          <div class="big big--empty">Sin precio</div>
+          <div class="label-line">
+            No aparece con precio en la lista. <a [routerLink]="['/productos', p.id, 'editar']">Ponerle precio</a>
+          </div>
+        }
+      </div>
+
+      <div class="formula">
+        <div class="formula__title">Cómo se va a calcular el sugerido</div>
+        <div class="formula__parts num">
+          <div><div class="formula__label">Costo en USD</div><div class="formula__value">—</div></div>
+          <span class="op">×</span>
+          <div><div class="formula__label">( Tasa de compra</div><div class="formula__value">—</div></div>
+          <span class="op">+</span>
+          <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ bufferText() }}</div></div>
+          <span class="op">×</span>
+          <div><div class="formula__label">( 1 + Recargo )</div><div class="formula__value">{{ markupText() }}</div></div>
+        </div>
+        <p class="formula__note">
+          El costo y el precio sugerido aparecen con la primera compra registrada de este producto.
+        </p>
+      </div>
+    </section>
+
+    <section class="card facts" aria-labelledby="facts-title">
+      <h2 class="facts__title" id="facts-title">Datos</h2>
+      <div class="fact"><span>Se compra en</span><span>{{ purchaseText() }}</span></div>
+      <div class="fact"><span>Stock mínimo</span><span class="num">{{ formatQuantityWithUnit(p.minStockMilli, p.stockUnit) }}</span></div>
+      <div class="fact"><span>Merma aceptada</span><span class="num">{{ formatPercent(p.shrinkageToleranceBps) }}</span></div>
+      <div class="fact"><span>Perecedero</span><span>{{ p.isPerishable ? 'Sí' : 'No' }}</span></div>
+      <div class="fact"><span>Proveedor habitual</span><span>{{ supplier()?.name ?? '—' }}</span></div>
+      @if (p.barcode) {
+        <div class="fact"><span>Código de barras</span><span class="num">{{ p.barcode }}</span></div>
+      }
+      @if (p.notes) {
+        <div class="divider"></div>
+        <p class="notes">{{ p.notes }}</p>
+      }
+      <div class="divider"></div>
+      <p class="facts__note">El stock (mostrador y almacén) aparece con el inventario.</p>
+    </section>
+  </div>
+
+  <section class="table-card" aria-labelledby="history-title">
+    <div class="table-card__head">
+      <h2 class="facts__title" id="history-title">Historial del precio de venta</h2>
+      <span class="label">{{ history().length }} {{ history().length === 1 ? 'cambio' : 'cambios' }}</span>
+    </div>
+    @if (history().length > 0) {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Desde</th>
+            <th class="end">Precio</th>
+            <th class="end">Antes</th>
+            <th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (change of history(); track change.id) {
+            <tr>
+              <td>{{ formatShortDate(change.effectiveDate) }}</td>
+              <td class="end num strong">{{ formatHundredths(change.priceCents) }}</td>
+              <td class="end num muted">
+                {{ change.previousPriceCents === null ? '—' : formatHundredths(change.previousPriceCents) }}
+              </td>
+              <td>{{ change.reason === 'Manual' ? 'Cambio a mano' : 'Por una compra' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="none">Todavía no tuvo precio.</p>
+    }
+  </section>
+}

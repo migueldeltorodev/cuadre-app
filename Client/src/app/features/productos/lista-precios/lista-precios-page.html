@@ -1,0 +1,74 @@
+<div class="bar">
+  <a class="back" routerLink="/productos">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8H3M7 4L3 8l4 4" /></svg>
+    Volver a productos
+  </a>
+  @if (list() && !isEmpty()) {
+    <button class="btn btn--dark" type="button" [disabled]="marking() || list()!.changedCount === 0"
+      (click)="markCopied()">
+      {{ marking() ? 'Guardando…' : 'Ya la copié' }}
+    </button>
+  }
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (list(); as l) {
+  @if (l.changedCount > 0) {
+    <div class="notice" role="status">
+      <span class="dot" aria-hidden="true"></span>
+      <span>
+        @if (lastCopyDay(); as day) {
+          {{ l.changedCount }} {{ l.changedCount === 1 ? 'precio cambió' : 'precios cambiaron' }}
+          desde la última vez que la copiaste ({{ day }}). Están marcados abajo.
+        } @else {
+          Todavía no marcaste ninguna copia: todos los precios cuentan como nuevos.
+          Cuando la pases al cartel, tocá «Ya la copié».
+        }
+      </span>
+    </div>
+  } @else if (justMarked()) {
+    <div class="notice notice--ok" role="status">Listo: el cartel está al día.</div>
+  } @else if (lastCopyDay(); as day) {
+    <div class="notice notice--quiet" role="status">El cartel está al día (copiado el {{ day }}).</div>
+  }
+
+  <article class="sheet">
+    <header class="sheet__head">
+      <h1 class="sheet__title">Precios</h1>
+      <div class="sheet__sub">En CUP</div>
+    </header>
+
+    @for (group of l.groups; track group.categoryId) {
+      <section class="group">
+        <h2 class="group__name">{{ group.categoryName }}</h2>
+        @for (entry of group.entries; track entry.productId) {
+          <div class="item" [class.item--changed]="entry.isChanged">
+            <span class="item__name">{{ entry.name }}@if (entry.brand) {<span class="item__brand"> {{ entry.brand }}</span>}</span>
+            <span class="item__unit">{{ unitText(entry) }}</span>
+            <span class="item__dots" aria-hidden="true"></span>
+            @if (entry.isChanged && entry.listedPriceCents !== null) {
+              <span class="item__before num">
+                <span class="visually-hidden">antes</span>{{ formatHundredths(entry.listedPriceCents) }}
+              </span>
+            } @else if (entry.isChanged && lastCopyDay()) {
+              <span class="item__new">nuevo en el cartel</span>
+            }
+            @if (entry.salePriceCents !== null) {
+              <span class="item__price num">{{ formatHundredths(entry.salePriceCents) }}</span>
+            } @else {
+              <span class="item__price item__price--none">sin precio</span>
+            }
+          </div>
+        }
+      </section>
+    } @empty {
+      <p class="empty">
+        No hay productos activos todavía. <a routerLink="/productos/nuevo">Crear el primero</a>
+      </p>
+    }
+  </article>
+}
