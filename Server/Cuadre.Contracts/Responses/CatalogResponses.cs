@@ -69,6 +69,15 @@ public class ProductResponse
     public required bool IsPerishable { get; init; }
     public required bool IsActive { get; init; }
     public string? Notes { get; init; }
+
+    /// <summary>All locations: SUM of the stock ledger. Can be negative (sold before the purchase was typed).</summary>
+    public required long StockMilli { get; init; }
+
+    public DateOnly? LastPurchaseDate { get; init; }
+
+    /// <summary>Null until the first purchase.</summary>
+    public ProductCostResponse? Cost { get; init; }
+
     public required DateTime CreatedAt { get; init; }
     public required DateTime UpdatedAt { get; init; }
 }

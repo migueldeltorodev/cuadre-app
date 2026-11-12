@@ -78,6 +78,9 @@ public static class ApiEndpoints
         public const string GetAll = Base;
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Update = $"{Base}/{{id:guid}}";
+
+        /// <summary>What we buy from this supplier and at what cost (RF-PRV-02).</summary>
+        public const string Products = $"{Base}/{{id:guid}}/products";
     }
 
     /// <summary>"next-code" is a literal segment, so it never collides with {id:guid}.</summary>
@@ -91,6 +94,10 @@ public static class ApiEndpoints
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Update = $"{Base}/{{id:guid}}";
         public const string PriceHistory = $"{Base}/{{id:guid}}/price-history";
+        public const string Purchases = $"{Base}/{{id:guid}}/purchases";
+
+        /// <summary>Only the price: accepting a suggestion must not resend the whole product.</summary>
+        public const string SalePrice = $"{Base}/{{id:guid}}/sale-price";
     }
 
     /// <summary>The fixed list of measure units (read-only, defined in code).</summary>
@@ -107,5 +114,22 @@ public static class ApiEndpoints
 
         /// <summary>POST = "ya lo copié al cartel".</summary>
         public const string Copies = $"{Base}/copies";
+    }
+
+    /// <summary>No PUT and no DELETE: a confirmed purchase is only voided, with a reason (RF-CMP-07).</summary>
+    public static class Purchases
+    {
+        private const string Base = $"{ApiBase}/purchases";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>Read-only until inventory (slice 4).</summary>
+    public static class Locations
+    {
+        public const string GetAll = $"{ApiBase}/locations";
     }
 }

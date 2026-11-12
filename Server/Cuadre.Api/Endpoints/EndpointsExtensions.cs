@@ -2,9 +2,11 @@ using Cuadre.Api.Endpoints.App;
 using Cuadre.Api.Endpoints.CashBoxes;
 using Cuadre.Api.Endpoints.Categories;
 using Cuadre.Api.Endpoints.ExchangeRates;
+using Cuadre.Api.Endpoints.Locations;
 using Cuadre.Api.Endpoints.PaymentMethods;
 using Cuadre.Api.Endpoints.PriceLists;
 using Cuadre.Api.Endpoints.Products;
+using Cuadre.Api.Endpoints.Purchases;
 using Cuadre.Api.Endpoints.Settings;
 using Cuadre.Api.Endpoints.Suppliers;
 using Cuadre.Api.Endpoints.Units;
@@ -29,6 +31,8 @@ public static class EndpointsExtensions
         v1.MapUnitEndpoints();
         v1.MapProductEndpoints();
         v1.MapPriceListEndpoints();
+        v1.MapLocationEndpoints();
+        v1.MapPurchaseEndpoints();
 
         return app;
     }
