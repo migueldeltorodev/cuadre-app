@@ -9,6 +9,7 @@ public static class SupplierEndpointExtensions
         app.MapGetSupplier();
         app.MapGetAllSuppliers();
         app.MapUpdateSupplier();
+        app.MapGetSupplierProducts();
         return app;
     }
 }

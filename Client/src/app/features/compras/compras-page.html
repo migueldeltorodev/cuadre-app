@@ -1,0 +1,100 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Compras</h1>
+    <p class="page-subtitle">Cada compra confirmada mueve el stock, la caja y el costo. No se editan: se anulan.</p>
+  </div>
+  <div class="head__actions">
+    <a class="btn" routerLink="/productos/proveedores">Proveedores</a>
+    <a class="btn btn--primary" routerLink="nueva">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+      Nueva compra
+    </a>
+  </div>
+</header>
+
+<div class="filters">
+  <label class="field">
+    <span class="field__label">Desde</span>
+    <input class="input num" type="date" [value]="from()" (change)="setFrom($any($event.target).value)" />
+  </label>
+  <label class="field">
+    <span class="field__label">Hasta</span>
+    <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
+  </label>
+  <label class="field field--wide">
+    <span class="field__label">Proveedor</span>
+    <select class="input" [value]="supplierId()" (change)="setSupplier($any($event.target).value)">
+      <option value="">Todos</option>
+      @for (supplier of suppliers(); track supplier.id) {
+        <option [value]="supplier.id">{{ supplier.name }}</option>
+      }
+    </select>
+  </label>
+  <label class="check">
+    <input type="checkbox" [checked]="includeVoided()" (change)="toggleVoided($any($event.target).checked)" />
+    <span>Ver anuladas</span>
+  </label>
+  @if (hasFilters()) {
+    <button class="btn btn--ghost btn--small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+  }
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  @if (r.total === 0 && !hasFilters() && !includeVoided()) {
+    <section class="card empty">
+      <h2 class="card__title">Todavía no hay compras</h2>
+      <p class="card__lead">
+        Registrá la primera: entra la mercadería al almacén, sale la plata de la caja y cada producto queda con su
+        costo y su precio sugerido.
+      </p>
+      <div><a class="btn btn--primary" routerLink="nueva">Nueva compra</a></div>
+    </section>
+  } @else {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Compra</th>
+            <th>Proveedor</th>
+            <th>Productos</th>
+            <th class="end">Mercadería</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (purchase of r.items; track purchase.id) {
+            @let state = purchaseStateLabel(purchase.status);
+            <tr [class.voided]="purchase.status === 'Voided'">
+              <td>
+                <a class="name" [routerLink]="purchase.id">{{ formatShortDate(purchase.date) }}</a>
+                <div class="sub num">#{{ purchase.number }}</div>
+              </td>
+              <td>{{ purchase.supplierName }}</td>
+              <td class="products">
+                <span [title]="purchase.productNames">{{ purchase.productNames }}</span>
+                <div class="sub">{{ purchase.lineCount }} {{ purchase.lineCount === 1 ? 'producto' : 'productos' }}</div>
+              </td>
+              <td class="end num price">{{ formatMoney(purchase.goodsTotalCents, purchase.currency) }}</td>
+              <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5" class="none">Ninguna compra coincide con los filtros.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1" (click)="goTo(r.page - 1)">Anterior</button>
+        <span class="num">Página {{ r.page }} · {{ r.total }} compras</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage" (click)="goTo(r.page + 1)">Siguiente</button>
+      </nav>
+    }
+  }
+}

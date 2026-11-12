@@ -1,4 +1,11 @@
-import { formatHundredths, formatPercent, markupToMarginBps, parseHundredths, toInputText } from './money';
+import {
+  formatHundredths,
+  formatMicros,
+  formatPercent,
+  markupToMarginBps,
+  parseHundredths,
+  toInputText,
+} from './money';
 
 describe('money', () => {
   describe('parseHundredths', () => {
@@ -48,6 +55,13 @@ describe('money', () => {
     it('formats percentages from basis points', () => {
       expect(formatPercent(3000)).toBe('30%');
       expect(formatPercent(1667)).toBe('16.67%');
+    });
+
+    it('formats unit costs from millionths with 2 to 4 decimals', () => {
+      expect(formatMicros(620000)).toBe('0.62');
+      expect(formatMicros(9166667)).toBe('9.1667');
+      expect(formatMicros(201500000)).toBe('201.50');
+      expect(formatMicros(1234500000)).toBe('1,234.50');
     });
   });
 

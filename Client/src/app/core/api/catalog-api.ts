@@ -11,8 +11,11 @@ import {
   PriceChangeResponse,
   PriceListCopyResponse,
   PriceListResponse,
+  ProductPurchaseResponse,
   ProductQuery,
   ProductResponse,
+  SetSalePriceRequest,
+  SupplierProductResponse,
   SupplierResponse,
   UnitResponse,
   UpdateCategoryRequest,
@@ -58,6 +61,15 @@ export class SuppliersApi {
   update(id: string, request: UpdateSupplierRequest): Observable<SupplierResponse> {
     return this.http.put<SupplierResponse>(`/api/suppliers/${id}`, request);
   }
+
+  get(id: string): Observable<SupplierResponse> {
+    return this.http.get<SupplierResponse>(`/api/suppliers/${id}`);
+  }
+
+  /** What we buy from this supplier, with the last landed cost (RF-PRV-02). */
+  products(id: string): Observable<ItemsResponse<SupplierProductResponse>> {
+    return this.http.get<ItemsResponse<SupplierProductResponse>>(`/api/suppliers/${id}/products`);
+  }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -101,6 +113,15 @@ export class ProductsApi {
 
   priceHistory(id: string): Observable<ItemsResponse<PriceChangeResponse>> {
     return this.http.get<ItemsResponse<PriceChangeResponse>>(`/api/products/${id}/price-history`);
+  }
+
+  purchases(id: string): Observable<ItemsResponse<ProductPurchaseResponse>> {
+    return this.http.get<ItemsResponse<ProductPurchaseResponse>>(`/api/products/${id}/purchases`);
+  }
+
+  /** Only the price: accepting a suggestion (with purchaseId) or a quick manual change. */
+  setSalePrice(id: string, request: SetSalePriceRequest): Observable<ProductResponse> {
+    return this.http.put<ProductResponse>(`/api/products/${id}/sale-price`, request);
   }
 }
 

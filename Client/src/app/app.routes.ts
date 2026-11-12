@@ -16,7 +16,10 @@ export const routes: Routes = [
         path: 'productos',
         loadChildren: () => import('./features/productos/productos.routes').then((m) => m.PRODUCTOS_ROUTES),
       },
-      placeholder('compras', 'Compras'),
+      {
+        path: 'compras',
+        loadChildren: () => import('./features/compras/compras.routes').then((m) => m.COMPRAS_ROUTES),
+      },
       placeholder('inventario', 'Inventario'),
       placeholder('sobres', 'Sobres'),
       placeholder('gastos', 'Gastos'),

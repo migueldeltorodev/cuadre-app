@@ -169,8 +169,26 @@ export interface ProductResponse {
   isPerishable: boolean;
   isActive: boolean;
   notes: string | null;
+  /** All locations; can be negative (sold before the purchase was typed). */
+  stockMilli: number;
+  lastPurchaseDate: string | null;
+  /** Null until the first purchase. */
+  cost: ProductCostResponse | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit. */
+export interface ProductCostResponse {
+  avgCostUsdMicros: number;
+  avgCostCupMicros: number;
+  averageRateCents: number;
+  effectiveBufferCents: number;
+  effectiveMarkupBps: number;
+  suggestedPriceCents: number;
+  marginBps: number | null;
+  todayRateCents: number | null;
+  isBufferExceeded: boolean;
 }
 
 interface ProductRequestBase {
@@ -250,4 +268,158 @@ export interface PriceListResponse {
   lastCopy: PriceListCopyResponse | null;
   changedCount: number;
   groups: PriceListGroupResponse[];
+}
+
+// ---- Purchases (slice 3) ----
+// Purchase money in cents of the PURCHASE currency; quantities in thousandths of the PURCHASE unit.
+
+export type PurchaseState = 'Confirmed' | 'Voided';
+export type LocationType = 'Storage' | 'Counter';
+
+export interface LocationResponse {
+  id: string;
+  name: string;
+  kind: LocationType;
+  isActive: boolean;
+}
+
+export interface CreatePurchaseLineRequest {
+  productId: string;
+  quantityMilli: number;
+  unitCostCents: number;
+  /** Null = the factor of the product. */
+  conversionFactorMilli: number | null;
+}
+
+export interface CreatePurchaseChargeRequest {
+  description: string;
+  currency: CurrencyCode;
+  amountCents: number;
+  cashBoxId: string;
+}
+
+export interface CreatePurchaseRequest {
+  date: string;
+  supplierId: string;
+  currency: CurrencyCode;
+  rateCupPerUsdCents: number;
+  /** Null = Almacén. */
+  locationId: string | null;
+  cashBoxId: string;
+  notes: string | null;
+  lines: CreatePurchaseLineRequest[];
+  charges: CreatePurchaseChargeRequest[];
+}
+
+export interface PurchaseLineResponse {
+  id: string;
+  lineNo: number;
+  productId: string;
+  productName: string;
+  productCode: string;
+  purchaseUnit: UnitCode;
+  stockUnit: UnitCode;
+  quantityMilli: number;
+  conversionFactorMilli: number;
+  stockQuantityMilli: number;
+  unitCostCents: number;
+  lineTotalCents: number;
+  allocatedChargesUsdMicros: number;
+  landedUnitCostUsdMicros: number;
+  landedUnitCostCupMicros: number;
+}
+
+export interface PurchaseChargeResponse {
+  id: string;
+  description: string;
+  currency: CurrencyCode;
+  amountCents: number;
+  cashBoxId: string;
+}
+
+export interface PriceSuggestionResponse {
+  productId: string;
+  productName: string;
+  currentPriceCents: number | null;
+  suggestedPriceCents: number;
+}
+
+export interface PurchaseResponse {
+  id: string;
+  number: number;
+  date: string;
+  supplierId: string;
+  supplierName: string;
+  currency: CurrencyCode;
+  rateCupPerUsdCents: number;
+  locationId: string;
+  cashBoxId: string;
+  goodsTotalCents: number;
+  notes: string | null;
+  status: PurchaseState;
+  voidReason: string | null;
+  voidedAt: string | null;
+  lines: PurchaseLineResponse[];
+  charges: PurchaseChargeResponse[];
+  /** Only filled in the response of the creation. */
+  priceSuggestions: PriceSuggestionResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseSummaryResponse {
+  id: string;
+  number: number;
+  date: string;
+  supplierId: string;
+  supplierName: string;
+  currency: CurrencyCode;
+  goodsTotalCents: number;
+  lineCount: number;
+  productNames: string;
+  status: PurchaseState;
+}
+
+export interface PurchaseQuery {
+  from?: string;
+  to?: string;
+  supplierId?: string;
+  productId?: string;
+  categoryId?: string;
+  includeVoided?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ProductPurchaseResponse {
+  purchaseId: string;
+  purchaseNumber: number;
+  date: string;
+  supplierName: string;
+  currency: CurrencyCode;
+  rateCupPerUsdCents: number;
+  quantityMilli: number;
+  purchaseUnit: UnitCode;
+  stockQuantityMilli: number;
+  stockUnit: UnitCode;
+  unitCostCents: number;
+  landedUnitCostUsdMicros: number;
+  landedUnitCostCupMicros: number;
+  status: PurchaseState;
+}
+
+export interface SupplierProductResponse {
+  productId: string;
+  productName: string;
+  productCode: string;
+  stockUnit: UnitCode;
+  lastPurchaseDate: string;
+  lastLandedUnitCostUsdMicros: number;
+  purchaseCount: number;
+}
+
+export interface SetSalePriceRequest {
+  salePriceCents: number;
+  /** Set when accepting a suggestion of that purchase: the history says "Por una compra". */
+  purchaseId: string | null;
 }

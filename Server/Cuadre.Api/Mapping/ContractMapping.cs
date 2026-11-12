@@ -10,7 +10,7 @@ namespace Cuadre.Api.Mapping;
 /// Plain extension methods: explicit, debuggable, no reflection-based mapper.
 /// Timestamps are NOT set here: the services stamp them with the app clock (TimeProvider).
 /// </summary>
-public static class ContractMapping
+public static partial class ContractMapping
 {
     // ---------- Business settings ----------
 
@@ -319,6 +319,9 @@ public static class ContractMapping
             IsPerishable = product.IsPerishable,
             IsActive = product.IsActive,
             Notes = product.Notes,
+            StockMilli = product.StockMilli,
+            LastPurchaseDate = product.LastPurchaseDate,
+            Cost = product.Pricing?.MapToResponse(),
             CreatedAt = product.CreatedAt,
             UpdatedAt = product.UpdatedAt
         };

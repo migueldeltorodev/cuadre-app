@@ -27,6 +27,11 @@ export const PRODUCTOS_ROUTES: Routes = [
     loadComponent: () => import('./proveedores/proveedores-page'),
   },
   {
+    path: 'proveedores/:id',
+    title: 'Proveedor · Cuadre',
+    loadComponent: () => import('./proveedores/proveedor-page'),
+  },
+  {
     path: ':id',
     title: 'Producto · Cuadre',
     loadComponent: () => import('./producto-detalle/producto-page'),

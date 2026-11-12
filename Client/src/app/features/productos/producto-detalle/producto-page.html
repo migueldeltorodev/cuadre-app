@@ -34,49 +34,109 @@
 
   <div class="columns">
     <section class="card price-card" aria-labelledby="price-title">
-      <div>
-        <div class="label" id="price-title">Precio de venta</div>
-        @if (p.salePriceCents !== null) {
-          <div class="big num">
-            {{ formatHundredths(p.salePriceCents) }} <span class="big__unit">CUP {{ perUnit(p.stockUnit) }}</span>
-          </div>
-          <div class="label-line">
-            @if (p.isPriceChangedSinceListed) {
-              Este precio todavía no está en el cartel. <a routerLink="/productos/lista-de-precios">Ver la lista</a>
-            } @else {
-              Es el mismo que está en el cartel.
+      <div class="price-top">
+        <div>
+          <div class="label" id="price-title">Precio de venta</div>
+          @if (p.salePriceCents !== null) {
+            <div class="big num">
+              {{ formatHundredths(p.salePriceCents) }} <span class="big__unit">CUP {{ perUnit(p.stockUnit) }}</span>
+            </div>
+            @if (p.cost?.marginBps != null) {
+              <div class="label-line num">
+                Margen {{ formatPercent(p.cost!.marginBps!) }}
+                @if (actualMarkupBps(); as markup) {
+                  · recargo {{ formatPercent(markup) }} sobre el costo
+                }
+              </div>
             }
-          </div>
-        } @else {
-          <div class="big big--empty">Sin precio</div>
-          <div class="label-line">
-            No aparece con precio en la lista. <a [routerLink]="['/productos', p.id, 'editar']">Ponerle precio</a>
+            <div class="label-line">
+              @if (p.isPriceChangedSinceListed) {
+                Este precio todavía no está en el cartel. <a routerLink="/productos/lista-de-precios">Ver la lista</a>
+              } @else {
+                Es el mismo que está en el cartel.
+              }
+            </div>
+          } @else {
+            <div class="big big--empty">Sin precio</div>
+            <div class="label-line">
+              No aparece con precio en la lista. <a [routerLink]="['/productos', p.id, 'editar']">Ponerle precio</a>
+            </div>
+          }
+        </div>
+
+        @if (suggestion(); as suggested) {
+          <div class="suggestion" role="status">
+            <div class="suggestion__title num">Precio sugerido: {{ formatHundredths(suggested) }}</div>
+            @if (p.lastPurchaseDate) {
+              <div class="suggestion__sub">Con el costo de la compra del {{ formatShortDate(p.lastPurchaseDate) }}.</div>
+            }
+            <div class="suggestion__actions">
+              <button class="btn btn--primary btn--small" type="button" [disabled]="savingPrice()"
+                (click)="useSuggestion(suggested)">Usar {{ formatHundredths(suggested) }}</button>
+              @if (p.salePriceCents !== null) {
+                <button class="btn btn--small" type="button" (click)="suggestionDismissed.set(true)">
+                  Mantener {{ formatHundredths(p.salePriceCents) }}
+                </button>
+              }
+            </div>
+            @if (priceError(); as e) {
+              <p class="field__error" role="alert">{{ e.message }}</p>
+            }
           </div>
         }
       </div>
 
       <div class="formula">
-        <div class="formula__title">Cómo se va a calcular el sugerido</div>
-        <div class="formula__parts num">
-          <div><div class="formula__label">Costo en USD</div><div class="formula__value">—</div></div>
-          <span class="op">×</span>
-          <div><div class="formula__label">( Tasa de compra</div><div class="formula__value">—</div></div>
-          <span class="op">+</span>
-          <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ bufferText() }}</div></div>
-          <span class="op">×</span>
-          <div><div class="formula__label">( 1 + Recargo )</div><div class="formula__value">{{ markupText() }}</div></div>
-        </div>
-        <p class="formula__note">
-          El costo y el precio sugerido aparecen con la primera compra registrada de este producto.
-        </p>
+        @if (p.cost; as cost) {
+          <div class="formula__title">Cómo se calcula el sugerido</div>
+          <div class="formula__parts num">
+            <div><div class="formula__label">Costo</div><div class="formula__value">{{ formatMicros(cost.avgCostUsdMicros) }} USD</div></div>
+            <span class="op">×</span>
+            <div><div class="formula__label">( Tasa de compra</div><div class="formula__value">{{ formatHundredths(cost.averageRateCents) }}</div></div>
+            <span class="op">+</span>
+            <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ formatHundredths(cost.effectiveBufferCents) }}</div></div>
+            <span class="op">×</span>
+            <div><div class="formula__label">( 1 + Recargo )</div><div class="formula__value">{{ formatPercent(cost.effectiveMarkupBps) }}</div></div>
+            <span class="op">=</span>
+            <div><div class="formula__label">Sugerido</div><div class="formula__value formula__value--accent">{{ formatHundredths(cost.suggestedPriceCents) }}</div></div>
+          </div>
+          <p class="formula__note">
+            Costo en CUP: {{ formatMicros(cost.avgCostCupMicros) }} {{ perUnit(p.stockUnit) }}, a la tasa de cada compra.
+            Se redondea hacia arriba al paso del negocio.
+          </p>
+          @if (bufferStatus(); as b) {
+            <p class="buffer" [class]="'buffer buffer--' + b.tone"><strong>{{ b.title }}</strong> {{ b.text }}</p>
+          }
+        } @else {
+          <div class="formula__title">Cómo se va a calcular el sugerido</div>
+          <div class="formula__parts num">
+            <div><div class="formula__label">Costo en USD</div><div class="formula__value">—</div></div>
+            <span class="op">×</span>
+            <div><div class="formula__label">( Tasa de compra</div><div class="formula__value">—</div></div>
+            <span class="op">+</span>
+            <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ bufferText() }}</div></div>
+            <span class="op">×</span>
+            <div><div class="formula__label">( 1 + Recargo )</div><div class="formula__value">{{ markupText() }}</div></div>
+          </div>
+          <p class="formula__note">
+            El costo y el precio sugerido aparecen con la primera compra de este producto.
+            <a routerLink="/compras/nueva">Registrar una compra</a>
+          </p>
+        }
       </div>
     </section>
 
     <section class="card facts" aria-labelledby="facts-title">
-      <h2 class="facts__title" id="facts-title">Datos</h2>
-      <div class="fact"><span>Se compra en</span><span>{{ purchaseText() }}</span></div>
-      <div class="fact"><span>Stock mínimo</span><span class="num">{{ formatQuantityWithUnit(p.minStockMilli, p.stockUnit) }}</span></div>
+      <h2 class="facts__title" id="facts-title">Stock</h2>
+      <div class="stock num" [class.stock--low]="lowStock()" [class.stock--negative]="p.stockMilli < 0">
+        {{ formatQuantityWithUnit(p.stockMilli, p.stockUnit) }}
+      </div>
+      @if (p.stockMilli < 0) {
+        <p class="facts__note">Se vendió más de lo comprado: falta registrar alguna compra.</p>
+      }
+      <div class="fact"><span>Mínimo</span><span class="num">{{ formatQuantityWithUnit(p.minStockMilli, p.stockUnit) }}</span></div>
       <div class="fact"><span>Merma aceptada</span><span class="num">{{ formatPercent(p.shrinkageToleranceBps) }}</span></div>
+      <div class="fact"><span>Se compra en</span><span>{{ purchaseText() }}</span></div>
       <div class="fact"><span>Perecedero</span><span>{{ p.isPerishable ? 'Sí' : 'No' }}</span></div>
       <div class="fact"><span>Proveedor habitual</span><span>{{ supplier()?.name ?? '—' }}</span></div>
       @if (p.barcode) {
@@ -87,9 +147,49 @@
         <p class="notes">{{ p.notes }}</p>
       }
       <div class="divider"></div>
-      <p class="facts__note">El stock (mostrador y almacén) aparece con el inventario.</p>
+      <p class="facts__note">El stock por ubicación (mostrador y almacén) aparece con el inventario.</p>
     </section>
   </div>
+
+  <section class="table-card" aria-labelledby="purchases-title">
+    <div class="table-card__head">
+      <h2 class="facts__title" id="purchases-title">Compras de este producto</h2>
+      @if (purchases().length > 0) {
+        <span class="label">{{ supplierCount() }}</span>
+      }
+    </div>
+    @if (purchases().length > 0) {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Proveedor</th>
+            <th class="end">Cantidad</th>
+            <th class="end">Costo {{ perUnit(p.stockUnit) }}</th>
+            <th class="end">Tasa</th>
+            <th class="end">En CUP {{ perUnit(p.stockUnit) }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (purchase of purchases(); track purchase.purchaseId) {
+            <tr [class.voided]="purchase.status === 'Voided'">
+              <td>
+                <a class="link" [routerLink]="['/compras', purchase.purchaseId]">{{ formatShortDate(purchase.date) }}</a>
+                <div class="muted small">Compra #{{ purchase.purchaseNumber }}@if (purchase.status === 'Voided') { · anulada }</div>
+              </td>
+              <td>{{ purchase.supplierName }}</td>
+              <td class="end num">{{ formatQuantityWithUnit(purchase.quantityMilli, purchase.purchaseUnit) }}</td>
+              <td class="end num strong">{{ formatMicros(purchase.landedUnitCostUsdMicros) }} USD</td>
+              <td class="end num">{{ formatHundredths(purchase.rateCupPerUsdCents) }}</td>
+              <td class="end num">{{ formatMicros(purchase.landedUnitCostCupMicros) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="none">Todavía no se compró. <a routerLink="/compras/nueva">Registrar una compra</a></p>
+    }
+  </section>
 
   <section class="table-card" aria-labelledby="history-title">
     <div class="table-card__head">
