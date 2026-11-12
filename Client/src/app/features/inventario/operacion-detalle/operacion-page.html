@@ -1,0 +1,145 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/inventario">Inventario</a> <span aria-hidden="true">/</span>
+  <a [routerLink]="backLink().link">{{ backLink().label }}</a> <span aria-hidden="true">/</span>
+  {{ operation() ? '#' + operation()!.number : '…' }}
+</nav>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Esa operación no existe.' : e.message }}</p>
+}
+
+@if (operation(); as op) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">{{ operationKindLabel(op.kind) }} #{{ op.number }}</h1>
+      <div class="tags">
+        <span class="tag">{{ formatShortDate(op.date) }}</span>
+        @switch (op.kind) {
+          @case ('Transfer') { <span class="tag">{{ op.locationName }} → {{ op.toLocationName }}</span> }
+          @case ('Exit') {
+            <span class="tag">{{ exitReasonLabel(op.exitReason) }}</span>
+            <span class="tag">desde {{ op.locationName }}</span>
+          }
+          @default { <span class="tag">{{ op.locationName }}</span> }
+        }
+        @if (state(); as s) {
+          <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+        }
+      </div>
+    </div>
+    @if (op.status === 'Confirmed' && !voiding()) {
+      <button class="btn" type="button" (click)="startVoid()">Anular</button>
+    }
+  </header>
+
+  @if (op.status === 'Voided') {
+    <p class="alert alert--warn">
+      Anulada el {{ op.voidedAt ? formatTimestampDay(op.voidedAt) : '' }}: {{ op.voidReason }}.
+      La mercadería volvió con movimientos de ese día y el costo de los productos se recalculó como si esta
+      operación no hubiera existido.
+    </p>
+  }
+
+  @if (voiding()) {
+    <section class="card void" aria-labelledby="void-title">
+      <h2 class="card__title" id="void-title">Anular {{ operationKindLabel(op.kind).toLowerCase() }} #{{ op.number }}</h2>
+      <p class="card__lead">
+        Se escribe el movimiento contrario de cada producto, con fecha de hoy. Queda registrada como anulada: no se borra.
+      </p>
+      <label class="field">
+        <span class="field__label">Por qué se anula</span>
+        <input class="input" [formControl]="reason" autocomplete="off" placeholder="Se cargó dos veces, era otro producto…"
+          [class.input--invalid]="reason.invalid && reason.touched" />
+        @if (reason.invalid && reason.touched) {
+          <span class="field__error">Escribí el motivo.</span>
+        }
+      </label>
+      @if (voidError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancelVoid()">No, volver</button>
+        <button class="btn btn--danger" type="button" [disabled]="savingVoid()" (click)="confirmVoid()">
+          {{ savingVoid() ? 'Anulando…' : 'Sí, anular' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  <section class="table-card" aria-labelledby="lines-title">
+    <div class="table-card__head">
+      <h2 class="section-title" id="lines-title">Productos</h2>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          @if (op.kind === 'Count') {
+            <th class="end">Debería haber</th>
+            <th class="end">Contado</th>
+            <th class="end">Diferencia</th>
+          } @else {
+            <th class="end">Cantidad</th>
+          }
+          @if (op.kind !== 'Transfer') {
+            <th class="end">Costo</th>
+            <th class="end">Valor</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (line of op.lines; track line.id) {
+          <tr>
+            <td>
+              <a class="name" routerLink="/inventario/historial" [queryParams]="{ producto: line.productId }">{{ line.productName }}</a>
+              <div class="sub num">{{ line.productCode }}</div>
+            </td>
+            @if (op.kind === 'Count') {
+              <td class="end num">{{ formatQuantityWithUnit(line.expectedMilli ?? 0, line.stockUnit) }}</td>
+              <td class="end num">
+                {{ formatQuantityWithUnit(line.countedMilli ?? 0, line.stockUnit) }}
+                @if (line.enteredInPurchaseUnits) { <div class="sub">contado: {{ entered(line) }}</div> }
+              </td>
+              <td class="end num strong" [class.out]="line.quantityMilli < 0" [class.in]="line.quantityMilli > 0">
+                {{ line.quantityMilli === 0 ? 'Cuadra' : formatSignedQuantity(line.quantityMilli, line.stockUnit) }}
+              </td>
+            } @else {
+              <td class="end num">
+                {{ formatQuantityWithUnit(line.quantityMilli, line.stockUnit) }}
+                @if (line.enteredInPurchaseUnits) { <div class="sub">= {{ entered(line) }}</div> }
+              </td>
+            }
+            @if (op.kind !== 'Transfer') {
+              <td class="end num">
+                @if (line.unitCostCupMicros !== null) {
+                  {{ formatMicros(line.unitCostCupMicros) }} CUP <span class="sub">{{ perUnit(line.stockUnit) }}</span>
+                } @else { — }
+              </td>
+              <td class="end num">{{ line.valueCupCents === null ? '—' : formatMoney(line.valueCupCents) }}</td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  @if (valueCents() !== null) {
+    <section class="card totals" aria-label="Total">
+      <div class="totals__row">
+        <span>
+          @if (op.kind === 'Exit') {
+            {{ op.exitReason === 'HouseConsumption' ? 'Retiro del dueño a costo' : op.exitReason === 'Adjustment' ? 'Ajuste a costo' : 'Pérdida a costo' }}
+          } @else {
+            {{ valueCents()! >= 0 ? 'Faltante a costo (pérdida)' : 'Sobrante a costo' }}
+          }
+        </span>
+        <span class="num strong">{{ formatMoney(valueCents()! >= 0 ? valueCents()! : -valueCents()!) }}</span>
+      </div>
+      <p class="sub">Valorado al costo promedio histórico de cada producto en ese momento.</p>
+    </section>
+  }
+
+  @if (op.notes) {
+    <p class="muted">Nota: {{ op.notes }}</p>
+  }
+}
