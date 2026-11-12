@@ -233,3 +233,95 @@
   padding: 8px 28px 24px;
   color: var(--c-muted);
 }
+
+.small {
+  font-size: 12.5px;
+}
+
+/* ---- Price + suggestion ---- */
+
+.price-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+/* An action for you (accent), not an alarm. */
+.suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: var(--r-md);
+  background: var(--c-accent-soft);
+  color: var(--c-accent-ink);
+}
+
+.suggestion__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.suggestion__sub {
+  font-size: 13px;
+}
+
+.suggestion__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.formula__value--accent {
+  color: var(--c-accent-ink);
+}
+
+.buffer {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.buffer--ok { background: var(--c-ok-soft); color: var(--c-ok-ink); }
+.buffer--warn { background: var(--c-warn-soft); color: var(--c-warn-ink); }
+.buffer--muted { background: var(--c-chip); color: var(--c-ink-2); }
+
+/* ---- Stock ---- */
+
+.stock {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.stock--low {
+  color: var(--c-warn-ink);
+}
+
+.stock--negative {
+  color: var(--c-bad-ink);
+}
+
+/* ---- Purchases table ---- */
+
+.link {
+  color: var(--c-ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--c-link);
+}
+
+.voided td {
+  color: var(--c-muted);
+}
+
+.voided .strong {
+  text-decoration: line-through;
+}

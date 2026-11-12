@@ -59,8 +59,10 @@
         <thead>
           <tr>
             <th>Producto</th>
-            <th>Código</th>
+            <th class="end">Stock</th>
+            <th class="end">Costo</th>
             <th class="end">Precio</th>
+            <th class="end">Margen</th>
             <th>Estado</th>
           </tr>
         </thead>
@@ -71,10 +73,24 @@
               <td>
                 <a class="name" [routerLink]="product.id">{{ product.name }}</a>
                 <div class="sub">
-                  {{ categories().pathOf(product) }}@if (product.brand) { · {{ product.brand }} }@if (product.presentation) { · {{ product.presentation }} }
+                  <span class="code">{{ product.code }}</span> · {{ categories().pathOf(product) }}@if (product.brand) { · {{ product.brand }} }@if (product.presentation) { · {{ product.presentation }} }
                 </div>
               </td>
-              <td class="code">{{ product.code }}</td>
+              <td class="end num" [class.negative]="product.stockMilli < 0">
+                @if (product.lastPurchaseDate === null && product.stockMilli === 0) {
+                  <span class="unit">—</span>
+                } @else {
+                  {{ formatQuantityWithUnit(product.stockMilli, product.stockUnit) }}
+                }
+              </td>
+              <td class="end num">
+                @if (product.cost; as cost) {
+                  {{ formatMicros(cost.avgCostUsdMicros) }} <span class="unit">USD</span>
+                  <div class="sub">{{ formatMicros(cost.avgCostCupMicros) }} CUP</div>
+                } @else {
+                  <span class="unit">—</span>
+                }
+              </td>
               <td class="end num price">
                 @if (product.salePriceCents !== null) {
                   {{ formatHundredths(product.salePriceCents) }} <span class="unit">{{ perUnit(product.stockUnit) }}</span>
@@ -82,10 +98,17 @@
                   <span class="unit">—</span>
                 }
               </td>
+              <td class="end num">
+                @if (product.cost?.marginBps != null) {
+                  {{ formatPercent(product.cost!.marginBps!) }}
+                } @else {
+                  <span class="unit">—</span>
+                }
+              </td>
               <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
             </tr>
           } @empty {
-            <tr><td colspan="4" class="none">Ningún producto coincide con la búsqueda.</td></tr>
+            <tr><td colspan="6" class="none">Ningún producto coincide con la búsqueda.</td></tr>
           }
         </tbody>
       </table>
@@ -100,7 +123,8 @@
     }
 
     <p class="note">
-      El stock, el costo y el margen aparecen cuando empieces a registrar compras e inventario.
+      El costo se lleva en USD (promedio de las compras) y en CUP según la tasa del día de cada compra.
+      El margen es sobre el precio de venta.
     </p>
   }
 }
