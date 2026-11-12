@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Asp.Versioning.Http" Version="10.2.3"/>
+        <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.2.1"/>
+        <PackageReference Include="Asp.Versioning.OpenApi" Version="10.2.3"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15"/>
+        <PackageReference Include="Scalar.AspNetCore" Version="2.20.0"/>
+        <PackageReference Include="Serilog.AspNetCore" Version="10.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Cuadre.Application\Cuadre.Application.csproj"/>
+        <ProjectReference Include="..\Cuadre.Contracts\Cuadre.Contracts.csproj"/>
+    </ItemGroup>
+
+    <!-- Lets the integration test project see internal types if ever needed. -->
+    <ItemGroup>
+        <InternalsVisibleTo Include="Cuadre.Api.Tests.Integration"/>
+    </ItemGroup>
+
+</Project>
