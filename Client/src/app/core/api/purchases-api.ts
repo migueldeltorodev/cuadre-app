@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  CreateLocationRequest,
   CreatePurchaseRequest,
   ItemsResponse,
   LocationResponse,
@@ -9,6 +10,7 @@ import {
   PurchaseQuery,
   PurchaseResponse,
   PurchaseSummaryResponse,
+  UpdateLocationRequest,
 } from './models';
 
 /** Thin HTTP wrappers for purchases (slice 3). Routes mirror ApiEndpoints.cs. No logic here. */
@@ -47,5 +49,14 @@ export class LocationsApi {
 
   getAll(): Observable<ItemsResponse<LocationResponse>> {
     return this.http.get<ItemsResponse<LocationResponse>>('/api/locations');
+  }
+
+  create(request: CreateLocationRequest): Observable<LocationResponse> {
+    return this.http.post<LocationResponse>('/api/locations', request);
+  }
+
+  /** Rename or (de)activate. Deactivating needs it empty and another active one of its kind. */
+  update(id: string, request: UpdateLocationRequest): Observable<LocationResponse> {
+    return this.http.put<LocationResponse>(`/api/locations/${id}`, request);
   }
 }
