@@ -1,0 +1,100 @@
+import { Dialog } from '@angular/cdk/dialog';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { ApiError, toApiError } from '../../../core/api/api-error';
+import { SuppliersApi } from '../../../core/api/catalog-api';
+import { SupplierResponse } from '../../../core/api/models';
+import { DIALOG_DEFAULTS } from '../../../shared/ui/dialog-config';
+import { SupplierDialog, SupplierDialogData } from './supplier-dialog';
+
+/**
+ * Suppliers (RF-PRV-01). The supplier page with its purchase history (RF-PRV-02) comes with purchases
+ * (slice 3); this list may move under "Compras" then.
+ */
+@Component({
+  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <nav class="crumbs" aria-label="Ruta">
+      <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span> Proveedores
+    </nav>
+
+    <header class="head">
+      <div>
+        <h1 class="page-title">Proveedores</h1>
+        <p class="page-subtitle">A quién le comprás. No se borran: se desactivan.</p>
+      </div>
+      <button class="btn btn--primary" type="button" (click)="open()">+ Nuevo proveedor</button>
+    </header>
+
+    @if (error(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    @if (suppliers(); as list) {
+      <section class="card">
+        <div class="rows">
+          @for (supplier of list; track supplier.id) {
+            <div class="row" [class.row--inactive]="!supplier.isActive">
+              <div class="row__main">
+                <div class="row__title">{{ supplier.name }}</div>
+                <div class="row__sub">{{ details(supplier) }}</div>
+              </div>
+              @if (supplier.isActive) {
+                <span class="pill pill--ok">Activo</span>
+              } @else {
+                <span class="pill pill--muted">Inactivo</span>
+              }
+              <button class="btn btn--ghost btn--small" type="button" (click)="open(supplier)"
+                [attr.aria-label]="'Editar ' + supplier.name">Editar</button>
+            </div>
+          } @empty {
+            <p class="card__lead">Todavía no hay proveedores.</p>
+          }
+        </div>
+      </section>
+    }
+  `,
+  styles: `
+    :host { display: flex; flex-direction: column; gap: 20px; max-width: 880px; }
+    .crumbs { font-size: 13.5px; color: var(--c-muted); }
+    .crumbs a { text-decoration: none; }
+    .head { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; }
+    .card { padding: 8px 24px; }
+    .rows .row:first-child { border-top: 0; }
+    .card__lead { padding: 14px 0; margin: 0; }
+  `,
+})
+export default class ProveedoresPage implements OnInit {
+  private readonly dialog = inject(Dialog);
+  private readonly api = inject(SuppliersApi);
+
+  protected readonly suppliers = signal<SupplierResponse[] | null>(null);
+  protected readonly error = signal<ApiError | null>(null);
+
+  ngOnInit(): void {
+    this.reload();
+  }
+
+  /** "Juan Pérez · 5 1234567 · Entrega los martes" — whatever is filled in. */
+  protected details(supplier: SupplierResponse): string {
+    const parts = [supplier.contactName, supplier.phone, supplier.notes].filter((part) => !!part);
+    return parts.length > 0 ? parts.join(' · ') : 'Sin datos de contacto';
+  }
+
+  protected open(supplier?: SupplierResponse): void {
+    this.dialog
+      .open<SupplierResponse, SupplierDialogData>(SupplierDialog, { ...DIALOG_DEFAULTS, data: { supplier } })
+      .closed.subscribe((saved) => saved && this.reload());
+  }
+
+  private reload(): void {
+    this.api.getAll().subscribe({
+      next: (response) => {
+        this.suppliers.set(response.items);
+        this.error.set(null);
+      },
+      error: (err: unknown) => this.error.set(toApiError(err)),
+    });
+  }
+}

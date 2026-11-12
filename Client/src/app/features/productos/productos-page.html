@@ -1,0 +1,106 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Productos</h1>
+    <p class="page-subtitle">{{ subtitle() }}</p>
+  </div>
+  <div class="head__actions">
+    <a class="btn" routerLink="categorias">Categorías</a>
+    <a class="btn" routerLink="proveedores">Proveedores</a>
+    <a class="btn" routerLink="lista-de-precios">Lista de precios</a>
+    <a class="btn btn--primary" routerLink="nuevo">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+      Nuevo producto
+    </a>
+  </div>
+</header>
+
+<div class="filters">
+  <div class="search">
+    <label for="buscar" class="visually-hidden">Buscar producto</label>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"
+      stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" /></svg>
+    <input id="buscar" class="input" type="search" placeholder="Buscar por nombre, marca o código"
+      autocomplete="off" (input)="onSearch($any($event.target).value)" />
+  </div>
+
+  <div class="chips" role="group" aria-label="Filtrar por categoría">
+    <button type="button" class="chip" [attr.aria-pressed]="categoryId() === null"
+      (click)="pickCategory(null)">Todas</button>
+    @for (category of categories().topLevel; track category.id) {
+      <button type="button" class="chip" [attr.aria-pressed]="categoryId() === category.id"
+        (click)="pickCategory(category.id)">{{ category.name }}</button>
+    }
+  </div>
+
+  <label class="check">
+    <input type="checkbox" [checked]="includeInactive()" (change)="toggleInactive($any($event.target).checked)" />
+    <span>Ver inactivos</span>
+  </label>
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  @if (r.total === 0 && !search() && !categoryId()) {
+    <section class="card empty">
+      <h2 class="card__title">Todavía no hay productos</h2>
+      <p class="card__lead">
+        Primero creá las <a routerLink="categorias">categorías</a> (Comida, Bebidas…); cada una le da el prefijo
+        al código de sus productos. Después cargá los productos.
+      </p>
+      <div><a class="btn btn--primary" routerLink="nuevo">Nuevo producto</a></div>
+    </section>
+  } @else {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Código</th>
+            <th class="end">Precio</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (product of r.items; track product.id) {
+            @let state = productState(product);
+            <tr [class.inactive]="!product.isActive">
+              <td>
+                <a class="name" [routerLink]="product.id">{{ product.name }}</a>
+                <div class="sub">
+                  {{ categories().pathOf(product) }}@if (product.brand) { · {{ product.brand }} }@if (product.presentation) { · {{ product.presentation }} }
+                </div>
+              </td>
+              <td class="code">{{ product.code }}</td>
+              <td class="end num price">
+                @if (product.salePriceCents !== null) {
+                  {{ formatHundredths(product.salePriceCents) }} <span class="unit">{{ perUnit(product.stockUnit) }}</span>
+                } @else {
+                  <span class="unit">—</span>
+                }
+              </td>
+              <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="none">Ningún producto coincide con la búsqueda.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1" (click)="goTo(r.page - 1)">Anterior</button>
+        <span class="num">Página {{ r.page }} · {{ r.total }} productos</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage" (click)="goTo(r.page + 1)">Siguiente</button>
+      </nav>
+    }
+
+    <p class="note">
+      El stock, el costo y el margen aparecen cuando empieces a registrar compras e inventario.
+    </p>
+  }
+}

@@ -1,0 +1,270 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span>
+  @if (existing(); as p) {
+    <a [routerLink]="['/productos', p.id]">{{ p.name }}</a> <span aria-hidden="true">/</span> Editar
+  } @else {
+    Nuevo
+  }
+</nav>
+
+<h1 class="page-title">{{ editing() ? 'Editar producto' : 'Nuevo producto' }}</h1>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese producto no existe.' : e.message }}</p>
+}
+
+@if (loaded()) {
+  @if (categories().topLevel.length === 0) {
+    <p class="alert alert--warn">
+      Antes de cargar productos creá al menos una categoría. <a routerLink="/productos/categorias">Ir a categorías</a>
+    </p>
+  }
+
+  <form class="form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <!-- 1. What it is -->
+    <section class="card form" aria-labelledby="what-title">
+      <h2 class="card__title" id="what-title">Qué es</h2>
+
+      <label class="field">
+        <span class="field__label">Nombre</span>
+        <input class="input" formControlName="name" [class.input--invalid]="invalid('name')" autocomplete="off"
+          placeholder="Arroz guyanés" />
+        @if (invalid('name')) {
+          <span class="field__error">El nombre es obligatorio (hasta 100 letras).</span>
+        }
+      </label>
+
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Marca <span class="opt">(opcional)</span></span>
+          <input class="input" formControlName="brand" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span class="field__label">Presentación <span class="opt">(opcional)</span></span>
+          <input class="input" formControlName="presentation" autocomplete="off" placeholder="Bolsa 1 kg, lata 355 ml…" />
+        </label>
+      </div>
+
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Categoría</span>
+          <select class="input" formControlName="categoryId" [class.input--invalid]="invalid('categoryId')"
+            (change)="onCategoryChange($any($event.target).value)">
+            <option value="" disabled>Elegí una…</option>
+            @for (category of categories().topLevel; track category.id) {
+              <option [value]="category.id">{{ category.name }}</option>
+            }
+          </select>
+          @if (invalid('categoryId')) {
+            <span class="field__error">Elegí una categoría.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">Subcategoría <span class="opt">(opcional)</span></span>
+          <select class="input" formControlName="subcategoryId" [attr.disabled]="subcategories().length === 0 ? '' : null">
+            <option value="">Ninguna</option>
+            @for (sub of subcategories(); track sub.id) {
+              <option [value]="sub.id">{{ sub.name }}</option>
+            }
+          </select>
+          @if (serverError('subcategoryId'); as message) {
+            <span class="field__error">{{ message }}</span>
+          }
+        </label>
+      </div>
+
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Código</span>
+          <input class="input num" formControlName="code" [class.input--invalid]="invalid('code')" autocomplete="off"
+            placeholder="Se arma solo con la categoría" />
+          @if (invalid('code')) {
+            <span class="field__error">Solo letras, números y guiones (hasta 20).</span>
+          } @else if (serverError('code'); as message) {
+            <span class="field__error">{{ message }}</span>
+          } @else {
+            <span class="field__hint">Se propone según la categoría (ARR-001…). Podés cambiarlo.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">Código de barras <span class="opt">(opcional)</span></span>
+          <input class="input num" formControlName="barcode" [class.input--invalid]="invalid('barcode')"
+            autocomplete="off" />
+          @if (invalid('barcode')) {
+            <span class="field__error">Solo letras y números.</span>
+          }
+        </label>
+      </div>
+    </section>
+
+    <!-- 2. How it is bought and sold -->
+    <section class="card form" aria-labelledby="units-title">
+      <div>
+        <h2 class="card__title" id="units-title">Cómo se compra y se vende</h2>
+        <p class="card__lead">El stock se cuenta en la unidad en que se vende.</p>
+      </div>
+
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Se compra por</span>
+          <select class="input" formControlName="purchaseUnit">
+            @for (unit of units(); track unit.code) {
+              <option [value]="unit.code">{{ unitName(unit.code) }}</option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Se vende y se cuenta por</span>
+          <select class="input" formControlName="stockUnit">
+            @for (unit of units(); track unit.code) {
+              <option [value]="unit.code">{{ unitName(unit.code) }}{{ unit.allowsDecimals ? ' (admite decimales)' : '' }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (!sameUnit()) {
+        <div class="field">
+          <span class="field__label" id="factor-label">Equivalencia</span>
+          <div class="factor">
+            <span>{{ factorPrefix() }}</span>
+            <div class="input input--affix factor__input" [class.input--invalid]="invalid('conversionFactor') || factorFraction()">
+              <input formControlName="conversionFactor" inputmode="decimal" aria-labelledby="factor-label" />
+            </div>
+            <span>{{ stockUnitWord() }}</span>
+          </div>
+          @if (invalid('conversionFactor')) {
+            <span class="field__error">Escribí cuántas hay, mayor que cero (ej. 100 o 2.5).</span>
+          } @else if (factorFraction()) {
+            <span class="field__error">Esa unidad no admite decimales: tiene que ser un número entero.</span>
+          } @else if (serverError('conversionFactorMilli'); as message) {
+            <span class="field__error">{{ message }}</span>
+          } @else {
+            <span class="field__hint">Fija para este producto; en una compra puntual se puede corregir.</span>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- 3. Price -->
+    <section class="card form" aria-labelledby="price-title">
+      <div>
+        <h2 class="card__title" id="price-title">Precio</h2>
+        <p class="card__lead">
+          El precio no se recalcula solo. Si dejás vacíos el recargo o el colchón, se usan los del negocio.
+        </p>
+      </div>
+
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Precio de venta <span class="opt">(opcional por ahora)</span></span>
+          <div class="input input--affix" [class.input--invalid]="invalid('salePrice')">
+            <input formControlName="salePrice" inputmode="decimal" placeholder="—" />
+            <span class="input__affix">CUP / {{ stockUnitWord() }}</span>
+          </div>
+          @if (invalid('salePrice')) {
+            <span class="field__error">Escribí un precio mayor que cero (ej. 250 o 12.50).</span>
+          } @else if (existing()?.salePriceCents != null) {
+            <span class="field__hint">Si lo cambiás, queda en el historial y se marca para el cartel.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">Recargo propio <span class="opt">(opcional)</span></span>
+          <div class="input input--affix" [class.input--invalid]="invalid('markup')">
+            <input formControlName="markup" inputmode="decimal" [placeholder]="markupPlaceholder()" />
+            <span class="input__affix">%</span>
+          </div>
+          @if (invalid('markup')) {
+            <span class="field__error">Un porcentaje de 0 a 1000.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">Colchón propio <span class="opt">(opcional)</span></span>
+          <div class="input input--affix" [class.input--invalid]="invalid('buffer')">
+            <input formControlName="buffer" inputmode="decimal" [placeholder]="bufferPlaceholder()" />
+            <span class="input__affix">CUP</span>
+          </div>
+          @if (invalid('buffer')) {
+            <span class="field__error">Un monto en CUP (ej. 20).</span>
+          }
+        </label>
+      </div>
+    </section>
+
+    <!-- 4. Control -->
+    <section class="card form" aria-labelledby="control-title">
+      <h2 class="card__title" id="control-title">Control</h2>
+
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Stock mínimo</span>
+          <div class="input input--affix" [class.input--invalid]="invalid('minStock') || minStockFraction()">
+            <input formControlName="minStock" inputmode="decimal" />
+            <span class="input__affix">{{ stockUnitWord() }}</span>
+          </div>
+          @if (invalid('minStock')) {
+            <span class="field__error">Una cantidad (0 si no querés aviso).</span>
+          } @else if (minStockFraction()) {
+            <span class="field__error">Esa unidad no admite decimales.</span>
+          } @else {
+            <span class="field__hint">Por debajo de esto, avisa que hay que reponer.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">Merma aceptada</span>
+          <div class="input input--affix" [class.input--invalid]="invalid('shrinkage')">
+            <input formControlName="shrinkage" inputmode="decimal" />
+            <span class="input__affix">%</span>
+          </div>
+          @if (invalid('shrinkage')) {
+            <span class="field__error">Un porcentaje de 0 a 100.</span>
+          } @else {
+            <span class="field__hint">Lo que se pierde normalmente (granel que se riega, etc.).</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">Proveedor habitual <span class="opt">(opcional)</span></span>
+          <select class="input" formControlName="usualSupplierId">
+            <option value="">Ninguno</option>
+            @for (supplier of selectableSuppliers(); track supplier.id) {
+              <option [value]="supplier.id">{{ supplier.name }}{{ supplier.isActive ? '' : ' (inactivo)' }}</option>
+            }
+          </select>
+          @if (serverError('usualSupplierId'); as message) {
+            <span class="field__error">{{ message }}</span>
+          } @else if (suppliers().length === 0) {
+            <span class="field__hint"><a routerLink="/productos/proveedores">Cargar proveedores</a></span>
+          }
+        </label>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" formControlName="isPerishable" />
+        <span>Es perecedero (se vence o se echa a perder)</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Notas <span class="opt">(opcional)</span></span>
+        <textarea class="input textarea" formControlName="notes" rows="3"></textarea>
+      </label>
+
+      @if (editing()) {
+        <label class="check">
+          <input type="checkbox" formControlName="isActive" />
+          <span>Producto activo <span class="opt">(los inactivos no se borran: salen de la lista y del cartel)</span></span>
+        </label>
+      }
+    </section>
+
+    @if (error(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="form__actions">
+      <a class="btn" [routerLink]="existing() ? ['/productos', existing()!.id] : '/productos'">Cancelar</a>
+      <button class="btn btn--primary" type="submit" [disabled]="saving()">
+        {{ saving() ? 'Guardando…' : editing() ? 'Guardar cambios' : 'Crear producto' }}
+      </button>
+    </div>
+  </form>
+}
