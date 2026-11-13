@@ -12,7 +12,8 @@ namespace Cuadre.Application.Database;
 ///  - locations (Almacén, Mostrador) the same way, checked on their own so existing installs get them too;
 ///  - envelopes and the first allocation plan (slice 5) the same way. Then every cash movement still without an
 ///    envelope (the purchases recorded before slice 5) is assigned to Reposición, so the envelopes of each box
-///    always add up to the box.
+///    always add up to the box;
+///  - the staff pay scheme (slice 6): 1,000 CUP per day + 1% of A1 (D-12), "since always", if there is none.
 /// Kept out of the migrations so the integration tests can wipe every table and re-seed.
 /// </summary>
 public sealed class DatabaseSeeder
@@ -101,6 +102,15 @@ public sealed class DatabaseSeeder
                     """, new { planId, envelopeId, percentBps }, transaction, cancellationToken: cancellationToken));
             }
         }
+
+        // Staff pay (RN-08, D-12). Never deleted: "none" means first run of slice 6.
+        await connection.ExecuteAsync(new CommandDefinition("""
+            INSERT INTO staff_pay_schemes (id, effective_from, daily_fixed_cents, percent_of_sales_bps, notes,
+                                           created_at, updated_at)
+            SELECT @id, @effectiveFrom, 100000, 100, NULL, @now, @now
+            WHERE NOT EXISTS (SELECT 1 FROM staff_pay_schemes)
+            """, new { id = Guid.NewGuid(), effectiveFrom = InitialPlanDate, now }, transaction,
+            cancellationToken: cancellationToken));
 
         await connection.ExecuteAsync(new CommandDefinition("""
             UPDATE cash_movements

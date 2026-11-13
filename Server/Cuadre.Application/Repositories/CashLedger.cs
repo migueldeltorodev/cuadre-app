@@ -17,9 +17,10 @@ internal static class CashLedger
         {
             await connection.ExecuteAsync(new CommandDefinition("""
                 INSERT INTO cash_movements (id, cash_box_id, envelope_id, date, kind, amount_cents, description,
-                                            purchase_id, envelope_operation_id, stock_operation_id, created_at)
+                                            purchase_id, envelope_operation_id, stock_operation_id, closing_id,
+                                            created_at)
                 VALUES (@Id, @CashBoxId, @EnvelopeId, @Date, @Kind, @AmountCents, @Description,
-                        @PurchaseId, @EnvelopeOperationId, @StockOperationId, @CreatedAt)
+                        @PurchaseId, @EnvelopeOperationId, @StockOperationId, @ClosingId, @CreatedAt)
                 """, new
             {
                 movement.Id,
@@ -32,6 +33,7 @@ internal static class CashLedger
                 movement.PurchaseId,
                 movement.EnvelopeOperationId,
                 movement.StockOperationId,
+                movement.ClosingId,
                 movement.CreatedAt
             }, transaction, cancellationToken: cancellationToken));
         }
@@ -39,14 +41,15 @@ internal static class CashLedger
 
     /// <summary>
     /// "Is the document behind this row voided?" for any ledger query aliased m (cash_movements), p (purchases),
-    /// eo (envelope_operations) and so (stock_operations).
+    /// eo (envelope_operations), so (stock_operations) and dc (daily_closings: Voided = reopened).
     /// </summary>
     public const string IsVoidedColumn =
-        "COALESCE(p.status, eo.status, so.status, 'Confirmed') = 'Voided' AS is_voided";
+        "COALESCE(p.status, eo.status, so.status, dc.status, 'Confirmed') = 'Voided' AS is_voided";
 
     public const string DocumentJoins = """
         LEFT JOIN purchases p ON p.id = m.purchase_id
         LEFT JOIN envelope_operations eo ON eo.id = m.envelope_operation_id
         LEFT JOIN stock_operations so ON so.id = m.stock_operation_id
+        LEFT JOIN daily_closings dc ON dc.id = m.closing_id
         """;
 }
