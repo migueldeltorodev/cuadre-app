@@ -18,9 +18,10 @@ internal static class CashLedger
             await connection.ExecuteAsync(new CommandDefinition("""
                 INSERT INTO cash_movements (id, cash_box_id, envelope_id, date, kind, amount_cents, description,
                                             purchase_id, envelope_operation_id, stock_operation_id, closing_id,
-                                            recovery_id, created_at)
+                                            recovery_id, expense_id, created_at)
                 VALUES (@Id, @CashBoxId, @EnvelopeId, @Date, @Kind, @AmountCents, @Description,
-                        @PurchaseId, @EnvelopeOperationId, @StockOperationId, @ClosingId, @RecoveryId, @CreatedAt)
+                        @PurchaseId, @EnvelopeOperationId, @StockOperationId, @ClosingId, @RecoveryId,
+                        @ExpenseId, @CreatedAt)
                 """, new
             {
                 movement.Id,
@@ -35,6 +36,7 @@ internal static class CashLedger
                 movement.StockOperationId,
                 movement.ClosingId,
                 movement.RecoveryId,
+                movement.ExpenseId,
                 movement.CreatedAt
             }, transaction, cancellationToken: cancellationToken));
         }
@@ -43,10 +45,10 @@ internal static class CashLedger
     /// <summary>
     /// "Is the document behind this row voided?" for any ledger query aliased m (cash_movements), p (purchases),
     /// eo (envelope_operations), so (stock_operations), dc (daily_closings: Voided = reopened) and
-    /// rec (cash_discrepancy_recoveries); rd is the shortage a recovery belongs to.
+    /// rec (cash_discrepancy_recoveries), ex (expenses); rd is the shortage a recovery belongs to.
     /// </summary>
     public const string IsVoidedColumn =
-        "COALESCE(p.status, eo.status, so.status, dc.status, rec.status, 'Confirmed') = 'Voided' AS is_voided";
+        "COALESCE(p.status, eo.status, so.status, dc.status, rec.status, ex.status, 'Confirmed') = 'Voided' AS is_voided";
 
     public const string DocumentJoins = """
         LEFT JOIN purchases p ON p.id = m.purchase_id
@@ -55,5 +57,6 @@ internal static class CashLedger
         LEFT JOIN daily_closings dc ON dc.id = m.closing_id
         LEFT JOIN cash_discrepancy_recoveries rec ON rec.id = m.recovery_id
         LEFT JOIN cash_discrepancies rd ON rd.id = rec.discrepancy_id
+        LEFT JOIN expenses ex ON ex.id = m.expense_id
         """;
 }

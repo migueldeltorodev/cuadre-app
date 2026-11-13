@@ -13,13 +13,26 @@ namespace Cuadre.Application.Database;
 ///  - envelopes and the first allocation plan (slice 5) the same way. Then every cash movement still without an
 ///    envelope (the purchases recorded before slice 5) is assigned to Reposición, so the envelopes of each box
 ///    always add up to the box;
-///  - the staff pay scheme (slice 6): 1,000 CUP per day + 1% of A1 (D-12), "since always", if there is none.
+///  - the staff pay scheme (slice 6): 1,000 CUP per day + 1% of A1 (D-12), "since always", if there is none;
+///  - the expense categories (slice 7) the same way as the cash boxes.
 /// Kept out of the migrations so the integration tests can wipe every table and re-seed.
 /// </summary>
 public sealed class DatabaseSeeder
 {
     /// <summary>The first allocation plan applies "since always" (the UI shows it as "desde el principio").</summary>
     public static readonly DateOnly InitialPlanDate = new(2000, 1, 1);
+
+    /// <summary>The usual expenses of a small Cuban business; the owner renames, adds or deactivates them.</summary>
+    public static readonly string[] DefaultExpenseCategories =
+    [
+        "Gestor y contador",
+        "Transporte",
+        "Servicios (luz, agua, teléfono)",
+        "Alquiler",
+        "Mantenimiento y reparaciones",
+        "Envases y materiales",
+        "Otros"
+    ];
 
     private readonly IDbConnectionFactory _dbConnectionFactory;
     private readonly TimeProvider _clock;
@@ -111,6 +124,22 @@ public sealed class DatabaseSeeder
             WHERE NOT EXISTS (SELECT 1 FROM staff_pay_schemes)
             """, new { id = Guid.NewGuid(), effectiveFrom = InitialPlanDate, now }, transaction,
             cancellationToken: cancellationToken));
+
+        // Expense categories (RF-GAS-03): never deleted either, so "none" means first run of slice 7.
+        var hasExpenseCategories = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "SELECT EXISTS(SELECT 1 FROM expense_categories)", transaction: transaction,
+            cancellationToken: cancellationToken));
+
+        if (!hasExpenseCategories)
+        {
+            foreach (var name in DefaultExpenseCategories)
+            {
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    INSERT INTO expense_categories (id, name, is_active, created_at, updated_at)
+                    VALUES (@id, @name, 1, @now, @now)
+                    """, new { id = Guid.NewGuid(), name, now }, transaction, cancellationToken: cancellationToken));
+            }
+        }
 
         await connection.ExecuteAsync(new CommandDefinition("""
             UPDATE cash_movements

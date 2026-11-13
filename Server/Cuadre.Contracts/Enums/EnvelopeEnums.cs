@@ -50,5 +50,7 @@ public enum CashMovementType
     StaffPay,
     ClosingVoid,
     ShortageRecovery,
-    ShortageRecoveryVoid
+    ShortageRecoveryVoid,
+    Expense,
+    ExpenseVoid
 }

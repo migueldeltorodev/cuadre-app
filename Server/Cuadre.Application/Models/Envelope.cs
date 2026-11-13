@@ -125,6 +125,11 @@ public class CashMovementEntry
 
     public Guid? RecoveryClosingId { get; init; }
 
+    /// <summary>A gasto (slice 7).</summary>
+    public Guid? ExpenseId { get; init; }
+
+    public int? ExpenseNumber { get; init; }
+
     /// <summary>Its document was voided later (the row and its reversal both stay).</summary>
     public bool IsVoided { get; init; }
 

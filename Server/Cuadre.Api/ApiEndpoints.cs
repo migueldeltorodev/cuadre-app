@@ -247,6 +247,43 @@ public static class ApiEndpoints
         public const string Evaluation = $"{Base}/evaluation";
     }
 
+    /// <summary>RF-GAS-03. No DELETE: expenses point to them, so they are deactivated.</summary>
+    public static class ExpenseCategories
+    {
+        private const string Base = $"{ApiBase}/expense-categories";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>RF-GAS-02/04. Like purchases: no PUT, no DELETE; voided with a reason.</summary>
+    public static class Expenses
+    {
+        private const string Base = $"{ApiBase}/expenses";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>
+    /// RF-GAS-01: the templates and their occurrences. "due" is a literal segment, so it never collides with
+    /// {id:guid}. Confirming creates an expense; skipping moves no money.
+    /// </summary>
+    public static class RecurringExpenses
+    {
+        private const string Base = $"{ApiBase}/recurring-expenses";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+        public const string Due = $"{Base}/due";
+        public const string Confirm = $"{Base}/{{id:guid}}/confirm";
+        public const string Skip = $"{Base}/{{id:guid}}/skip";
+    }
+
     /// <summary>Who works the counter. Never deleted, only deactivated.</summary>
     public static class Employees
     {
