@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
@@ -17,18 +17,9 @@ import {
   StockQuery,
   StockResponse,
 } from './models';
+import { toParams } from './query-params';
 
 /** Thin HTTP wrappers for inventory (slice 4). Routes mirror ApiEndpoints.cs. No logic here. */
-
-function toParams(query: object): HttpParams {
-  let params = new HttpParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && value !== '' && value !== false) {
-      params = params.set(key, String(value));
-    }
-  }
-  return params;
-}
 
 /** Transfers, exits and counts. Saving = confirming; never edited, only voided. */
 @Injectable({ providedIn: 'root' })

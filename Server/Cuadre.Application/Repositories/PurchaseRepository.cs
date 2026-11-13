@@ -286,25 +286,7 @@ public class PurchaseRepository : IPurchaseRepository
         CancellationToken cancellationToken)
     {
         await StockLedger.AppendAsync(connection, transaction, stockMovements, cancellationToken);
-
-        foreach (var movement in cashMovements)
-        {
-            await connection.ExecuteAsync(new CommandDefinition("""
-                INSERT INTO cash_movements (id, cash_box_id, date, kind, amount_cents, description, purchase_id,
-                                            created_at)
-                VALUES (@Id, @CashBoxId, @Date, @Kind, @AmountCents, @Description, @PurchaseId, @CreatedAt)
-                """, new
-            {
-                movement.Id,
-                movement.CashBoxId,
-                movement.Date,
-                Kind = movement.Kind.ToString(),
-                movement.AmountCents,
-                movement.Description,
-                movement.PurchaseId,
-                movement.CreatedAt
-            }, transaction, cancellationToken: cancellationToken));
-        }
+        await CashLedger.AppendAsync(connection, transaction, cashMovements, cancellationToken);
     }
 
     private static Task RecalculateCostsAsync(IDbConnection connection, IDbTransaction transaction,

@@ -1,0 +1,142 @@
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (envelopes()) {
+  <section class="card plan" aria-labelledby="plan-title">
+    <div class="card__head">
+      <div>
+        <h2 class="card__title" id="plan-title">Cómo se reparte lo que es tuyo de verdad</h2>
+        <p class="card__lead">
+          Estos porcentajes se aplican al ingreso real (A3) en cada cierre.
+          @if (latestPlan(); as latest) {
+            El último reparto vale {{ planStartLabel(latest.effectiveFrom) }}.
+          }
+        </p>
+      </div>
+      <span class="total" [class.total--ok]="isBalanced()" [class.total--bad]="!isBalanced()">{{ totalText() }}</span>
+    </div>
+
+    <div class="rows">
+      @for (envelope of withPercent(); track envelope.id) {
+        <div class="split">
+          <span class="swatch" [style.background]="swatches[envelope.role]"></span>
+          <div class="split__main">
+            <div class="row__title">{{ envelope.name }}</div>
+            <div class="row__sub">{{ notes[envelope.role] }}</div>
+          </div>
+          <div class="stepper">
+            <button class="stepper__btn" type="button" (click)="step(envelope.id, -1)"
+              [attr.aria-label]="'Bajar 1% a ' + envelope.name">−</button>
+            <span class="input input--affix stepper__input" [class.input--invalid]="showInvalid(envelope.id)">
+              <input inputmode="decimal" autocomplete="off" class="num" [value]="texts()[envelope.id] ?? ''"
+                [attr.aria-label]="'Porcentaje de ' + envelope.name"
+                (input)="setText(envelope.id, $any($event.target).value)" />
+              <span>%</span>
+            </span>
+            <button class="stepper__btn" type="button" (click)="step(envelope.id, 1)"
+              [attr.aria-label]="'Subir 1% a ' + envelope.name">+</button>
+          </div>
+          <div class="split__example">
+            <div class="row__sub">De cada 1,000</div>
+            <div class="num strong">{{ example(envelope.id) }}</div>
+          </div>
+          <button class="btn btn--ghost btn--small" type="button" (click)="openEnvelope(envelope)"
+            [attr.aria-label]="'Editar ' + envelope.name">Editar</button>
+        </div>
+      }
+      @if (replenishment(); as r) {
+        <div class="split">
+          <span class="swatch" [style.background]="swatches[r.role]"></span>
+          <div class="split__main">
+            <div class="row__title">{{ r.name }}</div>
+            <div class="row__sub">
+              Sobre especial: recibe el costo de lo vendido (A2), no lleva porcentaje. De acá salen las compras.
+            </div>
+          </div>
+          <button class="btn btn--ghost btn--small" type="button" (click)="openEnvelope(r)"
+            [attr.aria-label]="'Editar ' + r.name">Editar</button>
+        </div>
+      }
+    </div>
+
+    <div class="form__row bottom">
+      <label class="field date">
+        <span class="field__label">Vale desde</span>
+        <input class="input num" type="date" [min]="latestPlan()?.effectiveFrom ?? ''" [value]="effectiveFrom()"
+          (change)="effectiveFrom.set($any($event.target).value)" [class.input--invalid]="!!dateProblem()" />
+        @if (dateProblem(); as problem) {
+          <span class="field__error">{{ problem }}</span>
+        } @else if (replacesLatest()) {
+          <span class="field__hint">Reemplaza el reparto que empieza ese mismo día.</span>
+        }
+      </label>
+    </div>
+
+    @if (showUnbalanced()) {
+      <p class="alert alert--bad" role="alert">
+        Los porcentajes tienen que sumar exactamente 100% (cada uno entre 0 y 100). {{ totalText() }}.
+      </p>
+    }
+    @if (feedback.error(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="actions">
+      <button class="link-btn" type="button" (click)="openEnvelope()">+ Crear otro sobre</button>
+      <div class="actions__save">
+        @if (feedback.saved()) {
+          <span class="saved" role="status">Guardado ✓</span>
+        }
+        <button class="btn btn--primary" type="button" [disabled]="feedback.saving()" (click)="savePlan()">
+          {{ saveLabel() }}
+        </button>
+      </div>
+    </div>
+    <p class="muted">Los cambios valen desde la fecha que elijas. Los repartos de días anteriores no se tocan.</p>
+  </section>
+
+  @if (plans().length > 0) {
+    <section class="card" aria-labelledby="history-title">
+      <div>
+        <h2 class="card__title" id="history-title">Repartos anteriores</h2>
+        <p class="card__lead">Cada cierre usa el reparto que valía ese día.</p>
+      </div>
+      <div class="rows">
+        @for (plan of plans(); track plan.id) {
+          <div class="row">
+            <div class="row__main">
+              <div class="row__title">{{ planStartLabel(plan.effectiveFrom) }}</div>
+              <div class="row__sub num">{{ planSummary(plan) }}</div>
+            </div>
+            @if (plan.id === currentPlanId()) {
+              <span class="pill pill--ok">Vigente</span>
+            } @else if (plan.effectiveFrom > today) {
+              <span class="pill pill--warn">Programado</span>
+            } @else {
+              <span class="pill pill--muted">Anterior</span>
+            }
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  @if (inactive().length > 0) {
+    <section class="card" aria-labelledby="inactive-title">
+      <h2 class="card__title" id="inactive-title">Sobres desactivados</h2>
+      <div class="rows">
+        @for (envelope of inactive(); track envelope.id) {
+          <div class="row row--inactive">
+            <div class="row__main">
+              <div class="row__title">{{ envelope.name }}</div>
+            </div>
+            <span class="pill pill--muted">Inactivo</span>
+            <button class="btn btn--ghost btn--small" type="button" (click)="openEnvelope(envelope)"
+              [attr.aria-label]="'Editar ' + envelope.name">Editar</button>
+          </div>
+        }
+      </div>
+    </section>
+  }
+}

@@ -23,7 +23,11 @@ export const CONFIGURACION_ROUTES: Routes = [
         title: 'Precios y moneda · Configuración · Cuadre',
         loadComponent: () => import('./precios-y-moneda/precios-y-moneda-section'),
       },
-      later('profit-first', 'Profit First'),
+      {
+        path: 'profit-first',
+        title: 'Profit First · Configuración · Cuadre',
+        loadComponent: () => import('./profit-first/profit-first-section'),
+      },
       later('personal', 'Personal'),
       later('respaldo', 'Respaldo'),
     ],

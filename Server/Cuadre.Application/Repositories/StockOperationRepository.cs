@@ -10,9 +10,12 @@ public interface IStockOperationRepository
     /// <summary>MAX + 1, one sequence for every kind. number is UNIQUE: a clash fails instead of duplicating.</summary>
     Task<int> GetNextNumberAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Header, lines, movements and the replayed costs of its products: ONE transaction.</summary>
-    Task CreateAsync(StockOperation operation, IReadOnlyList<StockMovement> movements, DateTime now,
-        CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Header, lines, stock movements, the cash movements between envelopes (house consumption, RN-11) and the
+    /// replayed costs of its products: ONE transaction.
+    /// </summary>
+    Task CreateAsync(StockOperation operation, IReadOnlyList<StockMovement> movements,
+        IReadOnlyList<CashMovement> cashMovements, DateTime now, CancellationToken cancellationToken = default);
 
     /// <summary>With location names and lines (product name, code and units).</summary>
     Task<StockOperation?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
@@ -22,9 +25,12 @@ public interface IStockOperationRepository
 
     Task<int> GetCountAsync(GetAllStockOperationsOptions options, CancellationToken cancellationToken = default);
 
-    /// <summary>Marks it voided, writes the reversal movements and replays the costs. One transaction.</summary>
-    Task VoidAsync(StockOperation operation, IReadOnlyList<StockMovement> movements, DateTime now,
-        CancellationToken cancellationToken = default);
+    /// <summary>Marks it voided, writes the reversal movements (stock and cash) and replays the costs. One transaction.</summary>
+    Task VoidAsync(StockOperation operation, IReadOnlyList<StockMovement> movements,
+        IReadOnlyList<CashMovement> cashMovements, DateTime now, CancellationToken cancellationToken = default);
+
+    /// <summary>The cash movements the operation wrote (house consumption), to reverse them.</summary>
+    Task<IEnumerable<CashMovement>> GetCashMovementsAsync(Guid operationId, CancellationToken cancellationToken = default);
 }
 
 public class StockOperationRepository : IStockOperationRepository
@@ -54,8 +60,8 @@ public class StockOperationRepository : IStockOperationRepository
             "SELECT COALESCE(MAX(number), 0) + 1 FROM stock_operations", cancellationToken: cancellationToken));
     }
 
-    public async Task CreateAsync(StockOperation operation, IReadOnlyList<StockMovement> movements, DateTime now,
-        CancellationToken cancellationToken = default)
+    public async Task CreateAsync(StockOperation operation, IReadOnlyList<StockMovement> movements,
+        IReadOnlyList<CashMovement> cashMovements, DateTime now, CancellationToken cancellationToken = default)
     {
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
@@ -108,6 +114,7 @@ public class StockOperationRepository : IStockOperationRepository
         }
 
         await StockLedger.AppendAsync(connection, transaction, movements, cancellationToken);
+        await CashLedger.AppendAsync(connection, transaction, cashMovements, cancellationToken);
         await StockLedger.RecalculateCostsAsync(connection, transaction,
             operation.Lines.Select(line => line.ProductId), now, cancellationToken);
 
@@ -186,8 +193,8 @@ public class StockOperationRepository : IStockOperationRepository
             ToFilterParameters(options, paged: false), cancellationToken: cancellationToken));
     }
 
-    public async Task VoidAsync(StockOperation operation, IReadOnlyList<StockMovement> movements, DateTime now,
-        CancellationToken cancellationToken = default)
+    public async Task VoidAsync(StockOperation operation, IReadOnlyList<StockMovement> movements,
+        IReadOnlyList<CashMovement> cashMovements, DateTime now, CancellationToken cancellationToken = default)
     {
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
@@ -204,10 +211,24 @@ public class StockOperationRepository : IStockOperationRepository
             transaction, cancellationToken: cancellationToken));
 
         await StockLedger.AppendAsync(connection, transaction, movements, cancellationToken);
+        await CashLedger.AppendAsync(connection, transaction, cashMovements, cancellationToken);
         await StockLedger.RecalculateCostsAsync(connection, transaction,
             operation.Lines.Select(line => line.ProductId), now, cancellationToken);
 
         transaction.Commit();
+    }
+
+    public async Task<IEnumerable<CashMovement>> GetCashMovementsAsync(Guid operationId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryAsync<CashMovement>(new CommandDefinition("""
+            SELECT id, cash_box_id, envelope_id, date, kind, amount_cents, description, purchase_id,
+                   envelope_operation_id, stock_operation_id, created_at
+            FROM cash_movements
+            WHERE stock_operation_id = @operationId
+            ORDER BY rowid
+            """, new { operationId }, cancellationToken: cancellationToken));
     }
 
     private static object ToFilterParameters(GetAllStockOperationsOptions options, bool paged) => new

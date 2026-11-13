@@ -1,0 +1,139 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/sobres">Sobres</a> <span aria-hidden="true">/</span>
+  <a routerLink="/sobres/operaciones">Operaciones</a> <span aria-hidden="true">/</span>
+  {{ operation() ? '#' + operation()!.number : '…' }}
+</nav>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Esa operación no existe.' : e.message }}</p>
+}
+
+@if (operation(); as op) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">{{ kindLabel(op.kind) }} #{{ op.number }}</h1>
+      <div class="tags">
+        <span class="tag">{{ formatShortDate(op.date) }}</span>
+        @if (op.cashBoxName) {
+          <span class="tag">{{ op.cashBoxName }}</span>
+        }
+        @if (state(); as s) {
+          <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+        }
+      </div>
+    </div>
+    @if (op.status === 'Confirmed' && !voiding()) {
+      <button class="btn" type="button" (click)="startVoid()">Anular</button>
+    }
+  </header>
+
+  @if (op.status === 'Voided') {
+    <p class="alert alert--warn">
+      Anulada el {{ op.voidedAt ? formatTimestampDay(op.voidedAt) : '' }}: {{ op.voidReason }}.
+      La plata volvió a sus sobres con movimientos de ese día.
+    </p>
+  }
+
+  @if (op.warnings.length > 0) {
+    <div class="alert alert--warn" role="status">
+      @for (w of op.warnings; track w.envelopeId + w.cashBoxId) {
+        <div>{{ w.envelopeName }} en {{ w.cashBoxName }} quedó en {{ formatBalance(w.balanceCents, w.currency) }}.</div>
+      }
+    </div>
+  }
+
+  @if (voiding()) {
+    <section class="card void" aria-labelledby="void-title">
+      <h2 class="card__title" id="void-title">Anular {{ kindLabel(op.kind).toLowerCase() }} #{{ op.number }}</h2>
+      <p class="card__lead">
+        Se escribe el movimiento contrario en cada sobre, con fecha de hoy. Queda registrada como anulada: no se borra.
+      </p>
+      <label class="field">
+        <span class="field__label">Por qué se anula</span>
+        <input class="input" [formControl]="reason" autocomplete="off" placeholder="Monto equivocado, era otro sobre…"
+          [class.input--invalid]="reason.invalid && reason.touched" />
+        @if (reason.invalid && reason.touched) {
+          <span class="field__error">Escribí el motivo.</span>
+        }
+      </label>
+      @if (voidError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancelVoid()">No, volver</button>
+        <button class="btn btn--danger" type="button" [disabled]="savingVoid()" (click)="confirmVoid()">
+          {{ savingVoid() ? 'Anulando…' : 'Sí, anular' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (op.kind === 'Opening') {
+    <section class="table-card" aria-labelledby="lines-title">
+      <div class="table-card__head">
+        <h2 class="section-title" id="lines-title">Montos ajustados</h2>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Sobre</th>
+            <th>Caja</th>
+            <th class="end">Tenía</th>
+            <th class="end">Quedó en</th>
+            <th class="end">Diferencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (line of op.lines; track line.id) {
+            <tr>
+              <td><a class="name" [routerLink]="['/sobres', line.envelopeId]">{{ line.envelopeName }}</a></td>
+              <td>{{ line.cashBoxName }}</td>
+              <td class="end num">
+                {{ line.targetCents === null ? '—' : formatBalance(line.targetCents - line.amountCents, line.currency) }}
+              </td>
+              <td class="end num">{{ line.targetCents === null ? '—' : formatBalance(line.targetCents, line.currency) }}</td>
+              <td class="end num strong" [class.in]="line.amountCents > 0" [class.out]="line.amountCents < 0">
+                {{ formatSignedMoney(line.amountCents, line.currency) }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  } @else {
+    <section class="card totals" aria-label="Detalle">
+      @switch (op.kind) {
+        @case ('Transfer') {
+          <div class="totals__row">
+            <span>
+              De <a [routerLink]="['/sobres', op.envelopeId]">{{ op.envelopeName }}</a>
+              a <a [routerLink]="['/sobres', op.toEnvelopeId]">{{ op.toEnvelopeName }}</a>
+            </span>
+            <span class="num strong">{{ op.amountCents === null ? '—' : formatMoney(op.amountCents, op.currency ?? 'CUP') }}</span>
+          </div>
+          <p class="sub">La plata sigue en {{ op.cashBoxName }}: cambió para qué es.</p>
+        }
+        @case ('TaxPayment') {
+          <div class="totals__row">
+            <span>{{ op.concept }} <span class="sub">desde <a [routerLink]="['/sobres', op.envelopeId]">{{ op.envelopeName }}</a></span></span>
+            <span class="num strong">{{ op.amountCents === null ? '—' : formatMoney(op.amountCents, op.currency ?? 'CUP') }}</span>
+          </div>
+          @if (op.receipt) {
+            <p class="sub">Comprobante: {{ op.receipt }}</p>
+          }
+        }
+        @default {
+          <div class="totals__row">
+            <span>Retiro de <a [routerLink]="['/sobres', op.envelopeId]">{{ op.envelopeName }}</a></span>
+            <span class="num strong">{{ op.amountCents === null ? '—' : formatMoney(op.amountCents, op.currency ?? 'CUP') }}</span>
+          </div>
+          <p class="sub">Salió de {{ op.cashBoxName }}.</p>
+        }
+      }
+    </section>
+  }
+
+  @if (op.notes) {
+    <p class="muted">Nota: {{ op.notes }}</p>
+  }
+}

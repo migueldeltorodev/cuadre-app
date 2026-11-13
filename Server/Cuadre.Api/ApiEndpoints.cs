@@ -164,4 +164,42 @@ public static class ApiEndpoints
         public const string ShoppingList = $"{Base}/shopping-list";
         public const string Kardex = $"{ApiBase}/products/{{id:guid}}/kardex";
     }
+
+    /// <summary>
+    /// Profit First envelopes. No DELETE: they hold movements, so only the user's own are deactivated.
+    /// "balances" is a literal segment, so it never collides with {id:guid}.
+    /// </summary>
+    public static class Envelopes
+    {
+        private const string Base = $"{ApiBase}/envelopes";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+        public const string Balances = $"{Base}/balances";
+        public const string Movements = $"{Base}/{{id:guid}}/movements";
+    }
+
+    /// <summary>The % of each envelope from a date on. Only created: a change is a new plan (RF-PF-05).</summary>
+    public static class AllocationPlans
+    {
+        private const string Base = $"{ApiBase}/allocation-plans";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+    }
+
+    /// <summary>Openings, moves between envelopes, withdrawals and tax payments. Like purchases: no PUT, no DELETE.</summary>
+    public static class EnvelopeOperations
+    {
+        private const string Base = $"{ApiBase}/envelope-operations";
+
+        public const string CreateOpening = $"{Base}/openings";
+        public const string CreateTransfer = $"{Base}/transfers";
+        public const string CreateWithdrawal = $"{Base}/withdrawals";
+        public const string CreateTaxPayment = $"{Base}/tax-payments";
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
 }

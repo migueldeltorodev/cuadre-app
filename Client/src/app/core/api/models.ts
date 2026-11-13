@@ -673,3 +673,242 @@ export interface ShoppingListItemResponse {
   /** Rough estimate at the last landed cost, USD cents. */
   estimatedUsdCents: number | null;
 }
+
+// ---- Profit First envelopes (slice 5) ----
+// Money in cents of the CASH BOX's currency (never added across currencies); percentages in basis points.
+
+export type EnvelopeType = 'Profit' | 'OwnerPay' | 'Tax' | 'Operations' | 'Replenishment' | 'Custom';
+export type EnvelopeOperationType = 'Opening' | 'Transfer' | 'Withdrawal' | 'TaxPayment';
+export type EnvelopeOperationState = 'Confirmed' | 'Voided';
+export type CashMovementType =
+  | 'Purchase'
+  | 'PurchaseCharge'
+  | 'PurchaseVoid'
+  | 'Opening'
+  | 'EnvelopeTransfer'
+  | 'Withdrawal'
+  | 'TaxPayment'
+  | 'HouseConsumption'
+  | 'EnvelopeOperationVoid'
+  | 'StockOperationVoid';
+
+export interface EnvelopeResponse {
+  id: string;
+  name: string;
+  role: EnvelopeType;
+  sortOrder: number;
+  isActive: boolean;
+  /** False only for Reposición: it receives A2, not a %. */
+  takesPercent: boolean;
+}
+
+export interface CreateEnvelopeRequest {
+  name: string;
+}
+
+export interface UpdateEnvelopeRequest {
+  name: string;
+  isActive: boolean;
+}
+
+export interface AllocationPlanItemResponse {
+  envelopeId: string;
+  envelopeName: string;
+  percentBps: number;
+}
+
+export interface AllocationPlanResponse {
+  id: string;
+  /** '2000-01-01' = the first plan, "since always". */
+  effectiveFrom: string;
+  notes: string | null;
+  items: AllocationPlanItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAllocationPlanRequest {
+  effectiveFrom: string;
+  notes?: string | null;
+  items: { envelopeId: string; percentBps: number }[];
+}
+
+export interface EnvelopeBoxBalanceResponse {
+  cashBoxId: string;
+  amountCents: number;
+}
+
+export interface EnvelopeCashBoxResponse {
+  id: string;
+  name: string;
+  currency: CurrencyCode;
+  /** Bank = "plata atrapada". */
+  kind: CashBoxType;
+  isActive: boolean;
+  totalCents: number;
+}
+
+export interface EnvelopeBalanceResponse {
+  envelope: EnvelopeResponse;
+  /** Null for Reposición. */
+  percentBps: number | null;
+  /** Only the boxes where it holds something. */
+  balances: EnvelopeBoxBalanceResponse[];
+}
+
+export interface EnvelopeOverviewResponse {
+  date: string;
+  cashBoxes: EnvelopeCashBoxResponse[];
+  envelopes: EnvelopeBalanceResponse[];
+  currentPlan: AllocationPlanResponse | null;
+}
+
+export interface CashMovementResponse {
+  id: string;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  envelopeId: string;
+  envelopeName: string;
+  date: string;
+  kind: CashMovementType;
+  amountCents: number;
+  description: string;
+  purchaseId: string | null;
+  purchaseNumber: number | null;
+  envelopeOperationId: string | null;
+  envelopeOperationNumber: number | null;
+  stockOperationId: string | null;
+  stockOperationNumber: number | null;
+  isVoided: boolean;
+  createdAt: string;
+}
+
+export interface EnvelopeLedgerEntryResponse {
+  movement: CashMovementResponse;
+  boxBalanceCents: number;
+}
+
+export interface EnvelopeLedgerResponse {
+  envelope: EnvelopeResponse;
+  from: string | null;
+  to: string | null;
+  openingBalances: EnvelopeBoxBalanceResponse[];
+  /** Oldest first. */
+  entries: EnvelopeLedgerEntryResponse[];
+  closingBalances: EnvelopeBoxBalanceResponse[];
+}
+
+export interface EnvelopeLedgerQuery {
+  from?: string;
+  to?: string;
+  cashBoxId?: string;
+}
+
+export interface CreateEnvelopeOpeningRequest {
+  date: string;
+  notes?: string | null;
+  targets: { cashBoxId: string; envelopeId: string; amountCents: number }[];
+}
+
+export interface CreateEnvelopeTransferRequest {
+  date: string;
+  cashBoxId: string;
+  fromEnvelopeId: string;
+  toEnvelopeId: string;
+  amountCents: number;
+  notes?: string | null;
+}
+
+export interface CreateEnvelopeWithdrawalRequest {
+  date: string;
+  cashBoxId: string;
+  envelopeId: string;
+  amountCents: number;
+  notes?: string | null;
+}
+
+export interface CreateTaxPaymentRequest {
+  date: string;
+  cashBoxId: string;
+  amountCents: number;
+  concept: string;
+  receipt?: string | null;
+  notes?: string | null;
+}
+
+export interface EnvelopeOperationLineResponse {
+  id: string;
+  lineNo: number;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  envelopeId: string;
+  envelopeName: string;
+  /** Signed. Opening: target − balance it had. */
+  amountCents: number;
+  targetCents: number | null;
+}
+
+export interface NegativeEnvelopeWarningResponse {
+  envelopeId: string;
+  envelopeName: string;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  balanceCents: number;
+}
+
+export interface EnvelopeOperationResponse {
+  id: string;
+  number: number;
+  kind: EnvelopeOperationType;
+  date: string;
+  cashBoxId: string | null;
+  cashBoxName: string | null;
+  currency: CurrencyCode | null;
+  envelopeId: string | null;
+  envelopeName: string | null;
+  toEnvelopeId: string | null;
+  toEnvelopeName: string | null;
+  amountCents: number | null;
+  concept: string | null;
+  receipt: string | null;
+  notes: string | null;
+  status: EnvelopeOperationState;
+  voidReason: string | null;
+  voidedAt: string | null;
+  lines: EnvelopeOperationLineResponse[];
+  /** Only right after creating it. */
+  warnings: NegativeEnvelopeWarningResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EnvelopeOperationSummaryResponse {
+  id: string;
+  number: number;
+  kind: EnvelopeOperationType;
+  date: string;
+  cashBoxId: string | null;
+  cashBoxName: string | null;
+  currency: CurrencyCode | null;
+  envelopeId: string | null;
+  envelopeName: string | null;
+  toEnvelopeId: string | null;
+  toEnvelopeName: string | null;
+  amountCents: number | null;
+  concept: string | null;
+  lineCount: number;
+  status: EnvelopeOperationState;
+}
+
+export interface EnvelopeOperationQuery {
+  kind?: EnvelopeOperationType;
+  from?: string;
+  to?: string;
+  envelopeId?: string;
+  includeVoided?: boolean;
+  page?: number;
+  pageSize?: number;
+}

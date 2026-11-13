@@ -106,7 +106,7 @@ const KIND_LABELS: Record<LocationType, string> = { Storage: 'Almacén', Counter
       </div>
     </form>
   `,
-  styleUrls: ['../inventory-shared.css'],
+  styleUrls: ['../../../shared/ui/list-page.css'],
   styles: `
     .table {
       min-width: 560px;

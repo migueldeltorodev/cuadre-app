@@ -36,6 +36,7 @@ public class PurchaseService : IPurchaseService
     private readonly ILocationRepository _locationRepository;
     private readonly IBusinessSettingsRepository _settingsRepository;
     private readonly IExchangeRateRepository _exchangeRateRepository;
+    private readonly IEnvelopeRepository _envelopeRepository;
     private readonly IValidator<Purchase> _validator;
     private readonly IValidator<VoidPurchase> _voidValidator;
     private readonly IValidator<GetAllPurchasesOptions> _optionsValidator;
@@ -44,7 +45,8 @@ public class PurchaseService : IPurchaseService
     public PurchaseService(IPurchaseRepository repository, IProductRepository productRepository,
         ISupplierRepository supplierRepository, ICashBoxRepository cashBoxRepository,
         ILocationRepository locationRepository, IBusinessSettingsRepository settingsRepository,
-        IExchangeRateRepository exchangeRateRepository, IValidator<Purchase> validator,
+        IExchangeRateRepository exchangeRateRepository, IEnvelopeRepository envelopeRepository,
+        IValidator<Purchase> validator,
         IValidator<VoidPurchase> voidValidator, IValidator<GetAllPurchasesOptions> optionsValidator,
         TimeProvider clock)
     {
@@ -55,6 +57,7 @@ public class PurchaseService : IPurchaseService
         _locationRepository = locationRepository;
         _settingsRepository = settingsRepository;
         _exchangeRateRepository = exchangeRateRepository;
+        _envelopeRepository = envelopeRepository;
         _validator = validator;
         _voidValidator = voidValidator;
         _optionsValidator = optionsValidator;
@@ -92,7 +95,7 @@ public class PurchaseService : IPurchaseService
         purchase.UpdatedAt = now;
         purchase.Number = await _repository.GetNextNumberAsync(cancellationToken);
 
-        await _repository.CreateAsync(purchase, EntryStockMovements(purchase, now), PaymentCashMovements(purchase, now),
+        await _repository.CreateAsync(purchase, EntryStockMovements(purchase, now), PaymentCashMovements(purchase, await ReplenishmentIdAsync(cancellationToken), now),
             now, cancellationToken);
 
         var saved = await _repository.GetByIdAsync(purchase.Id, cancellationToken)
@@ -145,7 +148,7 @@ public class PurchaseService : IPurchaseService
         purchase.UpdatedAt = now;
 
         await _repository.VoidAsync(purchase, ReversalStockMovements(purchase, today, now),
-            ReversalCashMovements(purchase, today, now), now, cancellationToken);
+            ReversalCashMovements(purchase, await ReplenishmentIdAsync(cancellationToken), today, now), now, cancellationToken);
 
         return Result.Ok(await _repository.GetByIdAsync(purchase.Id, cancellationToken) ?? purchase);
     }
@@ -344,7 +347,11 @@ public class PurchaseService : IPurchaseService
             CreatedAt = now
         }).ToList();
 
-    private static List<CashMovement> PaymentCashMovements(Purchase purchase, DateTime now)
+    /// <summary>Purchases and their charges always pay from Reposición (decision 2026-11-12): it receives A2.</summary>
+    private async Task<Guid> ReplenishmentIdAsync(CancellationToken cancellationToken) =>
+        (await _envelopeRepository.GetByRoleAsync(EnvelopeRole.Replenishment, cancellationToken)).Id;
+
+    private static List<CashMovement> PaymentCashMovements(Purchase purchase, Guid envelopeId, DateTime now)
     {
         var movements = new List<CashMovement>
         {
@@ -352,6 +359,7 @@ public class PurchaseService : IPurchaseService
             {
                 Id = Guid.NewGuid(),
                 CashBoxId = purchase.CashBoxId,
+                EnvelopeId = envelopeId,
                 Date = purchase.Date,
                 Kind = CashMovementKind.Purchase,
                 AmountCents = -purchase.GoodsTotalCents,
@@ -365,6 +373,7 @@ public class PurchaseService : IPurchaseService
         {
             Id = Guid.NewGuid(),
             CashBoxId = charge.CashBoxId,
+            EnvelopeId = envelopeId,
             Date = purchase.Date,
             Kind = CashMovementKind.PurchaseCharge,
             AmountCents = -charge.AmountCents,
@@ -391,7 +400,8 @@ public class PurchaseService : IPurchaseService
             CreatedAt = now
         }).ToList();
 
-    private static List<CashMovement> ReversalCashMovements(Purchase purchase, DateOnly today, DateTime now)
+    private static List<CashMovement> ReversalCashMovements(Purchase purchase, Guid envelopeId, DateOnly today,
+        DateTime now)
     {
         var movements = new List<CashMovement>
         {
@@ -399,6 +409,7 @@ public class PurchaseService : IPurchaseService
             {
                 Id = Guid.NewGuid(),
                 CashBoxId = purchase.CashBoxId,
+                EnvelopeId = envelopeId,
                 Date = today,
                 Kind = CashMovementKind.PurchaseVoid,
                 AmountCents = purchase.GoodsTotalCents,
@@ -412,6 +423,7 @@ public class PurchaseService : IPurchaseService
         {
             Id = Guid.NewGuid(),
             CashBoxId = charge.CashBoxId,
+            EnvelopeId = envelopeId,
             Date = today,
             Kind = CashMovementKind.PurchaseVoid,
             AmountCents = charge.AmountCents,
