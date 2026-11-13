@@ -37,7 +37,11 @@ export const routes: Routes = [
         data: { crumb: 'Sobres' },
         loadChildren: () => import('./features/sobres/sobres.routes').then((m) => m.SOBRES_ROUTES),
       },
-      placeholder('gastos', 'Gastos'),
+      {
+        path: 'gastos',
+        data: { crumb: 'Gastos' },
+        loadChildren: () => import('./features/gastos/gastos.routes').then((m) => m.GASTOS_ROUTES),
+      },
       placeholder('reportes', 'Reportes'),
       {
         path: 'configuracion',

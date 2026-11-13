@@ -8,6 +8,7 @@ using Cuadre.Api.Endpoints.Employees;
 using Cuadre.Api.Endpoints.EnvelopeOperations;
 using Cuadre.Api.Endpoints.Envelopes;
 using Cuadre.Api.Endpoints.ExchangeRates;
+using Cuadre.Api.Endpoints.Expenses;
 using Cuadre.Api.Endpoints.Inventory;
 using Cuadre.Api.Endpoints.Locations;
 using Cuadre.Api.Endpoints.PaymentMethods;
@@ -53,6 +54,9 @@ public static class EndpointsExtensions
         v1.MapDailyClosingEndpoints();
         v1.MapCashDiscrepancyEndpoints();
         v1.MapProfitFirstEndpoints();
+        v1.MapExpenseCategoryEndpoints();
+        v1.MapExpenseEndpoints();
+        v1.MapRecurringExpenseEndpoints();
 
         return app;
     }

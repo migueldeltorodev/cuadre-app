@@ -119,6 +119,11 @@ public class CashMovementResponse
     public Guid? RecoveryId { get; init; }
 
     public Guid? RecoveryClosingId { get; init; }
+
+    /// <summary>A gasto (slice 7).</summary>
+    public Guid? ExpenseId { get; init; }
+
+    public int? ExpenseNumber { get; init; }
     public required bool IsVoided { get; init; }
     public required DateTime CreatedAt { get; init; }
 }

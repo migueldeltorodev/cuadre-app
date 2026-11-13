@@ -51,6 +51,12 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ICashDiscrepancyService, CashDiscrepancyService>();
         services.AddScoped<IEvaluationRepository, EvaluationRepository>();
         services.AddScoped<IEvaluationService, EvaluationService>();
+        services.AddScoped<IExpenseCategoryRepository, ExpenseCategoryRepository>();
+        services.AddScoped<IExpenseCategoryService, ExpenseCategoryService>();
+        services.AddScoped<IExpenseRepository, ExpenseRepository>();
+        services.AddScoped<IExpenseService, ExpenseService>();
+        services.AddScoped<IRecurringExpenseRepository, RecurringExpenseRepository>();
+        services.AddScoped<IRecurringExpenseService, RecurringExpenseService>();
 
         // RF-CIE-10: every service that dates something asks it before writing.
         services.AddScoped<IClosedDayGuard, ClosedDayGuard>();

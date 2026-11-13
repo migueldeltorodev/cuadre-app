@@ -10,7 +10,7 @@ import { ExchangeRateStore } from '../state/exchange-rate-store';
 import { formatHundredths } from '../../shared/format/money';
 import { DIALOG_DEFAULTS } from '../../shared/ui/dialog-config';
 
-type BadgeKey = 'pendingDays' | 'pendingShortages';
+type BadgeKey = 'pendingDays' | 'pendingShortages' | 'dueExpenses';
 
 /** A page inside a section of the menu. */
 interface NavLink {
@@ -100,7 +100,16 @@ const NAV: NavGroup[] = [
           { path: '/sobres/saldo-inicial', label: 'Saldo inicial' },
         ],
       },
-      { id: 'gastos', path: '/gastos', label: 'Gastos', icon: 'receipt' },
+      {
+        id: 'gastos',
+        path: '/gastos',
+        label: 'Gastos',
+        icon: 'receipt',
+        children: [
+          { path: '/gastos', label: 'Gastos', exact: true },
+          { path: '/gastos/fijos', label: 'Gastos fijos', badge: 'dueExpenses' },
+        ],
+      },
       { id: 'reportes', path: '/reportes', label: 'Reportes', icon: 'chart' },
     ],
   },
@@ -117,6 +126,7 @@ const NAV: NavGroup[] = [
           { path: '/configuracion/precios-y-moneda', label: 'Precios y moneda' },
           { path: '/configuracion/profit-first', label: 'Profit First' },
           { path: '/configuracion/personal', label: 'Personal' },
+          { path: '/configuracion/gastos', label: 'Categorías de gasto' },
           { path: '/configuracion/respaldo', label: 'Respaldo' },
         ],
       },
@@ -157,7 +167,11 @@ export class Sidebar implements OnInit {
   private readonly badges = computed<Record<BadgeKey, number>>(() => ({
     pendingDays: this.alerts.pendingDaysCount(),
     pendingShortages: this.alerts.pendingShortagesCount(),
+    dueExpenses: this.alerts.dueExpensesCount(),
   }));
+
+  /** Anything pending at all (the dot on the phone's "Menú" button). */
+  protected readonly anyBadge = computed(() => Object.values(this.badges()).some((count) => count > 0));
 
   constructor() {
     this.router.events
@@ -216,6 +230,9 @@ export class Sidebar implements OnInit {
     const count = this.badge(key);
     if (key === 'pendingDays') {
       return count === 1 ? '1 día sin cerrar' : `${count} días sin cerrar`;
+    }
+    if (key === 'dueExpenses') {
+      return count === 1 ? '1 gasto fijo por pagar' : `${count} gastos fijos por pagar`;
     }
     return count === 1 ? '1 faltante por reclamar' : `${count} faltantes por reclamar`;
   }

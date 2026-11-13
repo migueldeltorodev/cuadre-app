@@ -75,6 +75,9 @@ public class CashMovement
     /// <summary>A shortage recovered later (slice 6b).</summary>
     public Guid? RecoveryId { get; init; }
 
+    /// <summary>A gasto (slice 7).</summary>
+    public Guid? ExpenseId { get; init; }
+
     public required DateTime CreatedAt { get; init; }
 }
 
@@ -122,5 +125,11 @@ public enum CashMovementKind
     ShortageRecovery,
 
     /// <summary>Reversal of a voided recovery, dated today.</summary>
-    ShortageRecoveryVoid
+    ShortageRecoveryVoid,
+
+    /// <summary>Gasto (RF-GAS-02): out of a box and an envelope (Operación by default, never Reposición).</summary>
+    Expense,
+
+    /// <summary>Reversal of a voided expense, dated today.</summary>
+    ExpenseVoid
 }

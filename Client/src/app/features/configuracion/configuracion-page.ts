@@ -45,6 +45,7 @@ export default class ConfiguracionPage {
     { path: 'cobros-y-cajas', label: 'Cobros y cajas' },
     { path: 'profit-first', label: 'Profit First' },
     { path: 'personal', label: 'Personal' },
+    { path: 'gastos', label: 'Categorías de gasto' },
     { path: 'precios-y-moneda', label: 'Precios y moneda' },
     { path: 'respaldo', label: 'Respaldo' },
   ];
