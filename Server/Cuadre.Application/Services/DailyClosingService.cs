@@ -30,6 +30,9 @@ public interface IDailyClosingService
     /// day, so the day is open again exactly as it was before closing.
     /// </summary>
     Task<Result<DailyClosing>> ReopenAsync(ReopenDailyClosing request, CancellationToken cancellationToken = default);
+
+    /// <summary>RF-CIE-09: business days already over that are still not closed.</summary>
+    Task<PendingClosingDays> GetPendingDaysAsync(CancellationToken cancellationToken = default);
 }
 
 public class DailyClosingService : IDailyClosingService
@@ -40,6 +43,7 @@ public class DailyClosingService : IDailyClosingService
     private readonly ICashBoxRepository _cashBoxRepository;
     private readonly IBusinessSettingsRepository _settingsRepository;
     private readonly IExchangeRateRepository _exchangeRateRepository;
+    private readonly ICashDiscrepancyRepository _discrepancyRepository;
     private readonly IValidator<DailyClosingInput> _validator;
     private readonly IValidator<ReopenDailyClosing> _reopenValidator;
     private readonly IValidator<GetAllDailyClosingsOptions> _optionsValidator;
@@ -48,7 +52,7 @@ public class DailyClosingService : IDailyClosingService
     public DailyClosingService(IDailyClosingRepository repository, IStaffRepository staffRepository,
         IEnvelopeRepository envelopeRepository, ICashBoxRepository cashBoxRepository,
         IBusinessSettingsRepository settingsRepository, IExchangeRateRepository exchangeRateRepository,
-        IValidator<DailyClosingInput> validator, IValidator<ReopenDailyClosing> reopenValidator,
+        ICashDiscrepancyRepository discrepancyRepository, IValidator<DailyClosingInput> validator, IValidator<ReopenDailyClosing> reopenValidator,
         IValidator<GetAllDailyClosingsOptions> optionsValidator, TimeProvider clock)
     {
         _repository = repository;
@@ -57,6 +61,7 @@ public class DailyClosingService : IDailyClosingService
         _cashBoxRepository = cashBoxRepository;
         _settingsRepository = settingsRepository;
         _exchangeRateRepository = exchangeRateRepository;
+        _discrepancyRepository = discrepancyRepository;
         _validator = validator;
         _reopenValidator = reopenValidator;
         _optionsValidator = optionsValidator;
@@ -130,8 +135,10 @@ public class DailyClosingService : IDailyClosingService
         }
 
         await _repository.CreateAsync(closing, stockMovements, cashMovements, closing.CreatedAt, cancellationToken);
-        return Result.Ok(await _repository.GetByIdAsync(closing.Id, cancellationToken)
-                         ?? throw new InvalidOperationException("The closing was not found right after saving it."));
+        var saved = await _repository.GetByIdAsync(closing.Id, cancellationToken)
+                    ?? throw new InvalidOperationException("The closing was not found right after saving it.");
+        saved.PossibleDuplicateOf = closing.PossibleDuplicateOf;
+        return Result.Ok(saved);
     }
 
     public async Task<Result<DailyClosing>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -176,6 +183,13 @@ public class DailyClosingService : IDailyClosingService
                 "Reabrí primero los días posteriores."));
         }
 
+        // A recovery came in on a later day and already moved money (D-36): undo it first.
+        if (await _discrepancyRepository.HasRecoveriesAsync(closing.Id, cancellationToken))
+        {
+            return Result.Fail(new BusinessRuleError(
+                "El faltante de este cierre ya tiene recuperaciones: anulalas antes de reabrirlo."));
+        }
+
         var now = _clock.UtcNow();
         closing.Status = DailyClosingStatus.Voided;
         closing.VoidReason = request.Reason.Trim();
@@ -217,6 +231,19 @@ public class DailyClosingService : IDailyClosingService
 
         await _repository.VoidAsync(closing, stockReversals, cashReversals, now, cancellationToken);
         return Result.Ok(await _repository.GetByIdAsync(closing.Id, cancellationToken) ?? closing);
+    }
+
+    public async Task<PendingClosingDays> GetPendingDaysAsync(CancellationToken cancellationToken = default)
+    {
+        var settings = await _settingsRepository.GetAsync(cancellationToken)
+                       ?? throw new InvalidOperationException("The settings row is missing: the seeder did not run.");
+        var lastClosed = await _repository.GetLastClosedDateAsync(cancellationToken);
+        var firstActivity = lastClosed is null
+            ? await _repository.GetFirstActivityDateAsync(cancellationToken)
+            : null;
+
+        var days = ClosingCalendar.PendingDays(lastClosed, firstActivity, _clock.Today(), settings.ClosedDays);
+        return new PendingClosingDays(lastClosed, days.Count, days.Take(ClosingCalendar.MaxListed).ToList());
     }
 
     /// <summary>
@@ -474,6 +501,14 @@ public class DailyClosingService : IDailyClosingService
             Collections = collections,
             Allocations = allocations
         };
+
+        // RF-CIE-11: a warning only. Days without sales would all look alike.
+        if (totals.TheoreticalSalesCents > 0 || totals.CollectedCents > 0)
+        {
+            closing.PossibleDuplicateOf = await _repository.FindDuplicateAsync(input.Date,
+                totals.CashCollectedCents, totals.TransferCollectedCents, totals.TheoreticalSalesCents,
+                cancellationToken);
+        }
 
         if (totals.AdjustedDifferenceCents != 0)
         {

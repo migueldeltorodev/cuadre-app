@@ -48,5 +48,7 @@ public enum CashMovementType
     Collection,
     Allocation,
     StaffPay,
-    ClosingVoid
+    ClosingVoid,
+    ShortageRecovery,
+    ShortageRecoveryVoid
 }

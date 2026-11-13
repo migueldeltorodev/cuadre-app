@@ -18,11 +18,23 @@ public enum CashDiscrepancyType
     Surplus
 }
 
-/// <summary>Pending = a shortage to claim; Recorded = a surplus, kept in the history; Voided = its day was reopened.</summary>
+/// <summary>
+/// Pending = a shortage to claim (maybe partly recovered); Recorded = a surplus, kept in the history; Voided = its day
+/// was reopened; Recovered = a shortage fully recovered; Lost = a shortage written off.
+/// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<CashDiscrepancyState>))]
 public enum CashDiscrepancyState
 {
     Pending,
     Recorded,
+    Voided,
+    Recovered,
+    Lost
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<ShortageRecoveryState>))]
+public enum ShortageRecoveryState
+{
+    Confirmed,
     Voided
 }

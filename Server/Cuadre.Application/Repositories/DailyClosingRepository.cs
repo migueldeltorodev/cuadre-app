@@ -13,6 +13,16 @@ public interface IDailyClosingRepository
     /// <summary>The confirmed closing of that day, if any.</summary>
     Task<Guid?> GetConfirmedIdAsync(DateOnly date, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// RF-CIE-11: the latest confirmed closing of ANOTHER day with exactly the same cash, transfers and theoretical
+    /// sales. Only asked when there were sales.
+    /// </summary>
+    Task<DateOnly?> FindDuplicateAsync(DateOnly date, long cashCents, long transferCents, long theoreticalSalesCents,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The first day with anything in the ledgers (stock or cash): no closing is expected before it.</summary>
+    Task<DateOnly?> GetFirstActivityDateAsync(CancellationToken cancellationToken = default);
+
     /// <summary>What Reposición owes the other envelopes at the end of <paramref name="asOf"/> (RF-PF-09).</summary>
     Task<long> GetInternalDebtAsync(DateOnly asOf, CancellationToken cancellationToken = default);
 
@@ -87,6 +97,35 @@ public class DailyClosingRepository : IDailyClosingRepository
             "SELECT id FROM daily_closings WHERE date = @date AND status = 'Confirmed'",
             new { date }, cancellationToken: cancellationToken));
         return text is null ? null : Guid.Parse(text);
+    }
+
+    public async Task<DateOnly?> FindDuplicateAsync(DateOnly date, long cashCents, long transferCents,
+        long theoreticalSalesCents, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var text = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("""
+            SELECT date FROM daily_closings
+            WHERE status = 'Confirmed' AND date <> @date
+              AND cash_collected_cents = @cashCents
+              AND transfer_collected_cents = @transferCents
+              AND theoretical_sales_cents = @theoreticalSalesCents
+            ORDER BY date DESC
+            LIMIT 1
+            """, new { date, cashCents, transferCents, theoreticalSalesCents },
+            cancellationToken: cancellationToken));
+        return text is null ? null : DateOnly.ParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    public async Task<DateOnly?> GetFirstActivityDateAsync(CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var text = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("""
+            SELECT MIN(date) FROM (
+                SELECT MIN(date) AS date FROM stock_movements
+                UNION ALL
+                SELECT MIN(date) FROM cash_movements)
+            """, cancellationToken: cancellationToken));
+        return text is null ? null : DateOnly.ParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
     public async Task<long> GetInternalDebtAsync(DateOnly asOf, CancellationToken cancellationToken = default)
@@ -353,9 +392,12 @@ public class DailyClosingRepository : IDailyClosingRepository
             """, new { id }, cancellationToken: cancellationToken)));
 
         closing.Discrepancy = await connection.QuerySingleOrDefaultAsync<CashDiscrepancy>(new CommandDefinition("""
-            SELECT id, closing_id, date, kind, amount_cents, employee_id, note, status, created_at, updated_at
-            FROM cash_discrepancies
-            WHERE closing_id = @id
+            SELECT d.id, d.closing_id, d.date, d.kind, d.amount_cents, d.employee_id, d.note, d.status,
+                   d.resolution_note, d.resolved_at, d.created_at, d.updated_at, d.date AS closing_date,
+                   COALESCE((SELECT SUM(r.amount_cents) FROM cash_discrepancy_recoveries r
+                             WHERE r.discrepancy_id = d.id AND r.status = 'Confirmed'), 0) AS recovered_cents
+            FROM cash_discrepancies d
+            WHERE d.closing_id = @id
             """, new { id }, cancellationToken: cancellationToken));
 
         return closing;

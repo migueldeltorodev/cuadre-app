@@ -225,16 +225,8 @@ public static partial class ContractMapping
                     CashCents = allocation.CashCents,
                     BankCents = allocation.BankCents
                 }).ToList(),
-            Discrepancy = closing.Discrepancy is { } discrepancy
-                ? new CashDiscrepancyResponse
-                {
-                    Id = discrepancy.Id,
-                    Kind = discrepancy.Kind.ToContract(),
-                    AmountCents = discrepancy.AmountCents,
-                    Note = discrepancy.Note,
-                    Status = discrepancy.Status.ToContract()
-                }
-                : null,
+            Discrepancy = closing.Discrepancy?.MapToResponse(),
+            PossibleDuplicateOf = closing.PossibleDuplicateOf,
             CreatedAt = closing.CreatedAt,
             UpdatedAt = closing.UpdatedAt
         };
@@ -286,6 +278,8 @@ public static partial class ContractMapping
         CashDiscrepancyStatus.Pending => CashDiscrepancyState.Pending,
         CashDiscrepancyStatus.Recorded => CashDiscrepancyState.Recorded,
         CashDiscrepancyStatus.Voided => CashDiscrepancyState.Voided,
+        CashDiscrepancyStatus.Recovered => CashDiscrepancyState.Recovered,
+        CashDiscrepancyStatus.Lost => CashDiscrepancyState.Lost,
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
     };
 }
