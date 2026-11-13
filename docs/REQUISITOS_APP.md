@@ -1,6 +1,6 @@
 # Requisitos funcionales: App de gestión para pequeño comercio
 
-> **Versión:** 1.5 · **Fecha:** 12/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
+> **Versión:** 1.6 · **Fecha:** 13/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
 > **Primer caso de uso:** el bodegón (ver `RESUMEN_PROFIT_FIRST_BODEGON.md`).
 > Este documento es la **memoria oficial** de los requisitos. Cualquier cambio se anota en el historial (sección 10).
 
@@ -388,6 +388,12 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | D-37 | Días sin cerrar (RF-CIE-09): los días hábiles ya terminados (hasta ayer) posteriores al último cierre; si todavía no hay cierres, desde el primer día con movimientos. Los días que el negocio no abre no cuentan. Los días anteriores al último cierre quedan bloqueados (D-26) y no se avisan. | Un aviso útil, sin ruido de días que ya no se pueden cerrar. |
 | D-38 | Posible duplicado (RF-CIE-11): otro día cerrado con exactamente el mismo efectivo, las mismas transferencias y la misma venta teórica. Es solo un aviso en la vista previa y al cerrar; no se compara cuando el día no tuvo ventas ni cobros. | Detecta el error típico de cargar dos veces el mismo día. |
 | D-39 | Evaluación por período (RF-PF-10): suma de los cierres confirmados entre dos fechas (por defecto, del 1 del mes a hoy). A2/A1 y A3/A1. Por sobre: lo recibido (reparto de los cierres + recuperaciones que entraron en el período), el % objetivo (el plan vigente al final del período) y el % real sobre lo que recibieron juntos los sobres con %. Incluye la deuda interna al final del período. | Compara lo que se quiso repartir con lo que de verdad se repartió. |
+| D-40 | Un gasto sale de una caja activa y de un sobre: Gastos de operación por defecto; puede salir de otro sobre activo, nunca de Reposición (solo paga mercadería). La moneda es la de la caja. Fecha nunca futura y en un día abierto (D-26). Si deja el sobre en negativo se permite con aviso (RF-PF-08). Se numera aparte (Gasto #N). | D-01: A2 es solo el costo de lo vendido; el resto de los gastos sale de lo repartido. |
+| D-41 | Un gasto no se edita: se anula con motivo y su movimiento se revierte con fecha de hoy (hoy tiene que estar abierto). El gasto anulado se sigue viendo en el historial pero no suma en los totales. | RF-GAS-04, igual que compras y operaciones de sobres. |
+| D-42 | Categorías de gasto: vienen de fábrica (Gestor y contador, Transporte, Servicios, Alquiler, Mantenimiento y reparaciones, Envases y materiales, Otros); se renombran, se agregan y se desactivan, nunca se borran. No se puede desactivar una categoría que usa un gasto fijo activo. | RF-GAS-03. Los gastos guardados conservan su categoría. |
+| D-43 | Gasto fijo (recurrente): nombre, categoría, monto, caja, sobre, frecuencia mensual (día 1 a 28, así todos los meses lo tienen) o semanal (un día de la semana) y desde cuándo. La app propone cada vencimiento ya llegado (hasta hoy, como mucho los últimos 12) que no se pagó ni se saltó. Período = el mes, o la semana de lunes a domingo. | RF-GAS-01. Nada se paga solo: el dueño confirma cada vez. |
+| D-44 | Confirmar un vencimiento crea un gasto con los datos del gasto fijo; se pueden cambiar el monto, la caja y la fecha (hoy por defecto: el día en que de verdad salió el dinero). Un vencimiento se paga una sola vez; si se anula ese gasto, se vuelve a proponer. Saltarlo («este mes no se pagó») no mueve dinero. Editar un gasto fijo no cambia los gastos ya confirmados. | Sin duplicados y sin perder un pago corregido. |
+| D-45 | El cobro que se anota en el cierre es lo que se cobró por las ventas. Si se pagó un gasto con dinero del cajón, se registra como gasto aparte (sale de la caja y de Operación) y en el cierre se anota el cobro completo. | Si no, el gasto aparecería como faltante del dependiente. |
 
 ---
 
@@ -431,3 +437,4 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | 1.3 | 12/11/2026 | Etapa 5 (sobres): resuelta P-01 y nuevas D-20 a D-25. La deuda interna (RF-PF-09) y la evaluación por período (RF-PF-10) quedan para la etapa 6, con el cierre. |
 | 1.4 | 12/11/2026 | Etapa 6 (cierre diario): nuevas D-26 a D-34 (bloqueo de días cerrados, reapertura, cierre en CUP, planilla, deuda interna, faltantes, pago al dependiente). Quedan para la etapa 6b: resolver faltantes, aviso de días sin cerrar, evaluación por período (RF-PF-10) y detección de duplicados. |
 | 1.5 | 12/11/2026 | Etapa 6b: nuevas D-35 a D-39 (recuperar y dar por perdido un faltante, bloqueo de la reapertura con recuperaciones, días sin cerrar, posibles duplicados, evaluación por período). La D-33 queda completa. |
+| 1.6 | 13/11/2026 | Etapa 7 (gastos): nuevas D-40 a D-45 (de qué sobre sale un gasto, anulación, categorías de fábrica, gastos fijos y sus vencimientos, confirmar o saltar un vencimiento, gastos pagados del cajón). |
