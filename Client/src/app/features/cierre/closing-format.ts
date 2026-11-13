@@ -1,4 +1,4 @@
-import { CashDiscrepancyResponse, DailyClosingState } from '../../core/api/models';
+import { CashDiscrepancyResponse, CashDiscrepancyState, DailyClosingState } from '../../core/api/models';
 import { formatMoney } from '../../shared/format/money';
 
 /** Labels and display-only helpers of the daily closing. The server computes every real number. */
@@ -31,7 +31,20 @@ export function differenceText(adjustedCents: number): string {
 
 export function discrepancyText(discrepancy: CashDiscrepancyResponse): string {
   const what = discrepancy.kind === 'Shortage' ? 'Faltante' : 'Sobrante';
-  const status =
-    discrepancy.status === 'Pending' ? 'pendiente de reclamar' : discrepancy.status === 'Recorded' ? 'registrado' : 'anulado';
-  return `${what} de ${formatMoney(discrepancy.amountCents)} · ${status}`;
+  return `${what} de ${formatMoney(discrepancy.amountCents)} · ${discrepancyStateLabel(discrepancy.status).label.toLowerCase()}`;
+}
+
+export function discrepancyStateLabel(state: CashDiscrepancyState): { label: string; tone: 'ok' | 'warn' | 'bad' | 'muted' } {
+  switch (state) {
+    case 'Pending':
+      return { label: 'Pendiente de reclamar', tone: 'warn' };
+    case 'Recovered':
+      return { label: 'Recuperado', tone: 'ok' };
+    case 'Lost':
+      return { label: 'Perdido', tone: 'bad' };
+    case 'Recorded':
+      return { label: 'Registrado', tone: 'muted' };
+    case 'Voided':
+      return { label: 'Anulado', tone: 'muted' };
+  }
 }

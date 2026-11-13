@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  CashDiscrepancyQuery,
+  CashDiscrepancyResponse,
   CreateDailyClosingRequest,
   CreateEmployeeRequest,
   CreateStaffPaySchemeRequest,
@@ -12,6 +14,10 @@ import {
   EmployeeResponse,
   ItemsResponse,
   PagedResponse,
+  PendingClosingDaysResponse,
+  PendingShortagesResponse,
+  ProfitFirstEvaluationResponse,
+  RecoverShortageRequest,
   StaffPaySchemeResponse,
   UpdateEmployeeRequest,
 } from './models';
@@ -51,6 +57,60 @@ export class DailyClosingsApi {
   /** Only the latest closed day; its movements are reversed on that same day. */
   reopen(id: string, reason: string): Observable<DailyClosingResponse> {
     return this.http.post<DailyClosingResponse>(`/api/daily-closings/${id}/reopen`, { reason });
+  }
+
+  /** RF-CIE-09: business days already over (up to yesterday) still not closed. */
+  pendingDays(): Observable<PendingClosingDaysResponse> {
+    return this.http.get<PendingClosingDaysResponse>('/api/daily-closings/pending');
+  }
+}
+
+/** Shortages and surpluses of the closings, and the recoveries of the shortages (slice 6b). */
+@Injectable({ providedIn: 'root' })
+export class CashDiscrepanciesApi {
+  private readonly http = inject(HttpClient);
+
+  /** Newest first. Those of reopened closings are never listed. */
+  getAll(query: CashDiscrepancyQuery = {}): Observable<PagedResponse<CashDiscrepancyResponse>> {
+    return this.http.get<PagedResponse<CashDiscrepancyResponse>>('/api/cash-discrepancies', {
+      params: toParams(query),
+    });
+  }
+
+  /** With its recoveries. */
+  get(id: string): Observable<CashDiscrepancyResponse> {
+    return this.http.get<CashDiscrepancyResponse>(`/api/cash-discrepancies/${id}`);
+  }
+
+  pendingSummary(): Observable<PendingShortagesResponse> {
+    return this.http.get<PendingShortagesResponse>('/api/cash-discrepancies/pending-summary');
+  }
+
+  /** Returns the shortage updated. */
+  recover(id: string, request: RecoverShortageRequest): Observable<CashDiscrepancyResponse> {
+    return this.http.post<CashDiscrepancyResponse>(`/api/cash-discrepancies/${id}/recoveries`, request);
+  }
+
+  writeOff(id: string, note: string): Observable<CashDiscrepancyResponse> {
+    return this.http.post<CashDiscrepancyResponse>(`/api/cash-discrepancies/${id}/write-off`, { note });
+  }
+
+  /** Reversals dated today. Returns the shortage of that recovery. */
+  voidRecovery(recoveryId: string, reason: string): Observable<CashDiscrepancyResponse> {
+    return this.http.post<CashDiscrepancyResponse>(`/api/shortage-recoveries/${recoveryId}/void`, { reason });
+  }
+}
+
+/** RF-PF-10: A1, A2, A3 of a period and the real % of each envelope. */
+@Injectable({ providedIn: 'root' })
+export class ProfitFirstApi {
+  private readonly http = inject(HttpClient);
+
+  /** Without dates: this month up to today. */
+  evaluation(from?: string, to?: string): Observable<ProfitFirstEvaluationResponse> {
+    return this.http.get<ProfitFirstEvaluationResponse>('/api/profit-first/evaluation', {
+      params: toParams({ from, to }),
+    });
   }
 }
 

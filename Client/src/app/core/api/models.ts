@@ -698,7 +698,9 @@ export type CashMovementType =
   | 'Collection'
   | 'Allocation'
   | 'StaffPay'
-  | 'ClosingVoid';
+  | 'ClosingVoid'
+  | 'ShortageRecovery'
+  | 'ShortageRecoveryVoid';
 
 export interface EnvelopeResponse {
   id: string;
@@ -792,6 +794,9 @@ export interface CashMovementResponse {
   stockOperationNumber: number | null;
   closingId: string | null;
   closingDate: string | null;
+  /** A shortage recovery, and the closing where that shortage came out. */
+  recoveryId: string | null;
+  recoveryClosingId: string | null;
   isVoided: boolean;
   createdAt: string;
 }
@@ -967,7 +972,8 @@ export interface CreateStaffPaySchemeRequest {
 
 export type DailyClosingState = 'Confirmed' | 'Voided';
 export type CashDiscrepancyType = 'Shortage' | 'Surplus';
-export type CashDiscrepancyState = 'Pending' | 'Recorded' | 'Voided';
+export type CashDiscrepancyState = 'Pending' | 'Recorded' | 'Voided' | 'Recovered' | 'Lost';
+export type ShortageRecoveryState = 'Confirmed' | 'Voided';
 
 export interface ClosingCounterLineResponse {
   productId: string;
@@ -1078,12 +1084,105 @@ export interface DailyClosingAllocationResponse {
   bankCents: number;
 }
 
-export interface CashDiscrepancyResponse {
+export interface ShortageRecoveryResponse {
   id: string;
-  kind: CashDiscrepancyType;
+  date: string;
+  cashBoxId: string;
+  cashBoxName: string;
   amountCents: number;
   note: string | null;
+  status: ShortageRecoveryState;
+  voidReason: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+}
+
+export interface CashDiscrepancyResponse {
+  id: string;
+  closingId: string;
+  /** The day of the closing where it came out. */
+  date: string;
+  kind: CashDiscrepancyType;
+  amountCents: number;
+  employeeId: string | null;
+  employeeName: string | null;
+  note: string | null;
   status: CashDiscrepancyState;
+  recoveredCents: number;
+  /** What is still to claim (0 unless Pending). */
+  pendingCents: number;
+  /** Why it was written off. */
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  /** Only in the detail of a shortage. */
+  recoveries: ShortageRecoveryResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashDiscrepancyQuery {
+  kind?: CashDiscrepancyType;
+  status?: CashDiscrepancyState;
+  employeeId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RecoverShortageRequest {
+  /** Default: today. */
+  date?: string | null;
+  cashBoxId: string;
+  amountCents: number;
+  note?: string | null;
+}
+
+export interface PendingShortagesResponse {
+  count: number;
+  pendingCents: number;
+}
+
+/** RF-CIE-09: business days already over and not closed (at most 31 listed; count has them all). */
+export interface PendingClosingDaysResponse {
+  lastClosedDate: string | null;
+  count: number;
+  days: string[];
+}
+
+export interface EnvelopeEvaluationResponse {
+  envelopeId: string;
+  name: string;
+  role: EnvelopeType;
+  /** Null for Reposición. */
+  targetPercentBps: number | null;
+  receivedCents: number;
+  /** Over what the % envelopes received together. Null for Reposición or with nothing received. */
+  realPercentBps: number | null;
+}
+
+/** RF-PF-10. */
+export interface ProfitFirstEvaluationResponse {
+  from: string;
+  to: string;
+  closedDays: number;
+  cashCollectedCents: number;
+  transferCollectedCents: number;
+  /** A1. */
+  collectedCents: number;
+  /** A2. */
+  costOfSalesCents: number;
+  /** A3. */
+  realIncomeCents: number;
+  costRatioBps: number | null;
+  realIncomeRatioBps: number | null;
+  theoreticalSalesCents: number;
+  staffPayCents: number;
+  shortageCents: number;
+  surplusCents: number;
+  recoveredCents: number;
+  internalDebtCents: number;
+  envelopes: EnvelopeEvaluationResponse[];
 }
 
 export interface DailyClosingResponse {
@@ -1122,6 +1221,8 @@ export interface DailyClosingResponse {
   collections: DailyClosingCollectionResponse[];
   allocations: DailyClosingAllocationResponse[];
   discrepancy: CashDiscrepancyResponse | null;
+  /** Preview and create only: another closed day has exactly the same numbers (RF-CIE-11). */
+  possibleDuplicateOf: string | null;
   createdAt: string;
   updatedAt: string;
 }
