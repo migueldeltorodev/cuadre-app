@@ -700,7 +700,9 @@ export type CashMovementType =
   | 'StaffPay'
   | 'ClosingVoid'
   | 'ShortageRecovery'
-  | 'ShortageRecoveryVoid';
+  | 'ShortageRecoveryVoid'
+  | 'Expense'
+  | 'ExpenseVoid';
 
 export interface EnvelopeResponse {
   id: string;
@@ -797,6 +799,9 @@ export interface CashMovementResponse {
   /** A shortage recovery, and the closing where that shortage came out. */
   recoveryId: string | null;
   recoveryClosingId: string | null;
+  /** A gasto (slice 7). */
+  expenseId: string | null;
+  expenseNumber: number | null;
   isVoided: boolean;
   createdAt: string;
 }
@@ -1247,4 +1252,143 @@ export interface DailyClosingQuery {
   includeVoided?: boolean;
   page?: number;
   pageSize?: number;
+}
+
+// ---- Gastos (slice 7) ----
+// Money in cents of the CASH BOX's currency. Never edited: voided with a reason.
+
+export type ExpenseState = 'Confirmed' | 'Voided';
+export type ExpenseFrequency = 'Monthly' | 'Weekly';
+
+export interface ExpenseCategoryResponse {
+  id: string;
+  name: string;
+  isActive: boolean;
+  /** Confirmed expenses in it. */
+  expenseCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateExpenseCategoryRequest {
+  name: string;
+}
+
+export interface UpdateExpenseCategoryRequest {
+  name: string;
+  isActive: boolean;
+}
+
+export interface ExpenseResponse {
+  id: string;
+  number: number;
+  date: string;
+  categoryId: string;
+  categoryName: string;
+  description: string;
+  amountCents: number;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  envelopeId: string;
+  envelopeName: string;
+  notes: string | null;
+  /** A confirmed occurrence of a recurring expense. */
+  recurringExpenseId: string | null;
+  recurringExpenseName: string | null;
+  periodStart: string | null;
+  status: ExpenseState;
+  voidReason: string | null;
+  voidedAt: string | null;
+  /** Only right after creating it: the envelope it left below zero (allowed). */
+  warning: NegativeEnvelopeWarningResponse | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseTotalResponse {
+  currency: CurrencyCode;
+  amountCents: number;
+}
+
+export interface ExpensesResponse extends PagedResponse<ExpenseResponse> {
+  /** Confirmed expenses of the whole filter (not only the page), per currency. */
+  totals: ExpenseTotalResponse[];
+}
+
+export interface CreateExpenseRequest {
+  date: string;
+  categoryId: string;
+  description: string;
+  amountCents: number;
+  cashBoxId: string;
+  /** Null = Gastos de operación. Never Reposición. */
+  envelopeId?: string | null;
+  notes?: string | null;
+}
+
+export interface ExpenseQuery {
+  from?: string;
+  to?: string;
+  categoryId?: string;
+  cashBoxId?: string;
+  envelopeId?: string;
+  recurringExpenseId?: string;
+  includeVoided?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RecurringExpenseResponse {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  amountCents: number;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  envelopeId: string;
+  envelopeName: string;
+  frequency: ExpenseFrequency;
+  /** Monthly: day of the month (1-28). Weekly: 0 (Sunday) to 6 (Saturday). */
+  dueDay: number;
+  startsOn: string;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRecurringExpenseRequest {
+  name: string;
+  categoryId: string;
+  amountCents: number;
+  cashBoxId: string;
+  envelopeId?: string | null;
+  frequency: ExpenseFrequency;
+  dueDay: number;
+  startsOn: string;
+  notes?: string | null;
+}
+
+export interface UpdateRecurringExpenseRequest extends CreateRecurringExpenseRequest {
+  isActive: boolean;
+}
+
+/** An occurrence waiting to be paid or skipped. */
+export interface DueExpenseResponse {
+  recurring: RecurringExpenseResponse;
+  /** The 1st of the month, or the Monday of the week. */
+  periodStart: string;
+  dueDate: string;
+}
+
+/** Null = what the recurring expense says; the date defaults to today. */
+export interface ConfirmRecurringExpenseRequest {
+  periodStart: string;
+  date?: string | null;
+  amountCents?: number | null;
+  cashBoxId?: string | null;
+  notes?: string | null;
 }

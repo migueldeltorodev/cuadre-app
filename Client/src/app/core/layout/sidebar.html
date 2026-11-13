@@ -20,7 +20,7 @@
         }
       </svg>
       <span>Menú</span>
-      @if (alerts.pendingDaysCount() + alerts.pendingShortagesCount() > 0 && !mobileOpen()) {
+      @if (anyBadge() && !mobileOpen()) {
         <span class="dot" aria-hidden="true"></span>
       }
     </button>
