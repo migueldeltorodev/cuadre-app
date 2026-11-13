@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiError, toApiError } from '../../../core/api/api-error';
@@ -8,6 +8,7 @@ import { formatShortDate, formatTimestampDay } from '../../../shared/format/date
 import { formatMicros, formatMoney } from '../../../shared/format/money';
 import { formatQuantityWithUnit, perUnit } from '../../../shared/format/quantity';
 import { exitReasonLabel, formatSignedQuantity, operationKindLabel, operationStateLabel } from '../inventory-format';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * One transfer, exit or count. Never edited. Voiding asks for a reason and writes the reverse movements
@@ -36,6 +37,16 @@ export default class OperacionPage implements OnInit {
   protected readonly operationKindLabel = operationKindLabel;
 
   protected readonly operation = signal<StockOperationResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const operation = this.operation();
+    if (operation) {
+      const back = this.backLink();
+      this.crumbs.set(`#${operation.number}`, [{ label: back.label, link: back.link }]);
+    }
+  });
   protected readonly loadError = signal<ApiError | null>(null);
 
   protected readonly voiding = signal(false);

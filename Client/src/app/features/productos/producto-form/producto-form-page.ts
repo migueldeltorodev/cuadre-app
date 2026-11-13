@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -26,6 +26,7 @@ import {
   unitName,
 } from '../../../shared/format/quantity';
 import { CategoryIndex } from '../catalog-labels';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * Create or edit a product (RF-PRD-02). One page for both: `/productos/nuevo` and `/productos/:id/editar`.
@@ -51,6 +52,15 @@ export default class ProductoFormPage implements OnInit {
   protected readonly unitName = unitName;
 
   protected readonly existing = signal<ProductResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const product = this.existing();
+    if (product) {
+      this.crumbs.set('Editar', [{ label: product.name, link: ['/productos', product.id] }]);
+    }
+  });
   protected readonly categories = signal(new CategoryIndex([]));
   protected readonly suppliers = signal<SupplierResponse[]>([]);
   protected readonly units = signal<UnitResponse[]>([]);

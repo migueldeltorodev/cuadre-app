@@ -4,15 +4,6 @@
   gap: 20px;
 }
 
-.crumbs {
-  font-size: 13.5px;
-  color: var(--c-muted);
-}
-
-.crumbs a {
-  text-decoration: none;
-}
-
 .head {
   display: flex;
   flex-wrap: wrap;

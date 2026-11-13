@@ -4,15 +4,6 @@
   gap: 20px;
 }
 
-.crumbs {
-  font-size: 13.5px;
-  color: var(--c-muted);
-}
-
-.crumbs a {
-  text-decoration: none;
-}
-
 /* Form on the left, the prices it moves on the right (stacks on narrow windows). */
 .layout {
   display: flex;

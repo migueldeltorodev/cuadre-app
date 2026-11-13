@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { KeyValuePipe } from '@angular/common';
 import {
@@ -37,6 +37,7 @@ import {
 } from '../../../shared/format/quantity';
 import { localToday, stockQuantityMilli } from '../../compras/purchase-format';
 import { EXIT_REASONS, exitReasonLabel, formatSignedQuantity, inPurchaseUnits, operationKindLabel } from '../inventory-format';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /** "stock" = typed in the stock unit (libras); "purchase" = in the purchase unit (sacos). */
 type EntryUnit = 'stock' | 'purchase';
@@ -138,6 +139,13 @@ export default class OperacionFormPage implements OnInit {
   protected readonly reasons = EXIT_REASONS;
 
   protected readonly copy = computed(() => COPY[this.kind()]);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const copy = this.copy();
+    this.crumbs.set('Nuevo', [{ label: copy.backLabel, link: copy.backLink }]);
+  });
 
   protected readonly locations = signal<LocationResponse[]>([]);
   protected readonly products = signal<ProductStockResponse[]>([]);
