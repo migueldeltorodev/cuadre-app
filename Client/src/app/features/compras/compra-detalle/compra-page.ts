@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -10,6 +10,7 @@ import { formatShortDate, formatTimestampDay } from '../../../shared/format/date
 import { formatHundredths, formatMicros, formatMoney } from '../../../shared/format/money';
 import { formatQuantityWithUnit, perUnit } from '../../../shared/format/quantity';
 import { purchaseStateLabel } from '../purchase-format';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * One purchase (RF-CMP-06/07): what came in, at what LANDED cost per stock unit, and how it was paid.
@@ -38,6 +39,15 @@ export default class CompraPage implements OnInit {
   protected readonly perUnit = perUnit;
 
   protected readonly purchase = signal<PurchaseResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const purchase = this.purchase();
+    if (purchase) {
+      this.crumbs.set(`Compra #${purchase.number}`);
+    }
+  });
   private readonly cashBoxes = signal<CashBoxResponse[]>([]);
   private readonly locations = signal<LocationResponse[]>([]);
   protected readonly loadError = signal<ApiError | null>(null);

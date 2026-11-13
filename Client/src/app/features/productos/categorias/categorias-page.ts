@@ -1,6 +1,5 @@
 import { Dialog } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { ApiError, toApiError } from '../../../core/api/api-error';
 import { CategoriesApi } from '../../../core/api/catalog-api';
 import { CategoryResponse } from '../../../core/api/models';
@@ -13,13 +12,9 @@ import { CategoryDialog, CategoryDialogData } from './category-dialog';
  * it asks for a second click instead of a browser confirm() (blocked in the desktop window).
  */
 @Component({
-  imports: [RouterLink],
+  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="crumbs" aria-label="Ruta">
-      <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span> Categorías
-    </nav>
-
     <header class="head">
       <div>
         <h1 class="page-title">Categorías</h1>
@@ -81,8 +76,6 @@ import { CategoryDialog, CategoryDialogData } from './category-dialog';
   `,
   styles: `
     :host { display: flex; flex-direction: column; gap: 20px; max-width: 880px; }
-    .crumbs { font-size: 13.5px; color: var(--c-muted); }
-    .crumbs a { text-decoration: none; }
     .head { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; }
     .card { padding: 8px 24px; }
     .row--top { border-top: 0; }

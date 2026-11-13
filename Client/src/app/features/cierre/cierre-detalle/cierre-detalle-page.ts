@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiError, toApiError } from '../../../core/api/api-error';
@@ -9,6 +9,7 @@ import { formatMoney } from '../../../shared/format/money';
 import { formatQuantityWithUnit } from '../../../shared/format/quantity';
 import { closingStateLabel, discrepancyText, formatCup } from '../closing-format';
 import { ClosingSummary } from '../closing-summary';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * One closed day: its figures, what to put in each envelope and the count. Never edited. Reopening (only the
@@ -37,6 +38,15 @@ export default class CierreDetallePage implements OnInit {
   protected readonly justClosed = !!inject(Router).currentNavigation()?.extras.state?.['justClosed'];
 
   protected readonly closing = signal<DailyClosingResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const closing = this.closing();
+    if (closing) {
+      this.crumbs.set(formatShortDate(closing.date), [{ label: 'Cierres anteriores', link: '/cierre/historial' }]);
+    }
+  });
   protected readonly loadError = signal<ApiError | null>(null);
 
   protected readonly reopening = signal(false);

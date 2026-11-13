@@ -1,0 +1,202 @@
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese faltante no existe.' : e.message }}</p>
+}
+
+@if (discrepancy(); as d) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">{{ title() }}</h1>
+      <div class="tags">
+        @if (state(); as s) {
+          <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+        }
+        @if (d.employeeName) {
+          <span class="tag">Trabajó {{ d.employeeName }}</span>
+        }
+        <a class="tag tag--link" [routerLink]="['/cierre', d.closingId]">Ver el cierre</a>
+      </div>
+    </div>
+    @if (canClaim() && action() === null) {
+      <div class="actions">
+        <button class="btn" type="button" (click)="start('writeOff')">Dar por perdido</button>
+        <button class="btn btn--primary" type="button" (click)="start('recover')">Registrar recuperación</button>
+      </div>
+    }
+  </header>
+
+  @if (d.kind === 'Shortage') {
+    <section class="figures" aria-label="Cuentas del faltante">
+      <div class="figure">
+        <div class="figure__label">Faltó</div>
+        <div class="figure__value num">{{ formatMoney(d.amountCents) }}</div>
+      </div>
+      <div class="figure">
+        <div class="figure__label">Recuperado</div>
+        <div class="figure__value num">{{ formatMoney(d.recoveredCents) }}</div>
+      </div>
+      <div class="figure" [class.figure--warn]="d.pendingCents > 0">
+        <div class="figure__label">{{ d.status === 'Lost' ? 'Se perdió' : 'Queda por reclamar' }}</div>
+        <div class="figure__value num">
+          {{ formatMoney(d.status === 'Lost' ? d.amountCents - d.recoveredCents : d.pendingCents) }}
+        </div>
+      </div>
+    </section>
+  } @else {
+    <p class="alert alert--warn">
+      Sobraron {{ formatMoney(d.amountCents) }}. Un sobrante solo queda registrado: no se reclama ni se pierde.
+    </p>
+  }
+
+  @if (d.note) {
+    <p class="muted">Nota del cierre: {{ d.note }}</p>
+  }
+  @if (d.status === 'Lost') {
+    <p class="alert alert--bad">
+      Dado por perdido el {{ d.resolvedAt ? formatTimestampDay(d.resolvedAt) : '' }}: {{ d.resolutionNote }}
+    </p>
+  }
+  @if (d.status === 'Recovered') {
+    <p class="alert" role="status">Recuperado entero{{ d.resolvedAt ? ' el ' + formatTimestampDay(d.resolvedAt) : '' }}.</p>
+  }
+
+  @if (action() === 'recover') {
+    <section class="card form-card" aria-labelledby="recover-title" [formGroup]="recoverForm">
+      <h2 class="card__title" id="recover-title">Registrar recuperación</h2>
+      <p class="card__lead">
+        La plata entra el día que se recupera y se reparte como un ingreso real (A3), por los % de ese día. El día del
+        faltante, que ya está cerrado, no se toca.
+      </p>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Cuánto volvió</span>
+          <input class="input num" formControlName="amount" inputmode="decimal" autocomplete="off"
+            [class.input--invalid]="(recoverForm.controls.amount.invalid && recoverForm.controls.amount.touched) || tooMuch()" />
+          @if (tooMuch()) {
+            <span class="field__error">Quedan {{ formatMoney(d.pendingCents) }} por recuperar.</span>
+          } @else if (recoverForm.controls.amount.invalid && recoverForm.controls.amount.touched) {
+            <span class="field__error">Escribí un monto mayor que cero.</span>
+          } @else {
+            <span class="field__hint">Quedan {{ formatMoney(d.pendingCents) }}.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">A qué caja</span>
+          <select class="input" formControlName="cashBoxId">
+            @for (box of cashBoxes(); track box.id) {
+              <option [value]="box.id">{{ box.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">Día <span class="opt">(opcional)</span></span>
+          <input class="input num" type="date" formControlName="date" />
+          <span class="field__hint">Vacío = hoy.</span>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Nota <span class="opt">(opcional)</span></span>
+        <input class="input" formControlName="note" autocomplete="off" placeholder="Lo devolvió el dependiente…" />
+      </label>
+      @if (actionError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancel()">Cancelar</button>
+        <button class="btn btn--primary" type="button" [disabled]="saving()" (click)="recover()">
+          {{ saving() ? 'Guardando…' : 'Registrar' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (action() === 'writeOff') {
+    <section class="card form-card form-card--danger" aria-labelledby="writeoff-title">
+      <h2 class="card__title" id="writeoff-title">Dar por perdido</h2>
+      <p class="card__lead">
+        Lo que no se recuperó ({{ formatMoney(d.pendingCents) }}) queda como pérdida. No mueve plata: el faltante ya bajó
+        lo cobrado de su día. Después no se pueden registrar más recuperaciones.
+      </p>
+      <label class="field">
+        <span class="field__label">Por qué</span>
+        <input class="input" [formControl]="writeOffNote" autocomplete="off" placeholder="No apareció, nadie se hace cargo…"
+          [class.input--invalid]="writeOffNote.invalid && writeOffNote.touched" />
+        @if (writeOffNote.invalid && writeOffNote.touched) {
+          <span class="field__error">Escribí el motivo.</span>
+        }
+      </label>
+      @if (actionError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancel()">No, volver</button>
+        <button class="btn btn--danger" type="button" [disabled]="saving()" (click)="writeOff()">
+          {{ saving() ? 'Guardando…' : 'Sí, darlo por perdido' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (d.kind === 'Shortage') {
+    <section class="table-card" aria-labelledby="recoveries-title">
+      <div class="table-card__head">
+        <h2 class="section-title" id="recoveries-title">Recuperaciones</h2>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Caja</th>
+            <th class="end">Monto</th>
+            <th>Estado</th>
+            <th class="end"><span class="visually-hidden">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of d.recoveries; track r.id) {
+            <tr [class.voided]="r.status === 'Voided'">
+              <td>
+                {{ formatShortDate(r.date) }}
+                @if (r.note) { <div class="sub">{{ r.note }}</div> }
+                @if (r.status === 'Voided') { <div class="sub">Anulada: {{ r.voidReason }}</div> }
+              </td>
+              <td>{{ r.cashBoxName }}</td>
+              <td class="end num qty strong">{{ formatMoney(r.amountCents) }}</td>
+              <td>
+                <span class="pill" [class]="r.status === 'Confirmed' ? 'pill--ok' : 'pill--muted'">
+                  {{ r.status === 'Confirmed' ? 'Confirmada' : 'Anulada' }}
+                </span>
+              </td>
+              <td class="end">
+                @if (r.status === 'Confirmed' && canVoid() && voiding() !== r.id) {
+                  <button class="btn btn--ghost btn--small" type="button" (click)="startVoid(r)">Anular</button>
+                }
+              </td>
+            </tr>
+            @if (voiding() === r.id) {
+              <tr class="void-row">
+                <td colspan="5">
+                  <div class="void">
+                    <label class="field void__field">
+                      <span class="field__label">Por qué se anula (la plata sale hoy de los sobres)</span>
+                      <input class="input" [formControl]="voidReason" autocomplete="off"
+                        [class.input--invalid]="voidReason.invalid && voidReason.touched" />
+                    </label>
+                    <button class="btn btn--small" type="button" (click)="voiding.set(null)">Cancelar</button>
+                    <button class="btn btn--danger btn--small" type="button" [disabled]="saving()" (click)="confirmVoid()">
+                      Anular
+                    </button>
+                  </div>
+                  @if (voidError(); as e) {
+                    <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+                  }
+                </td>
+              </tr>
+            }
+          } @empty {
+            <tr><td colspan="5" class="none">Todavía no se recuperó nada.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+}

@@ -214,6 +214,37 @@ public static class ApiEndpoints
         public const string GetAll = Base;
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Reopen = $"{Base}/{{id:guid}}/reopen";
+
+        /// <summary>RF-CIE-09: business days already over and not closed.</summary>
+        public const string Pending = $"{Base}/pending";
+    }
+
+    /// <summary>Shortages and surpluses of the closings (RF-CIE-12/13). Created only by a closing.</summary>
+    public static class CashDiscrepancies
+    {
+        private const string Base = $"{ApiBase}/cash-discrepancies";
+
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string PendingSummary = $"{Base}/pending-summary";
+        public const string Recover = $"{Base}/{{id:guid}}/recoveries";
+        public const string WriteOff = $"{Base}/{{id:guid}}/write-off";
+    }
+
+    /// <summary>A recovery is never edited: voided, with reversals dated today.</summary>
+    public static class ShortageRecoveries
+    {
+        private const string Base = $"{ApiBase}/shortage-recoveries";
+
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>RF-PF-10.</summary>
+    public static class ProfitFirst
+    {
+        private const string Base = $"{ApiBase}/profit-first";
+
+        public const string Evaluation = $"{Base}/evaluation";
     }
 
     /// <summary>Who works the counter. Never deleted, only deactivated.</summary>

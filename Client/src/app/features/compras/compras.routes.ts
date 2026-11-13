@@ -6,11 +6,13 @@ export const COMPRAS_ROUTES: Routes = [
   {
     path: 'nueva',
     title: 'Nueva compra · Cuadre',
+    data: { crumb: 'Nueva compra' },
     loadComponent: () => import('./compra-form/compra-form-page'),
   },
   {
     path: ':id',
     title: 'Compra · Cuadre',
+    data: { crumb: 'Compra' },
     loadComponent: () => import('./compra-detalle/compra-page'),
   },
 ];

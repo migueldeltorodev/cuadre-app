@@ -45,6 +45,12 @@ public class DailyClosing
     /// <summary>Read-only, filled by queries.</summary>
     public string? EmployeeName { get; init; }
 
+    /// <summary>
+    /// RF-CIE-11, preview and create only (not stored): another closed day with exactly the same collections and
+    /// theoretical sales. A warning: it may be the same day loaded twice.
+    /// </summary>
+    public DateOnly? PossibleDuplicateOf { get; set; }
+
     /// <summary>A1 (D-02).</summary>
     public long CollectedCents => CashCollectedCents + TransferCollectedCents;
 
@@ -131,7 +137,10 @@ public class DailyClosingAllocation
     public int SortOrder { get; init; }
 }
 
-/// <summary>Faltante / sobrante of the cash count (RN-06c). Resolution (recovered, lost) arrives in slice 6b.</summary>
+/// <summary>
+/// Faltante / sobrante of the cash count (RN-06c). A shortage is claimed: recovered in one or more parts, or written
+/// off as lost. A surplus is only recorded.
+/// </summary>
 public class CashDiscrepancy
 {
     public required Guid Id { get; init; }
@@ -142,8 +151,69 @@ public class CashDiscrepancy
     public Guid? EmployeeId { get; init; }
     public string? Note { get; init; }
     public CashDiscrepancyStatus Status { get; set; }
+
+    /// <summary>Why it was written off (Lost).</summary>
+    public string? ResolutionNote { get; set; }
+
+    /// <summary>When it became Recovered or Lost.</summary>
+    public DateTime? ResolvedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    // Read-only, filled by queries.
+    public long RecoveredCents { get; init; }
+    public DateOnly? ClosingDate { get; init; }
+    public string? EmployeeName { get; init; }
+    public List<ShortageRecovery> Recoveries { get; init; } = [];
+
+    /// <summary>What is still to be claimed (0 once recovered or lost).</summary>
+    public long PendingCents => Status == CashDiscrepancyStatus.Pending ? AmountCents - RecoveredCents : 0;
+}
+
+/// <summary>Part of a shortage that came back (RN-06c): it comes in the day it is recovered. Never edited: voided.</summary>
+public class ShortageRecovery
+{
+    public required Guid Id { get; init; }
+    public required Guid DiscrepancyId { get; init; }
+    public required DateOnly Date { get; init; }
+    public required Guid CashBoxId { get; init; }
+    public required long AmountCents { get; init; }
+    public string? Note { get; init; }
+    public ShortageRecoveryStatus Status { get; set; }
+    public string? VoidReason { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    /// <summary>Read-only, filled by queries.</summary>
+    public string CashBoxName { get; init; } = "";
+}
+
+/// <summary>Stored by name.</summary>
+public enum ShortageRecoveryStatus
+{
+    Confirmed,
+    Voided
+}
+
+/// <summary>What the user brings to register a recovery.</summary>
+public sealed record RecoverShortage(Guid DiscrepancyId, DateOnly? Date, Guid CashBoxId, long AmountCents,
+    string? Note);
+
+public sealed record WriteOffShortage(Guid DiscrepancyId, string Note);
+
+public sealed record VoidShortageRecovery(Guid RecoveryId, string Reason);
+
+public class GetAllCashDiscrepanciesOptions
+{
+    public CashDiscrepancyKind? Kind { get; init; }
+    public CashDiscrepancyStatus? Status { get; init; }
+    public Guid? EmployeeId { get; init; }
+    public DateOnly? From { get; init; }
+    public DateOnly? To { get; init; }
+    public int Page { get; init; }
+    public int PageSize { get; init; }
 }
 
 public enum CashDiscrepancyKind
@@ -152,17 +222,23 @@ public enum CashDiscrepancyKind
     Surplus
 }
 
-/// <summary>Stored by name, append only: slice 6b adds Recovered and Lost.</summary>
+/// <summary>Stored by name, append only.</summary>
 public enum CashDiscrepancyStatus
 {
-    /// <summary>A shortage to claim.</summary>
+    /// <summary>A shortage to claim (maybe partly recovered already).</summary>
     Pending,
 
     /// <summary>A surplus: only kept in the history.</summary>
     Recorded,
 
     /// <summary>Its closing was reopened.</summary>
-    Voided
+    Voided,
+
+    /// <summary>A shortage fully recovered.</summary>
+    Recovered,
+
+    /// <summary>A shortage written off: what was not recovered is lost.</summary>
+    Lost
 }
 
 /// <summary>What the user brings to close a day. Everything else is read or computed by the server.</summary>

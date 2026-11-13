@@ -124,13 +124,69 @@ public class DailyClosingAllocationResponse
     public required long BankCents { get; init; }
 }
 
+/// <summary>A part of a shortage that came back, on the day it came back.</summary>
+public class ShortageRecoveryResponse
+{
+    public required Guid Id { get; init; }
+    public required DateOnly Date { get; init; }
+    public required Guid CashBoxId { get; init; }
+    public required string CashBoxName { get; init; }
+    public required long AmountCents { get; init; }
+    public string? Note { get; init; }
+    public required ShortageRecoveryState Status { get; init; }
+    public string? VoidReason { get; init; }
+    public DateTime? VoidedAt { get; init; }
+    public required DateTime CreatedAt { get; init; }
+}
+
 public class CashDiscrepancyResponse
 {
     public required Guid Id { get; init; }
+    public required Guid ClosingId { get; init; }
+
+    /// <summary>The day of the closing where it came out.</summary>
+    public required DateOnly Date { get; init; }
+
     public required CashDiscrepancyType Kind { get; init; }
     public required long AmountCents { get; init; }
+    public Guid? EmployeeId { get; init; }
+    public string? EmployeeName { get; init; }
     public string? Note { get; init; }
     public required CashDiscrepancyState Status { get; init; }
+
+    /// <summary>Confirmed recoveries so far.</summary>
+    public required long RecoveredCents { get; init; }
+
+    /// <summary>What is still to claim (0 unless Pending).</summary>
+    public required long PendingCents { get; init; }
+
+    /// <summary>Why it was written off.</summary>
+    public string? ResolutionNote { get; init; }
+
+    public DateTime? ResolvedAt { get; init; }
+
+    /// <summary>Only in the detail of a shortage; empty in lists and inside a closing.</summary>
+    public required IReadOnlyList<ShortageRecoveryResponse> Recoveries { get; init; } = [];
+
+    public required DateTime CreatedAt { get; init; }
+    public required DateTime UpdatedAt { get; init; }
+}
+
+public class CashDiscrepanciesResponse : PagedResponse<CashDiscrepancyResponse>;
+
+/// <summary>Shortages still to claim, for the menu and the home page.</summary>
+public class PendingShortagesResponse
+{
+    public required int Count { get; init; }
+    public required long PendingCents { get; init; }
+}
+
+/// <summary>RF-CIE-09: business days already over and not closed (at most 31 listed; Count has them all).</summary>
+public class PendingClosingDaysResponse
+{
+    public DateOnly? LastClosedDate { get; init; }
+    public required int Count { get; init; }
+    public required IReadOnlyList<DateOnly> Days { get; init; } = [];
 }
 
 /// <summary>A closing, or its preview (then Id is the one it would get and nothing is saved).</summary>
@@ -182,6 +238,12 @@ public class DailyClosingResponse
     public required IReadOnlyList<DailyClosingCollectionResponse> Collections { get; init; } = [];
     public required IReadOnlyList<DailyClosingAllocationResponse> Allocations { get; init; } = [];
     public CashDiscrepancyResponse? Discrepancy { get; init; }
+
+    /// <summary>
+    /// RF-CIE-11, preview and create only: another closed day has exactly the same collections and sales. A warning:
+    /// it may be the same day loaded twice.
+    /// </summary>
+    public DateOnly? PossibleDuplicateOf { get; init; }
 
     public required DateTime CreatedAt { get; init; }
     public required DateTime UpdatedAt { get; init; }

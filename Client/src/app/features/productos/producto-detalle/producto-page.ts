@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/api/api-error';
@@ -20,6 +20,7 @@ import {
   unitName,
 } from '../../../shared/format/quantity';
 import { CategoryIndex, isLowStock, productState } from '../catalog-labels';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /** What the colchón says about today's rate (RN-04), ready to print. */
 interface BufferStatus {
@@ -56,6 +57,15 @@ export default class ProductoPage implements OnInit {
   protected readonly perUnit = perUnit;
 
   protected readonly product = signal<ProductResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const product = this.product();
+    if (product) {
+      this.crumbs.set(product.name);
+    }
+  });
   protected readonly history = signal<PriceChangeResponse[]>([]);
   protected readonly purchases = signal<ProductPurchaseResponse[]>([]);
   protected readonly categories = signal(new CategoryIndex([]));

@@ -12,10 +12,6 @@ import { SupplierDialog, SupplierDialogData } from './supplier-dialog';
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="crumbs" aria-label="Ruta">
-      <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span> Proveedores
-    </nav>
-
     <header class="head">
       <div>
         <h1 class="page-title">Proveedores</h1>
@@ -54,8 +50,6 @@ import { SupplierDialog, SupplierDialogData } from './supplier-dialog';
   `,
   styles: `
     :host { display: flex; flex-direction: column; gap: 20px; max-width: 880px; }
-    .crumbs { font-size: 13.5px; color: var(--c-muted); }
-    .crumbs a { text-decoration: none; }
     .head { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; }
     .card { padding: 8px 24px; }
     .rows .row:first-child { border-top: 0; }

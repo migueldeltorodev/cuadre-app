@@ -72,6 +72,9 @@ public class CashMovement
     /// <summary>Collections, split and staff pay of a daily closing (slice 6).</summary>
     public Guid? ClosingId { get; init; }
 
+    /// <summary>A shortage recovered later (slice 6b).</summary>
+    public Guid? RecoveryId { get; init; }
+
     public required DateTime CreatedAt { get; init; }
 }
 
@@ -113,5 +116,11 @@ public enum CashMovementKind
     StaffPay,
 
     /// <summary>Reversal of the money of a reopened closing, dated the same day.</summary>
-    ClosingVoid
+    ClosingVoid,
+
+    /// <summary>Money of a shortage recovered (RN-06c): split like the A3 of the day it comes in.</summary>
+    ShortageRecovery,
+
+    /// <summary>Reversal of a voided recovery, dated today.</summary>
+    ShortageRecoveryVoid
 }

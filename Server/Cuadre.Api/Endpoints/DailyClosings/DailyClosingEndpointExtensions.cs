@@ -11,6 +11,7 @@ public static class DailyClosingEndpointExtensions
         app.MapGetDailyClosing();
         app.MapGetAllDailyClosings();
         app.MapReopenDailyClosing();
+        app.MapGetPendingClosingDays();
         return app;
     }
 }
