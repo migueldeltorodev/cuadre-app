@@ -44,5 +44,9 @@ public enum CashMovementType
     TaxPayment,
     HouseConsumption,
     EnvelopeOperationVoid,
-    StockOperationVoid
+    StockOperationVoid,
+    Collection,
+    Allocation,
+    StaffPay,
+    ClosingVoid
 }
