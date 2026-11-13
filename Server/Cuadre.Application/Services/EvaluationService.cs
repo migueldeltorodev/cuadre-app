@@ -17,15 +17,18 @@ public class EvaluationService : IEvaluationService
     private readonly IEvaluationRepository _repository;
     private readonly IEnvelopeRepository _envelopeRepository;
     private readonly IDailyClosingRepository _closingRepository;
+    private readonly IExpenseRepository _expenseRepository;
     private readonly IValidator<GetEvaluationOptions> _validator;
     private readonly TimeProvider _clock;
 
     public EvaluationService(IEvaluationRepository repository, IEnvelopeRepository envelopeRepository,
-        IDailyClosingRepository closingRepository, IValidator<GetEvaluationOptions> validator, TimeProvider clock)
+        IDailyClosingRepository closingRepository, IExpenseRepository expenseRepository,
+        IValidator<GetEvaluationOptions> validator, TimeProvider clock)
     {
         _repository = repository;
         _envelopeRepository = envelopeRepository;
         _closingRepository = closingRepository;
+        _expenseRepository = expenseRepository;
         _validator = validator;
         _clock = clock;
     }
@@ -89,6 +92,8 @@ public class EvaluationService : IEvaluationService
             totals.SurplusCents,
             totals.RecoveredCents,
             await _closingRepository.GetInternalDebtAsync(options.To, cancellationToken),
-            rows);
+            rows,
+            await _expenseRepository.GetTotalsAsync(
+                new GetAllExpensesOptions { From = options.From, To = options.To }, cancellationToken));
     }
 }

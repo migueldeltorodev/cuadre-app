@@ -109,17 +109,19 @@ public static partial class ContractMapping
         };
     }
 
+    private static ExpenseTotalResponse MapToResponse(this ExpenseTotal total) => new()
+    {
+        Currency = total.Currency.ToContract(),
+        AmountCents = total.AmountCents
+    };
+
     public static ExpensesResponse MapToResponse(this IEnumerable<Expense> expenses, IEnumerable<ExpenseTotal> totals,
         int page, int pageSize, int total)
     {
         return new ExpensesResponse
         {
             Items = expenses.Select(expense => expense.MapToResponse()),
-            Totals = totals.Select(item => new ExpenseTotalResponse
-            {
-                Currency = item.Currency.ToContract(),
-                AmountCents = item.AmountCents
-            }).ToList(),
+            Totals = totals.Select(total => total.MapToResponse()).ToList(),
             Page = page,
             PageSize = pageSize,
             Total = total

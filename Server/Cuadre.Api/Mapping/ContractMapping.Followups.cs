@@ -133,7 +133,8 @@ public static partial class ContractMapping
                 TargetPercentBps = envelope.TargetPercentBps,
                 ReceivedCents = envelope.ReceivedCents,
                 RealPercentBps = envelope.RealPercentBps
-            }).ToList()
+            }).ToList(),
+            Expenses = evaluation.Expenses.Select(total => total.MapToResponse()).ToList()
         };
     }
 

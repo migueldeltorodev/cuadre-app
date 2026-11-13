@@ -284,6 +284,24 @@ public static class ApiEndpoints
         public const string Skip = $"{Base}/{{id:guid}}/skip";
     }
 
+    /// <summary>RF-REP-01: the home screen.</summary>
+    public static class Dashboard
+    {
+        public const string Get = $"{ApiBase}/dashboard";
+    }
+
+    /// <summary>RF-REP-02..05, 07, 08. Read-only.</summary>
+    public static class Reports
+    {
+        private const string Base = $"{ApiBase}/reports";
+
+        public const string Monthly = $"{Base}/monthly";
+        public const string Losses = $"{Base}/losses";
+        public const string ProductRanking = $"{Base}/product-ranking";
+        public const string CostChanges = $"{Base}/cost-changes";
+        public const string ProductCosts = $"{Base}/products/{{id:guid}}/costs";
+    }
+
     /// <summary>Who works the counter. Never deleted, only deactivated.</summary>
     public static class Employees
     {

@@ -63,7 +63,8 @@ public sealed record ProfitFirstEvaluation(
     long SurplusCents,
     long RecoveredCents,
     long InternalDebtCents,
-    IReadOnlyList<EnvelopeEvaluation> Envelopes)
+    IReadOnlyList<EnvelopeEvaluation> Envelopes,
+    IReadOnlyList<ExpenseTotal> Expenses)
 {
     /// <summary>A1.</summary>
     public long CollectedCents => CashCollectedCents + TransferCollectedCents;
