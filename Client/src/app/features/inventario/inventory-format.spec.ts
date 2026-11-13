@@ -19,6 +19,8 @@ function movement(partial: Partial<StockMovementResponse>): StockMovementRespons
     operationId: null,
     operationNumber: null,
     exitReason: null,
+    closingId: null,
+    closingDate: null,
     isVoided: false,
     createdAt: '2026-11-12T15:00:00Z',
     ...partial,
@@ -45,6 +47,9 @@ describe('inventory-format', () => {
       'Salida #4 · Merma',
     );
     expect(movementLabel(movement({ kind: 'TransferIn', operationNumber: 3 }))).toBe('Traslado #3 (entra)');
+    expect(movementLabel(movement({ kind: 'Sale', closingId: 'c1', closingDate: '2026-11-12' }))).toBe(
+      'Venta del día · 12 nov 2026',
+    );
   });
 
   it('counts whole days between business dates', () => {

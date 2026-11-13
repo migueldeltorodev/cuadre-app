@@ -5,6 +5,7 @@ import {
   StockOperationType,
   UnitCode,
 } from '../../core/api/models';
+import { formatShortDate } from '../../shared/format/date';
 import { ONE_UNIT_MILLI, UNIT_LABELS, formatQuantity, formatQuantityWithUnit } from '../../shared/format/quantity';
 
 /** Labels and display-only helpers of the Inventario screens. The server owns every real number. */
@@ -58,6 +59,10 @@ export function movementLabel(movement: StockMovementResponse): string {
       return `Ajuste de conteo${op}`;
     case 'OperationVoid':
       return `Anulación de la operación${op}`;
+    case 'Sale':
+      return `Venta del día${closingDay(movement)}`;
+    case 'ClosingVoid':
+      return `Reapertura del cierre${closingDay(movement)}`;
   }
 }
 
@@ -69,7 +74,15 @@ export function movementLink(movement: StockMovementResponse): string[] | null {
   if (movement.operationId) {
     return ['/inventario/operaciones', movement.operationId];
   }
+  if (movement.closingId) {
+    return ['/cierre', movement.closingId];
+  }
   return null;
+}
+
+/** " · 12 nov 2026" when the row comes from a daily closing. */
+function closingDay(movement: StockMovementResponse): string {
+  return movement.closingDate ? ` · ${formatShortDate(movement.closingDate)}` : '';
 }
 
 /** "+10 lb" / "−5 lb": signed, with the real minus sign. */
