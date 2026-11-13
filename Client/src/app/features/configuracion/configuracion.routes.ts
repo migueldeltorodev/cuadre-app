@@ -28,7 +28,11 @@ export const CONFIGURACION_ROUTES: Routes = [
         title: 'Profit First · Configuración · Cuadre',
         loadComponent: () => import('./profit-first/profit-first-section'),
       },
-      later('personal', 'Personal'),
+      {
+        path: 'personal',
+        title: 'Personal · Configuración · Cuadre',
+        loadComponent: () => import('./personal/personal-section'),
+      },
       later('respaldo', 'Respaldo'),
     ],
   },
