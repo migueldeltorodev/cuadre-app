@@ -35,13 +35,14 @@ public class StockOperationService : IStockOperationService
     private readonly IValidator<StockOperation> _validator;
     private readonly IValidator<VoidStockOperation> _voidValidator;
     private readonly IValidator<GetAllStockOperationsOptions> _optionsValidator;
+    private readonly IClosedDayGuard _closedDayGuard;
     private readonly TimeProvider _clock;
 
     public StockOperationService(IStockOperationRepository repository, IInventoryRepository inventoryRepository,
         IProductRepository productRepository, ILocationRepository locationRepository,
         IEnvelopeRepository envelopeRepository, ICashBoxRepository cashBoxRepository,
         IValidator<StockOperation> validator, IValidator<VoidStockOperation> voidValidator,
-        IValidator<GetAllStockOperationsOptions> optionsValidator, TimeProvider clock)
+        IValidator<GetAllStockOperationsOptions> optionsValidator, IClosedDayGuard closedDayGuard, TimeProvider clock)
     {
         _repository = repository;
         _inventoryRepository = inventoryRepository;
@@ -52,6 +53,7 @@ public class StockOperationService : IStockOperationService
         _validator = validator;
         _voidValidator = voidValidator;
         _optionsValidator = optionsValidator;
+        _closedDayGuard = closedDayGuard;
         _clock = clock;
     }
 
@@ -63,6 +65,12 @@ public class StockOperationService : IStockOperationService
         if (operation.Date > _clock.Today())
         {
             return Result.Fail(new BusinessRuleError("La fecha no puede ser futura."));
+        }
+
+        var open = await _closedDayGuard.EnsureOpenAsync(operation.Date, cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
         }
 
         var locationsCheck = await CheckLocationsAsync(operation, cancellationToken);
@@ -147,6 +155,13 @@ public class StockOperationService : IStockOperationService
         if (operation.Status == StockOperationStatus.Voided)
         {
             return Result.Fail(new BusinessRuleError($"La operación #{operation.Number} ya está anulada."));
+        }
+
+        // The reversal is dated today: today must still be open.
+        var open = await _closedDayGuard.EnsureOpenAsync(_clock.Today(), cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
         }
 
         var now = _clock.UtcNow();

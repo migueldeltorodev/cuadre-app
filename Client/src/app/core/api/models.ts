@@ -437,7 +437,9 @@ export type StockMovementType =
   | 'TransferIn'
   | 'Exit'
   | 'CountAdjustment'
-  | 'OperationVoid';
+  | 'OperationVoid'
+  | 'Sale'
+  | 'ClosingVoid';
 
 export interface CreateLocationRequest {
   name: string;
@@ -618,6 +620,8 @@ export interface StockMovementResponse {
   operationId: string | null;
   operationNumber: number | null;
   exitReason: ExitReasonCode | null;
+  closingId: string | null;
+  closingDate: string | null;
   /** Its document was voided later (the row and its reversal both stay). */
   isVoided: boolean;
   createdAt: string;
@@ -690,7 +694,11 @@ export type CashMovementType =
   | 'TaxPayment'
   | 'HouseConsumption'
   | 'EnvelopeOperationVoid'
-  | 'StockOperationVoid';
+  | 'StockOperationVoid'
+  | 'Collection'
+  | 'Allocation'
+  | 'StaffPay'
+  | 'ClosingVoid';
 
 export interface EnvelopeResponse {
   id: string;
@@ -761,6 +769,8 @@ export interface EnvelopeOverviewResponse {
   cashBoxes: EnvelopeCashBoxResponse[];
   envelopes: EnvelopeBalanceResponse[];
   currentPlan: AllocationPlanResponse | null;
+  /** What Reposición still owes the other envelopes at the end of that day (RN-10). */
+  internalDebtCents: number;
 }
 
 export interface CashMovementResponse {
@@ -780,6 +790,8 @@ export interface CashMovementResponse {
   envelopeOperationNumber: number | null;
   stockOperationId: string | null;
   stockOperationNumber: number | null;
+  closingId: string | null;
+  closingDate: string | null;
   isVoided: boolean;
   createdAt: string;
 }
@@ -908,6 +920,229 @@ export interface EnvelopeOperationQuery {
   from?: string;
   to?: string;
   envelopeId?: string;
+  includeVoided?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+// ---- Staff (slice 6) ----
+
+export interface EmployeeResponse {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmployeeRequest {
+  name: string;
+}
+
+export interface UpdateEmployeeRequest {
+  name: string;
+  isActive: boolean;
+}
+
+export interface StaffPaySchemeResponse {
+  id: string;
+  effectiveFrom: string;
+  dailyFixedCents: number;
+  /** % of A1 in basis points (1% = 100). */
+  percentOfSalesBps: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateStaffPaySchemeRequest {
+  effectiveFrom: string;
+  dailyFixedCents: number;
+  percentOfSalesBps: number;
+  notes?: string | null;
+}
+
+// ---- Daily closing (slice 6) ----
+// Money in CUP cents; quantities in thousandths of the stock unit.
+
+export type DailyClosingState = 'Confirmed' | 'Voided';
+export type CashDiscrepancyType = 'Shortage' | 'Surplus';
+export type CashDiscrepancyState = 'Pending' | 'Recorded' | 'Voided';
+
+export interface ClosingCounterLineResponse {
+  productId: string;
+  code: string;
+  name: string;
+  stockUnit: UnitCode;
+  allowsDecimals: boolean;
+  locationId: string;
+  locationName: string;
+  openingMilli: number;
+  inMilli: number;
+  outMilli: number;
+  /** Opening + in − out. */
+  expectedMilli: number;
+  /** Null = never priced. */
+  unitPriceCents: number | null;
+  toleranceBps: number;
+}
+
+export interface ClosingPaymentMethodResponse {
+  id: string;
+  name: string;
+  cashBoxId: string;
+  cashBoxName: string;
+  cashBoxKind: CashBoxType;
+  isTransfer: boolean;
+}
+
+export interface DailyClosingDraftResponse {
+  date: string;
+  /** A day the business usually does not open (warning only). */
+  isClosedDay: boolean;
+  lastClosedDate: string | null;
+  existingClosingId: string | null;
+  isExchangeRateMissing: boolean;
+  /** Why it cannot be closed. Null = it can. */
+  problem: string | null;
+  canClose: boolean;
+  lines: ClosingCounterLineResponse[];
+  paymentMethods: ClosingPaymentMethodResponse[];
+  payScheme: StaffPaySchemeResponse;
+  debtBeforeCents: number;
+  thresholdCents: number;
+}
+
+export interface ClosingCountRequest {
+  productId: string;
+  locationId: string;
+  countedMilli: number;
+}
+
+export interface ClosingCollectionRequest {
+  paymentMethodId: string;
+  amountCents: number;
+}
+
+/** Used by both the preview and the close. */
+export interface CreateDailyClosingRequest {
+  date: string;
+  employeeId?: string | null;
+  notes?: string | null;
+  counts: ClosingCountRequest[];
+  collections: ClosingCollectionRequest[];
+}
+
+export interface DailyClosingLineResponse {
+  id: string;
+  lineNo: number;
+  productId: string;
+  productCode: string;
+  productName: string;
+  locationId: string;
+  locationName: string;
+  stockUnit: UnitCode;
+  openingMilli: number;
+  inMilli: number;
+  outMilli: number;
+  expectedMilli: number;
+  countedMilli: number;
+  /** Negative = more was found than expected. */
+  soldMilli: number;
+  unitPriceCents: number | null;
+  salesCents: number;
+  toleranceBps: number;
+  toleranceCents: number;
+  costCents: number;
+}
+
+export interface DailyClosingCollectionResponse {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  cashBoxId: string;
+  cashBoxName: string;
+  isTransfer: boolean;
+  amountCents: number;
+}
+
+export interface DailyClosingAllocationResponse {
+  envelopeId: string;
+  envelopeName: string;
+  role: EnvelopeType;
+  /** Null for Reposición. */
+  percentBps: number | null;
+  amountCents: number;
+  /** Cash to put in the envelope (Operación: minus the staff pay already handed over). */
+  cashCents: number;
+  /** Already in the bank (only Reposición). */
+  bankCents: number;
+}
+
+export interface CashDiscrepancyResponse {
+  id: string;
+  kind: CashDiscrepancyType;
+  amountCents: number;
+  note: string | null;
+  status: CashDiscrepancyState;
+}
+
+export interface DailyClosingResponse {
+  id: string;
+  date: string;
+  status: DailyClosingState;
+  employeeId: string | null;
+  employeeName: string | null;
+  notes: string | null;
+  theoreticalSalesCents: number;
+  shrinkageToleranceCents: number;
+  cashCollectedCents: number;
+  transferCollectedCents: number;
+  /** A1. */
+  collectedCents: number;
+  /** A2. */
+  costOfSalesCents: number;
+  /** A3 = A1 − A2. */
+  realIncomeCents: number;
+  /** A1 − theoretical sales. Negative = shortage. */
+  cashDifferenceCents: number;
+  /** After the accepted shrinkage. */
+  adjustedDifferenceCents: number;
+  thresholdCents: number;
+  requiresNote: boolean;
+  staffPayCents: number;
+  payFixedCents: number;
+  payPercentBps: number;
+  debtBeforeCents: number;
+  debtCreatedCents: number;
+  debtRepaidCents: number;
+  debtAfterCents: number;
+  voidReason: string | null;
+  voidedAt: string | null;
+  lines: DailyClosingLineResponse[];
+  collections: DailyClosingCollectionResponse[];
+  allocations: DailyClosingAllocationResponse[];
+  discrepancy: CashDiscrepancyResponse | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyClosingSummaryResponse {
+  id: string;
+  date: string;
+  status: DailyClosingState;
+  employeeName: string | null;
+  collectedCents: number;
+  transferCollectedCents: number;
+  costOfSalesCents: number;
+  realIncomeCents: number;
+  adjustedDifferenceCents: number;
+  staffPayCents: number;
+  debtAfterCents: number;
+}
+
+export interface DailyClosingQuery {
+  from?: string;
+  to?: string;
   includeVoided?: boolean;
   page?: number;
   pageSize?: number;

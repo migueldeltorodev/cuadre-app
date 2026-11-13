@@ -11,7 +11,10 @@ export const routes: Routes = [
     component: Shell,
     children: [
       { path: '', title: 'Inicio · Cuadre', loadComponent: () => import('./features/inicio/inicio-page') },
-      placeholder('cierre', 'Cierre del día'),
+      {
+        path: 'cierre',
+        loadChildren: () => import('./features/cierre/cierre.routes').then((m) => m.CIERRE_ROUTES),
+      },
       {
         path: 'productos',
         loadChildren: () => import('./features/productos/productos.routes').then((m) => m.PRODUCTOS_ROUTES),

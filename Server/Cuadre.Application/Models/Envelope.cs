@@ -93,7 +93,8 @@ public sealed record EnvelopeOverview(
     DateOnly Date,
     IReadOnlyList<EnvelopeBoxColumn> CashBoxes,
     IReadOnlyList<EnvelopeRow> Envelopes,
-    AllocationPlan? CurrentPlan);
+    AllocationPlan? CurrentPlan,
+    long InternalDebtCents);
 
 /// <summary>One row of the cash ledger, for people: with names and the number of the document behind it.</summary>
 public class CashMovementEntry
@@ -114,6 +115,10 @@ public class CashMovementEntry
     public int? EnvelopeOperationNumber { get; init; }
     public Guid? StockOperationId { get; init; }
     public int? StockOperationNumber { get; init; }
+    public Guid? ClosingId { get; init; }
+
+    /// <summary>The day of the closing behind the row (closings have no number: the date is the name).</summary>
+    public DateOnly? ClosingDate { get; init; }
 
     /// <summary>Its document was voided later (the row and its reversal both stay).</summary>
     public bool IsVoided { get; init; }

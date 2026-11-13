@@ -76,6 +76,8 @@ public class StockMovementEntry
     public Guid? OperationId { get; init; }
     public int? OperationNumber { get; init; }
     public ExitReason? ExitReason { get; init; }
+    public Guid? ClosingId { get; init; }
+    public DateOnly? ClosingDate { get; init; }
 
     /// <summary>The purchase or operation was voided later (its row and its reversal both stay).</summary>
     public bool IsVoided { get; init; }

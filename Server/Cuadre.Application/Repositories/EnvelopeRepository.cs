@@ -168,6 +168,7 @@ public class EnvelopeRepository : IEnvelopeRepository
                    m.purchase_id, p.number AS purchase_number,
                    m.envelope_operation_id, eo.number AS envelope_operation_number,
                    m.stock_operation_id, so.number AS stock_operation_number,
+                   m.closing_id, dc.date AS closing_date,
                    {CashLedger.IsVoidedColumn}, m.created_at
             FROM cash_movements m
                 JOIN cash_boxes b ON b.id = m.cash_box_id

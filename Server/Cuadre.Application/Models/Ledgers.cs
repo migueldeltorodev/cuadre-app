@@ -21,10 +21,13 @@ public class StockMovement
     /// <summary>Transfers, exits and counts (slice 4).</summary>
     public Guid? OperationId { get; init; }
 
+    /// <summary>The sales of a daily closing (slice 6).</summary>
+    public Guid? ClosingId { get; init; }
+
     public required DateTime CreatedAt { get; init; }
 }
 
-/// <summary>Append only (names are stored): later slices add Sale...</summary>
+/// <summary>Append only (names are stored).</summary>
 public enum StockMovementKind
 {
     Purchase,
@@ -33,7 +36,13 @@ public enum StockMovementKind
     TransferIn,
     Exit,
     CountAdjustment,
-    OperationVoid
+    OperationVoid,
+
+    /// <summary>Sold at the counter, by difference at the daily closing (RN-05).</summary>
+    Sale,
+
+    /// <summary>Reversal of the sales of a reopened closing, dated the same day.</summary>
+    ClosingVoid
 }
 
 /// <summary>
@@ -60,10 +69,13 @@ public class CashMovement
     /// <summary>Consumo de la casa (RN-11): the exit that took the goods home.</summary>
     public Guid? StockOperationId { get; init; }
 
+    /// <summary>Collections, split and staff pay of a daily closing (slice 6).</summary>
+    public Guid? ClosingId { get; init; }
+
     public required DateTime CreatedAt { get; init; }
 }
 
-/// <summary>Append only (names are stored): later slices add Collection, Exchange, Expense...</summary>
+/// <summary>Append only (names are stored): later slices add Exchange, Expense...</summary>
 public enum CashMovementKind
 {
     Purchase,
@@ -89,5 +101,17 @@ public enum CashMovementKind
     EnvelopeOperationVoid,
 
     /// <summary>Reversal of the envelope move of a voided house consumption exit.</summary>
-    StockOperationVoid
+    StockOperationVoid,
+
+    /// <summary>What was collected with one payment method at the closing. Lands in Reposición first.</summary>
+    Collection,
+
+    /// <summary>Reparto del cierre (RN-09/RN-10): out of Reposición, into an envelope, same box.</summary>
+    Allocation,
+
+    /// <summary>Pago al dependiente (RN-08): cash out of Operación, at the closing.</summary>
+    StaffPay,
+
+    /// <summary>Reversal of the money of a reopened closing, dated the same day.</summary>
+    ClosingVoid
 }

@@ -2,6 +2,8 @@ using Cuadre.Api.Endpoints.AllocationPlans;
 using Cuadre.Api.Endpoints.App;
 using Cuadre.Api.Endpoints.CashBoxes;
 using Cuadre.Api.Endpoints.Categories;
+using Cuadre.Api.Endpoints.DailyClosings;
+using Cuadre.Api.Endpoints.Employees;
 using Cuadre.Api.Endpoints.EnvelopeOperations;
 using Cuadre.Api.Endpoints.Envelopes;
 using Cuadre.Api.Endpoints.ExchangeRates;
@@ -12,6 +14,7 @@ using Cuadre.Api.Endpoints.PriceLists;
 using Cuadre.Api.Endpoints.Products;
 using Cuadre.Api.Endpoints.Purchases;
 using Cuadre.Api.Endpoints.Settings;
+using Cuadre.Api.Endpoints.StaffPaySchemes;
 using Cuadre.Api.Endpoints.StockOperations;
 using Cuadre.Api.Endpoints.Suppliers;
 using Cuadre.Api.Endpoints.Units;
@@ -43,6 +46,9 @@ public static class EndpointsExtensions
         v1.MapEnvelopeEndpoints();
         v1.MapAllocationPlanEndpoints();
         v1.MapEnvelopeOperationEndpoints();
+        v1.MapEmployeeEndpoints();
+        v1.MapStaffPaySchemeEndpoints();
+        v1.MapDailyClosingEndpoints();
 
         return app;
     }

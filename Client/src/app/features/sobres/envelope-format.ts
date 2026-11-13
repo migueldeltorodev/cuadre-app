@@ -81,6 +81,9 @@ export function cashMovementLink(movement: CashMovementResponse): string[] | nul
   if (movement.stockOperationId) {
     return ['/inventario/operaciones', movement.stockOperationId];
   }
+  if (movement.closingId) {
+    return ['/cierre', movement.closingId];
+  }
   return null;
 }
 

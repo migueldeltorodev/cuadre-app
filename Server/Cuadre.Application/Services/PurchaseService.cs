@@ -40,6 +40,7 @@ public class PurchaseService : IPurchaseService
     private readonly IValidator<Purchase> _validator;
     private readonly IValidator<VoidPurchase> _voidValidator;
     private readonly IValidator<GetAllPurchasesOptions> _optionsValidator;
+    private readonly IClosedDayGuard _closedDayGuard;
     private readonly TimeProvider _clock;
 
     public PurchaseService(IPurchaseRepository repository, IProductRepository productRepository,
@@ -48,7 +49,7 @@ public class PurchaseService : IPurchaseService
         IExchangeRateRepository exchangeRateRepository, IEnvelopeRepository envelopeRepository,
         IValidator<Purchase> validator,
         IValidator<VoidPurchase> voidValidator, IValidator<GetAllPurchasesOptions> optionsValidator,
-        TimeProvider clock)
+        IClosedDayGuard closedDayGuard, TimeProvider clock)
     {
         _repository = repository;
         _productRepository = productRepository;
@@ -61,6 +62,7 @@ public class PurchaseService : IPurchaseService
         _validator = validator;
         _voidValidator = voidValidator;
         _optionsValidator = optionsValidator;
+        _closedDayGuard = closedDayGuard;
         _clock = clock;
     }
 
@@ -73,6 +75,12 @@ public class PurchaseService : IPurchaseService
         if (purchase.Date > today)
         {
             return Result.Fail(new BusinessRuleError("La fecha de la compra no puede ser futura."));
+        }
+
+        var open = await _closedDayGuard.EnsureOpenAsync(purchase.Date, cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
         }
 
         var referencesCheck = await CheckReferencesAsync(purchase, cancellationToken);
@@ -138,6 +146,13 @@ public class PurchaseService : IPurchaseService
         if (purchase.Status == PurchaseStatus.Voided)
         {
             return Result.Fail(new BusinessRuleError($"La compra #{purchase.Number} ya está anulada."));
+        }
+
+        // The reversal is dated today: today must still be open.
+        var open = await _closedDayGuard.EnsureOpenAsync(_clock.Today(), cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
         }
 
         var now = _clock.UtcNow();

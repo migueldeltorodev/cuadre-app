@@ -146,6 +146,8 @@ public class StockMovementResponse
     public Guid? OperationId { get; init; }
     public int? OperationNumber { get; init; }
     public ExitReasonCode? ExitReason { get; init; }
+    public Guid? ClosingId { get; init; }
+    public DateOnly? ClosingDate { get; init; }
 
     /// <summary>Its document was voided later. The row and its reversal both stay in the history.</summary>
     public required bool IsVoided { get; init; }

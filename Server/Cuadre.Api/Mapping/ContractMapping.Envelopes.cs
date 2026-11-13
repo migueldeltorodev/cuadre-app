@@ -108,7 +108,8 @@ public static partial class ContractMapping
                 PercentBps = row.PercentBps,
                 Balances = row.Balances.MapToResponse()
             }).ToList(),
-            CurrentPlan = overview.CurrentPlan?.MapToResponse()
+            CurrentPlan = overview.CurrentPlan?.MapToResponse(),
+            InternalDebtCents = overview.InternalDebtCents
         };
     }
 
@@ -160,6 +161,8 @@ public static partial class ContractMapping
             EnvelopeOperationNumber = movement.EnvelopeOperationNumber,
             StockOperationId = movement.StockOperationId,
             StockOperationNumber = movement.StockOperationNumber,
+            ClosingId = movement.ClosingId,
+            ClosingDate = movement.ClosingDate,
             IsVoided = movement.IsVoided,
             CreatedAt = movement.CreatedAt
         };
@@ -384,6 +387,10 @@ public static partial class ContractMapping
         CashMovementKind.HouseConsumption => CashMovementType.HouseConsumption,
         CashMovementKind.EnvelopeOperationVoid => CashMovementType.EnvelopeOperationVoid,
         CashMovementKind.StockOperationVoid => CashMovementType.StockOperationVoid,
+        CashMovementKind.Collection => CashMovementType.Collection,
+        CashMovementKind.Allocation => CashMovementType.Allocation,
+        CashMovementKind.StaffPay => CashMovementType.StaffPay,
+        CashMovementKind.ClosingVoid => CashMovementType.ClosingVoid,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
     };
 }

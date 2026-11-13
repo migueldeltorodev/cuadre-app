@@ -35,17 +35,19 @@ public interface IInventoryRepository
 
 public class InventoryRepository : IInventoryRepository
 {
-    // A movement with its document. "Voided" = its purchase or operation was voided later.
+    // A movement with its document. "Voided" = its purchase or operation was voided later, or its closing reopened.
     private const string MovementSelect = """
         SELECT m.id, m.product_id, pr.name AS product_name, pr.stock_unit, m.location_id, l.name AS location_name,
                m.date, m.kind, m.quantity_milli, m.unit_cost_usd_micros, m.unit_cost_cup_micros,
                m.purchase_id, p.number AS purchase_number, m.operation_id, o.number AS operation_number,
-               o.exit_reason, (COALESCE(p.status, o.status, 'Confirmed') = 'Voided') AS is_voided, m.created_at
+               o.exit_reason, m.closing_id, c.date AS closing_date,
+               (COALESCE(p.status, o.status, c.status, 'Confirmed') = 'Voided') AS is_voided, m.created_at
         FROM stock_movements m
             JOIN products pr ON pr.id = m.product_id
             JOIN locations l ON l.id = m.location_id
             LEFT JOIN purchases p ON p.id = m.purchase_id
             LEFT JOIN stock_operations o ON o.id = m.operation_id
+            LEFT JOIN daily_closings c ON c.id = m.closing_id
         """;
 
     private readonly IDbConnectionFactory _dbConnectionFactory;

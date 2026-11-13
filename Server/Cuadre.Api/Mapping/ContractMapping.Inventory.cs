@@ -316,6 +316,8 @@ public static partial class ContractMapping
             OperationId = movement.OperationId,
             OperationNumber = movement.OperationNumber,
             ExitReason = movement.ExitReason?.ToContract(),
+            ClosingId = movement.ClosingId,
+            ClosingDate = movement.ClosingDate,
             IsVoided = movement.IsVoided,
             CreatedAt = movement.CreatedAt
         };
@@ -389,6 +391,8 @@ public static partial class ContractMapping
         StockMovementKind.Exit => StockMovementType.Exit,
         StockMovementKind.CountAdjustment => StockMovementType.CountAdjustment,
         StockMovementKind.OperationVoid => StockMovementType.OperationVoid,
+        StockMovementKind.Sale => StockMovementType.Sale,
+        StockMovementKind.ClosingVoid => StockMovementType.ClosingVoid,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
     };
 }

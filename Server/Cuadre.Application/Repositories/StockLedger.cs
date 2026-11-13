@@ -18,9 +18,10 @@ internal static class StockLedger
             await connection.ExecuteAsync(new CommandDefinition("""
                 INSERT INTO stock_movements (id, product_id, location_id, date, kind, quantity_milli,
                                              unit_cost_usd_micros, unit_cost_cup_micros, purchase_id,
-                                             purchase_line_id, operation_id, created_at)
+                                             purchase_line_id, operation_id, closing_id, created_at)
                 VALUES (@Id, @ProductId, @LocationId, @Date, @Kind, @QuantityMilli,
-                        @UnitCostUsdMicros, @UnitCostCupMicros, @PurchaseId, @PurchaseLineId, @OperationId, @CreatedAt)
+                        @UnitCostUsdMicros, @UnitCostCupMicros, @PurchaseId, @PurchaseLineId, @OperationId,
+                        @ClosingId, @CreatedAt)
                 """, new
             {
                 movement.Id,
@@ -34,6 +35,7 @@ internal static class StockLedger
                 movement.PurchaseId,
                 movement.PurchaseLineId,
                 movement.OperationId,
+                movement.ClosingId,
                 movement.CreatedAt
             }, transaction, cancellationToken: cancellationToken));
         }

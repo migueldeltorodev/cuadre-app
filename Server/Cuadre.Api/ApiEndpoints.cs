@@ -202,4 +202,36 @@ public static class ApiEndpoints
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Void = $"{Base}/{{id:guid}}/void";
     }
+
+    /// <summary>The close of a day. Never edited: reopening voids it (only the latest closed day).</summary>
+    public static class DailyClosings
+    {
+        private const string Base = $"{ApiBase}/daily-closings";
+
+        public const string Draft = $"{Base}/draft";
+        public const string Preview = $"{Base}/preview";
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Reopen = $"{Base}/{{id:guid}}/reopen";
+    }
+
+    /// <summary>Who works the counter. Never deleted, only deactivated.</summary>
+    public static class Employees
+    {
+        private const string Base = $"{ApiBase}/employees";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>Pay of the post from a date on.</summary>
+    public static class StaffPaySchemes
+    {
+        private const string Base = $"{ApiBase}/staff-pay-schemes";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+    }
 }

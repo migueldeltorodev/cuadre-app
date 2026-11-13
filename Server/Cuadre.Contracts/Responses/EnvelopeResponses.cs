@@ -86,6 +86,12 @@ public class EnvelopeOverviewResponse
     public required IReadOnlyList<EnvelopeCashBoxResponse> CashBoxes { get; init; } = [];
     public required IReadOnlyList<EnvelopeBalanceResponse> Envelopes { get; init; } = [];
     public AllocationPlanResponse? CurrentPlan { get; init; }
+
+    /// <summary>
+    /// What Reposición still owes itself at the end of that day (RN-10): days whose A2 was collected by transfer
+    /// borrowed it from the other envelopes' cash. It is repaid by later closings.
+    /// </summary>
+    public required long InternalDebtCents { get; init; }
 }
 
 public class CashMovementResponse
@@ -106,6 +112,8 @@ public class CashMovementResponse
     public int? EnvelopeOperationNumber { get; init; }
     public Guid? StockOperationId { get; init; }
     public int? StockOperationNumber { get; init; }
+    public Guid? ClosingId { get; init; }
+    public DateOnly? ClosingDate { get; init; }
     public required bool IsVoided { get; init; }
     public required DateTime CreatedAt { get; init; }
 }

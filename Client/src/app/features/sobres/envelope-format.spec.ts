@@ -36,6 +36,8 @@ const movement = (overrides: Partial<CashMovementResponse>): CashMovementRespons
   envelopeOperationNumber: null,
   stockOperationId: null,
   stockOperationNumber: null,
+  closingId: null,
+  closingDate: null,
   isVoided: false,
   createdAt: '2026-11-12T15:00:00Z',
   ...overrides,
@@ -70,6 +72,7 @@ describe('envelope-format', () => {
     expect(cashMovementLabel(charge)).toBe('Flete · compra #3');
     expect(cashMovementLink(charge)).toEqual(['/compras', 'p3']);
     expect(cashMovementLink(movement({ stockOperationId: 's1' }))).toEqual(['/inventario/operaciones', 's1']);
+    expect(cashMovementLink(movement({ closingId: 'c1', closingDate: '2026-11-12' }))).toEqual(['/cierre', 'c1']);
     expect(cashMovementLink(movement({ envelopeOperationId: 'o1' }))).toEqual(['/sobres/operaciones', 'o1']);
   });
 

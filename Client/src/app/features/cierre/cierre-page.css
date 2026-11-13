@@ -1,0 +1,166 @@
+.page-subtitle {
+  margin: 6px 0 0;
+}
+
+/* ---- Stepper: progress always visible, only the done steps are clickable ---- */
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px 0 6px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-muted);
+  font: inherit;
+  font-size: 14px;
+}
+
+button.stepper__btn {
+  cursor: pointer;
+}
+
+button.stepper__btn:hover {
+  border-color: var(--c-ink-2);
+}
+
+.stepper__dot {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c-chip);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stepper__item--done .stepper__btn {
+  color: var(--c-ink-2);
+}
+
+.stepper__item--done .stepper__dot {
+  background: var(--c-ok-ink);
+  color: #ffffff;
+}
+
+.stepper__item--current .stepper__btn {
+  border-color: var(--c-accent);
+  color: var(--c-ink);
+  font-weight: 500;
+}
+
+.stepper__item--current .stepper__dot {
+  background: var(--c-accent);
+  color: #ffffff;
+}
+
+/* ---- Steps ---- */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.day {
+  flex: 0 1 260px;
+}
+
+.rate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.grid-wrap {
+  overflow-x: auto;
+  margin: 0 -24px;
+}
+
+.table.count td {
+  vertical-align: middle;
+}
+
+.qty-input {
+  width: 110px;
+  max-width: 100%;
+  text-align: right;
+}
+
+.field__error {
+  display: block;
+}
+
+/* The sheet to copy by hand: plain, with room to write. */
+.sheet summary {
+  cursor: pointer;
+  color: var(--c-link);
+  font-size: 14px;
+}
+
+.sheet__table {
+  width: 100%;
+  max-width: 640px;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sheet__table th,
+.sheet__table td {
+  padding: 8px 10px;
+  border: 1px solid var(--c-line);
+  text-align: left;
+}
+
+.sheet__table .blank {
+  width: 120px;
+}
+
+.methods {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.total {
+  margin: 0;
+  font-size: 15px;
+}
+
+.who {
+  max-width: 420px;
+}
+
+.opt {
+  color: var(--c-muted);
+  font-weight: 400;
+}
+
+.notes {
+  min-height: 80px;
+  resize: vertical;
+  padding-top: 10px;
+}
+
+.nav {
+  justify-content: flex-end;
+}

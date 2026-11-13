@@ -43,6 +43,13 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IEnvelopeService, EnvelopeService>();
         services.AddScoped<IEnvelopeOperationRepository, EnvelopeOperationRepository>();
         services.AddScoped<IEnvelopeOperationService, EnvelopeOperationService>();
+        services.AddScoped<IStaffRepository, StaffRepository>();
+        services.AddScoped<IStaffService, StaffService>();
+        services.AddScoped<IDailyClosingRepository, DailyClosingRepository>();
+        services.AddScoped<IDailyClosingService, DailyClosingService>();
+
+        // RF-CIE-10: every service that dates something asks it before writing.
+        services.AddScoped<IClosedDayGuard, ClosedDayGuard>();
 
         // Validators are SINGLETON: they must stay pure (shape/format rules only, no repositories).
         // Data-dependent rules (uniqueness, existence) live in the service and return ConflictError/NotFoundError.

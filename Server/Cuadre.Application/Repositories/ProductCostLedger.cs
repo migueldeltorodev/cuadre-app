@@ -7,7 +7,7 @@ namespace Cuadre.Application.Repositories;
 /// <summary>
 /// Rebuilds the product_costs cache of one product by replaying its stock ledger (CostCalculator).
 /// Runs INSIDE the caller's transaction, so a purchase/void and its new costs commit (or fail) together.
-/// Movements of VOIDED purchases and stock operations are left out entirely (both the original rows and their
+/// Movements of VOIDED purchases, stock operations and reopened closings are left out entirely (both the original rows and their
 /// reversal): the replay then gives exactly the cost the product would have had if that document never happened.
 /// Operations matter too: an exit that empties the stock makes the next purchase restart the average.
 /// Outgoing rows may carry a cost (exits value the loss with it): the replay ignores it, outflows never move it.
@@ -22,9 +22,11 @@ internal static class ProductCostLedger
             FROM stock_movements m
                 LEFT JOIN purchases p ON p.id = m.purchase_id
                 LEFT JOIN stock_operations o ON o.id = m.operation_id
+                LEFT JOIN daily_closings c ON c.id = m.closing_id
             WHERE m.product_id = @productId
               AND (p.id IS NULL OR p.status = 'Confirmed')
               AND (o.id IS NULL OR o.status = 'Confirmed')
+              AND (c.id IS NULL OR c.status = 'Confirmed')
             ORDER BY m.date, m.created_at, m.rowid
             """, new { productId }, transaction, cancellationToken: cancellationToken));
 

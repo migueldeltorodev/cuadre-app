@@ -119,6 +119,13 @@
         igual, pero mirá cuánto de cada sobre está en efectivo antes de sacar.
       </p>
     }
+    @if (overview()!.internalDebtCents > 0) {
+      <p class="note">
+        <strong>Deuda interna: {{ formatBalance(overview()!.internalDebtCents, 'CUP') }}.</strong>
+        Entró por transferencia más de lo que Reposición necesitaba, y esa plata quedó en el banco. Reposición se la
+        debe a los otros sobres y la devuelve sola en los próximos cierres.
+      </p>
+    }
   </section>
 
   <section class="table-card" aria-labelledby="mov">

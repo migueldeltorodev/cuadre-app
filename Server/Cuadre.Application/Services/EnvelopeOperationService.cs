@@ -33,12 +33,13 @@ public class EnvelopeOperationService : IEnvelopeOperationService
     private readonly IValidator<EnvelopeOperation> _validator;
     private readonly IValidator<VoidEnvelopeOperation> _voidValidator;
     private readonly IValidator<GetAllEnvelopeOperationsOptions> _optionsValidator;
+    private readonly IClosedDayGuard _closedDayGuard;
     private readonly TimeProvider _clock;
 
     public EnvelopeOperationService(IEnvelopeOperationRepository repository, IEnvelopeRepository envelopeRepository,
         ICashBoxRepository cashBoxRepository, IValidator<EnvelopeOperation> validator,
         IValidator<VoidEnvelopeOperation> voidValidator, IValidator<GetAllEnvelopeOperationsOptions> optionsValidator,
-        TimeProvider clock)
+        IClosedDayGuard closedDayGuard, TimeProvider clock)
     {
         _repository = repository;
         _envelopeRepository = envelopeRepository;
@@ -46,6 +47,7 @@ public class EnvelopeOperationService : IEnvelopeOperationService
         _validator = validator;
         _voidValidator = voidValidator;
         _optionsValidator = optionsValidator;
+        _closedDayGuard = closedDayGuard;
         _clock = clock;
     }
 
@@ -57,6 +59,12 @@ public class EnvelopeOperationService : IEnvelopeOperationService
         if (operation.Date > _clock.Today())
         {
             return Result.Fail(new BusinessRuleError("La fecha no puede ser futura."));
+        }
+
+        var open = await _closedDayGuard.EnsureOpenAsync(operation.Date, cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
         }
 
         if (operation.Kind == EnvelopeOperationKind.TaxPayment)
@@ -141,6 +149,13 @@ public class EnvelopeOperationService : IEnvelopeOperationService
         if (operation.Status == EnvelopeOperationStatus.Voided)
         {
             return Result.Fail(new BusinessRuleError($"La operación #{operation.Number} ya está anulada."));
+        }
+
+        // The reversal is dated today: today must still be open.
+        var open = await _closedDayGuard.EnsureOpenAsync(_clock.Today(), cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
         }
 
         var now = _clock.UtcNow();

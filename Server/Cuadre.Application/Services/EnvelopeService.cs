@@ -42,17 +42,22 @@ public class EnvelopeService : IEnvelopeService
     private readonly IValidator<Envelope> _validator;
     private readonly IValidator<AllocationPlan> _planValidator;
     private readonly IValidator<GetEnvelopeLedgerOptions> _ledgerValidator;
+    private readonly IClosedDayGuard _closedDayGuard;
+    private readonly IDailyClosingRepository _closingRepository;
     private readonly TimeProvider _clock;
 
     public EnvelopeService(IEnvelopeRepository repository, ICashBoxRepository cashBoxRepository,
         IValidator<Envelope> validator, IValidator<AllocationPlan> planValidator,
-        IValidator<GetEnvelopeLedgerOptions> ledgerValidator, TimeProvider clock)
+        IValidator<GetEnvelopeLedgerOptions> ledgerValidator, IDailyClosingRepository closingRepository,
+        IClosedDayGuard closedDayGuard, TimeProvider clock)
     {
         _repository = repository;
         _cashBoxRepository = cashBoxRepository;
         _validator = validator;
         _planValidator = planValidator;
         _ledgerValidator = ledgerValidator;
+        _closedDayGuard = closedDayGuard;
+        _closingRepository = closingRepository;
         _clock = clock;
     }
 
@@ -156,7 +161,8 @@ public class EnvelopeService : IEnvelopeService
                 balances.Where(b => b.EnvelopeId == envelope.Id).ToList()))
             .ToList();
 
-        return new EnvelopeOverview(day, columns, rows, plan);
+        return new EnvelopeOverview(day, columns, rows, plan,
+            await _closingRepository.GetInternalDebtAsync(day, cancellationToken));
     }
 
     public async Task<Result<EnvelopeLedger>> GetLedgerAsync(GetEnvelopeLedgerOptions options,
@@ -195,6 +201,13 @@ public class EnvelopeService : IEnvelopeService
         CancellationToken cancellationToken = default)
     {
         await _planValidator.ValidateOrThrowAsync(plan, cancellationToken);
+
+        // The % of a closed day never change (RF-PF-05): a new plan starts after the last closed day.
+        var open = await _closedDayGuard.EnsureOpenAsync(plan.EffectiveFrom, cancellationToken);
+        if (open.IsFailed)
+        {
+            return open;
+        }
 
         var envelopes = (await _repository.GetAllAsync(cancellationToken)).ToDictionary(envelope => envelope.Id);
         foreach (var item in plan.Items)
