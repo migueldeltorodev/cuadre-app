@@ -38,6 +38,12 @@ export const CONFIGURACION_ROUTES: Routes = [
         data: { crumb: 'Personal' },
         loadComponent: () => import('./personal/personal-section'),
       },
+      {
+        path: 'gastos',
+        title: 'Categorías de gasto · Configuración · Cuadre',
+        data: { crumb: 'Categorías de gasto' },
+        loadComponent: () => import('./gastos/gastos-section'),
+      },
       later('respaldo', 'Respaldo'),
     ],
   },

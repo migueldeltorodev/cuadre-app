@@ -30,8 +30,9 @@ type ApiStatus =
 
     @let days = alerts.pendingDays();
     @let shortages = alerts.pendingShortages();
-    @if ((days?.count ?? 0) > 0 || (shortages?.count ?? 0) > 0) {
-      <section class="todo" aria-label="Pendientes del cierre">
+    @let dues = alerts.dueExpenses() ?? [];
+    @if ((days?.count ?? 0) > 0 || (shortages?.count ?? 0) > 0 || dues.length > 0) {
+      <section class="todo" aria-label="Pendientes">
         @if (days && days.count > 0) {
           <a class="todo__item" [routerLink]="['/cierre']" [queryParams]="{ fecha: days.days[0] }">
             <span class="todo__count num">{{ days.count }}</span>
@@ -49,6 +50,18 @@ type ApiStatus =
             <span>
               <strong>{{ shortages.count === 1 ? 'Faltante por reclamar' : 'Faltantes por reclamar' }}</strong>
               <span class="todo__sub">Suman {{ formatMoney(shortages.pendingCents) }}.</span>
+            </span>
+          </a>
+        }
+        @if (dues.length > 0) {
+          <a class="todo__item" routerLink="/gastos">
+            <span class="todo__count num">{{ dues.length }}</span>
+            <span>
+              <strong>{{ dues.length === 1 ? 'Gasto fijo por pagar' : 'Gastos fijos por pagar' }}</strong>
+              <span class="todo__sub">
+                {{ dues[0].recurring.name }} vencía el {{ formatShortDate(dues[0].dueDate) }}.
+                Pagalo o saltalo si esta vez no se pagó.
+              </span>
             </span>
           </a>
         }

@@ -1,0 +1,81 @@
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese gasto no existe.' : e.message }}</p>
+}
+
+@if (expense(); as x) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">Gasto #{{ x.number }}</h1>
+      <div class="tags">
+        <span class="tag">{{ formatShortDate(x.date) }}</span>
+        <span class="tag">{{ x.categoryName }}</span>
+        <span class="tag">{{ x.cashBoxName }}</span>
+        @if (state(); as s) {
+          <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+        }
+      </div>
+    </div>
+    @if (x.status === 'Confirmed' && !voiding()) {
+      <button class="btn" type="button" (click)="startVoid()">Anular</button>
+    }
+  </header>
+
+  @if (x.status === 'Voided') {
+    <p class="alert alert--warn">
+      Anulado el {{ x.voidedAt ? formatTimestampDay(x.voidedAt) : '' }}: {{ x.voidReason }}.
+      La plata volvió a {{ x.envelopeName }} con un movimiento de ese día.
+      @if (x.recurringExpenseId) {
+        Ese vencimiento de «{{ x.recurringExpenseName }}» se vuelve a proponer en Gastos.
+      }
+    </p>
+  }
+
+  @if (voiding()) {
+    <section class="card void" aria-labelledby="void-title">
+      <h2 class="card__title" id="void-title">Anular el gasto #{{ x.number }}</h2>
+      <p class="card__lead">
+        La plata vuelve a {{ x.envelopeName }} en {{ x.cashBoxName }}, con fecha de hoy. El gasto queda registrado como
+        anulado: no se borra.
+      </p>
+      <label class="field">
+        <span class="field__label">Por qué se anula</span>
+        <input class="input" [formControl]="reason" autocomplete="off" placeholder="Monto equivocado, estaba repetido…"
+          [class.input--invalid]="reason.invalid && reason.touched" />
+        @if (reason.invalid && reason.touched) {
+          <span class="field__error">Escribí el motivo.</span>
+        }
+      </label>
+      @if (voidError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancelVoid()">No, volver</button>
+        <button class="btn btn--danger" type="button" [disabled]="savingVoid()" (click)="confirmVoid()">
+          {{ savingVoid() ? 'Anulando…' : 'Sí, anular' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  <section class="card totals" aria-label="Detalle">
+    <div class="totals__row">
+      <span>{{ x.description }}</span>
+      <span class="num strong">{{ formatMoney(x.amountCents, x.currency) }}</span>
+    </div>
+    <p class="sub">
+      Salió de {{ x.cashBoxName }}, del sobre <a [routerLink]="['/sobres', x.envelopeId]">{{ x.envelopeName }}</a>.
+    </p>
+    @if (x.recurringExpenseId) {
+      <p class="sub">
+        Pago del gasto fijo <a routerLink="/gastos/fijos">{{ x.recurringExpenseName }}</a>
+        @if (x.periodStart) {
+          · período que empieza el {{ formatShortDate(x.periodStart) }}
+        }
+      </p>
+    }
+  </section>
+
+  @if (x.notes) {
+    <p class="muted">Nota: {{ x.notes }}</p>
+  }
+}
