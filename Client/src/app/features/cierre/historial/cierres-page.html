@@ -1,0 +1,89 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/cierre">Cierre del día</a> <span aria-hidden="true">/</span> Cierres anteriores
+</nav>
+
+<h1 class="page-title">Cierres anteriores</h1>
+
+<div class="head">
+  <div class="filters">
+    <label class="field">
+      <span class="field__label">Desde</span>
+      <input class="input num" type="date" [value]="from()" (change)="setFrom($any($event.target).value)" />
+    </label>
+    <label class="field">
+      <span class="field__label">Hasta</span>
+      <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
+    </label>
+    <label class="check">
+      <input type="checkbox" [checked]="includeVoided()" (change)="toggleVoided($any($event.target).checked)" />
+      <span>Ver reabiertos</span>
+    </label>
+    @if (hasFilters()) {
+      <button class="btn btn--ghost btn--small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+    }
+  </div>
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  @if (r.total === 0 && !hasFilters() && !includeVoided()) {
+    <section class="card empty">
+      <h2 class="card__title">Todavía no cerraste ningún día</h2>
+      <p class="card__lead">Cada cierre queda acá con lo cobrado, lo que costó lo vendido y cómo se repartió.</p>
+      <div><a class="btn btn--primary" routerLink="/cierre">Cerrar el día</a></div>
+    </section>
+  } @else {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th class="end">Cobrado (A1)</th>
+            <th class="end">Costo (A2)</th>
+            <th class="end">Ingreso real (A3)</th>
+            <th>Caja</th>
+            <th class="end">Deuda interna</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (closing of r.items; track closing.id) {
+            @let state = stateLabel(closing.status);
+            <tr [class.voided]="closing.status === 'Voided'">
+              <td>
+                <a class="name" [routerLink]="['/cierre', closing.id]">{{ formatShortDate(closing.date) }}</a>
+                @if (closing.employeeName) {
+                  <div class="sub">{{ closing.employeeName }}</div>
+                }
+              </td>
+              <td class="end num qty">
+                {{ formatCup(closing.collectedCents) }}
+                @if (closing.transferCollectedCents > 0) {
+                  <div class="sub">{{ formatCup(closing.transferCollectedCents) }} por transferencia</div>
+                }
+              </td>
+              <td class="end num qty">{{ formatCup(closing.costOfSalesCents) }}</td>
+              <td class="end num qty strong" [class.negative]="closing.realIncomeCents < 0">{{ formatCup(closing.realIncomeCents) }}</td>
+              <td [class.negative]="closing.adjustedDifferenceCents < 0">{{ differenceText(closing.adjustedDifferenceCents) }}</td>
+              <td class="end num">{{ closing.debtAfterCents === 0 ? '—' : formatCup(closing.debtAfterCents) }}</td>
+              <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="7" class="none">Ninguno coincide con los filtros.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1" (click)="goTo(r.page - 1)">Anterior</button>
+        <span class="num">Página {{ r.page }} · {{ r.total }}</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage" (click)="goTo(r.page + 1)">Siguiente</button>
+      </nav>
+    }
+  }
+}

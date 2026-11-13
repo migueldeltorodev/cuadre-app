@@ -1,0 +1,112 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/sobres">Sobres</a> <span aria-hidden="true">/</span> Saldo inicial
+</nav>
+
+<header class="head">
+  <div>
+    <h1 class="page-title">Saldo inicial</h1>
+    <p class="page-subtitle">
+      Escribí cuánto hay <strong>de verdad</strong> en cada caja y de qué sobre es. La app mueve solo la diferencia
+      con lo que ya tenía ese día, así no se cuenta dos veces una compra que ya cargaste.
+    </p>
+  </div>
+</header>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (overview()) {
+  <section class="card form-card">
+    <div class="form__row top">
+      <label class="field">
+        <span class="field__label">Al final del día</span>
+        <input class="input num" type="date" [value]="date()" (change)="setDate($any($event.target).value)" />
+        <span class="field__hint">Los montos de abajo son lo que la app tiene en ese día.</span>
+      </label>
+      <label class="field">
+        <span class="field__label">Nota <span class="opt">(opcional)</span></span>
+        <input class="input" autocomplete="off" maxlength="500" placeholder="Arranque con la app, recuento…"
+          [value]="notes()" (input)="notes.set($any($event.target).value)" />
+      </label>
+    </div>
+
+    @if (boxes().length === 0) {
+      <p class="muted">No hay cajas activas. Crealas en Configuración › Cobros y cajas.</p>
+    } @else {
+      <div class="grid-wrap">
+        <table class="table grid">
+          <thead>
+            <tr>
+              <th>Sobre</th>
+              @for (box of boxes(); track box.id) {
+                <th class="end">{{ box.name }} <span class="sub">{{ box.currency }}</span></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (envelope of envelopes(); track envelope.id) {
+              <tr>
+                <td>
+                  <span class="envelope">
+                    <span class="swatch" [style.background]="swatches[envelope.role]"></span>{{ envelope.name }}
+                  </span>
+                </td>
+                @for (box of boxes(); track box.id) {
+                  @let c = cell(envelope.id, box.id);
+                  <td class="end">
+                    <input class="input num amount" inputmode="decimal" autocomplete="off"
+                      [attr.aria-label]="envelope.name + ' en ' + box.name"
+                      [value]="c?.text ?? ''"
+                      [placeholder]="c && c.balanceCents < 0 ? amountText(c.balanceCents) : '0'"
+                      [class.input--invalid]="showInvalid(envelope.id, box.id)"
+                      [class.changed]="isChanged(envelope.id, box.id)"
+                      (input)="setText(envelope.id, box.id, $any($event.target).value)" />
+                    @if (c && isChanged(envelope.id, box.id)) {
+                      <div class="sub num">tenía {{ amountText(c.balanceCents) }}</div>
+                    } @else if (c && c.balanceCents < 0) {
+                      <div class="sub num negative">en negativo</div>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td class="strong">Queda en la caja</td>
+              @for (box of boxes(); track box.id) {
+                <td class="end num strong">{{ formatBalance(boxTotal(box.id), box.currency) }}</td>
+              }
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      @if (showInvalidSummary()) {
+        <p class="alert alert--bad" role="alert">Hay montos mal escritos (marcados en rojo). Usá números como 1500 o 1500.50.</p>
+      }
+      @if (showNothingChanged()) {
+        <p class="alert alert--warn" role="alert">No cambiaste ningún monto: no hay nada que guardar.</p>
+      }
+      @if (saveError(); as e) {
+        <div class="alert alert--bad" role="alert">
+          {{ e.message }}
+          @for (message of fieldMessages(e); track message) {
+            <div>· {{ message }}</div>
+          }
+        </div>
+      }
+
+      <div class="form__actions">
+        <span class="muted">
+          {{ changes().length === 0 ? 'Sin cambios' : changes().length === 1 ? '1 monto cambiado' : changes().length + ' montos cambiados' }}
+        </span>
+        <a class="btn" routerLink="/sobres">Cancelar</a>
+        <button class="btn btn--primary" type="button" [disabled]="saving()" (click)="save()">
+          {{ saving() ? 'Guardando…' : 'Guardar saldo inicial' }}
+        </button>
+      </div>
+    }
+  </section>
+}

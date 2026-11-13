@@ -7,10 +7,7 @@ import { SupplierResponse } from '../../../core/api/models';
 import { DIALOG_DEFAULTS } from '../../../shared/ui/dialog-config';
 import { SupplierDialog, SupplierDialogData } from './supplier-dialog';
 
-/**
- * Suppliers (RF-PRV-01). The supplier page with its purchase history (RF-PRV-02) comes with purchases
- * (slice 3); this list may move under "Compras" then.
- */
+/** Suppliers (RF-PRV-01). Each name opens its page: what we buy from them and at what cost (RF-PRV-02). */
 @Component({
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,7 +34,7 @@ import { SupplierDialog, SupplierDialogData } from './supplier-dialog';
           @for (supplier of list; track supplier.id) {
             <div class="row" [class.row--inactive]="!supplier.isActive">
               <div class="row__main">
-                <div class="row__title">{{ supplier.name }}</div>
+                <a class="row__title row__link" [routerLink]="supplier.id">{{ supplier.name }}</a>
                 <div class="row__sub">{{ details(supplier) }}</div>
               </div>
               @if (supplier.isActive) {
@@ -63,6 +60,8 @@ import { SupplierDialog, SupplierDialogData } from './supplier-dialog';
     .card { padding: 8px 24px; }
     .rows .row:first-child { border-top: 0; }
     .card__lead { padding: 14px 0; margin: 0; }
+    .row__link { display: block; color: var(--c-ink); text-decoration: none; }
+    .row__link:hover { color: var(--c-link); }
   `,
 })
 export default class ProveedoresPage implements OnInit {

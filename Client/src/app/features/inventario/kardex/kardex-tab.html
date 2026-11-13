@@ -1,0 +1,105 @@
+<div class="filters" role="search">
+  <label class="field field--wide">
+    <span class="field__label">Producto</span>
+    <select class="input" [value]="productId()" (change)="selectProduct($any($event.target).value)">
+      <option value="">Elegí un producto…</option>
+      @for (product of products(); track product.productId) {
+        <option [value]="product.productId">{{ product.name }} · {{ product.code }}{{ product.isActive ? '' : ' (desactivado)' }}</option>
+      }
+    </select>
+  </label>
+  <label class="field">
+    <span class="field__label">Ubicación</span>
+    <select class="input" [value]="locationId()" (change)="locationId.set($any($event.target).value)">
+      <option value="">Todas</option>
+      @for (location of locations(); track location.id) {
+        <option [value]="location.id">{{ location.name }}</option>
+      }
+    </select>
+  </label>
+  <label class="field">
+    <span class="field__label">Desde</span>
+    <input class="input num" type="date" [value]="from()" (change)="from.set($any($event.target).value)" />
+  </label>
+  <label class="field">
+    <span class="field__label">Hasta</span>
+    <input class="input num" type="date" [value]="to()" (change)="to.set($any($event.target).value)" />
+  </label>
+  @if (hasFilters()) {
+    <button class="btn btn--ghost" type="button" (click)="clearFilters()">Quitar filtros</button>
+  }
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese producto no existe.' : e.message }}</p>
+}
+
+@if (!productId()) {
+  <section class="card empty">
+    <h2 class="card__title">Historial por producto</h2>
+    <p class="card__lead">
+      Elegí un producto para ver cada entrada y salida: compras, traslados, salidas y conteos, con lo que quedaba
+      después de cada una. También se llega tocando el nombre de un producto en el stock.
+    </p>
+  </section>
+} @else if (kardex(); as k) {
+  <section class="table-card" aria-labelledby="kardex-title">
+    <div class="table-card__head">
+      <h2 class="section-title" id="kardex-title">{{ k.productName }} <span class="sub num">{{ k.productCode }}</span></h2>
+      <p class="muted">
+        @if (locationId()) { Solo {{ locationName(locationId()) }}. }
+        Hoy hay {{ formatQuantityWithUnit(closing(), k.stockUnit) }}{{ k.to ? ' al ' + formatShortDate(k.to) : '' }}.
+      </p>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Movimiento</th>
+          <th>Ubicación</th>
+          <th class="end">Entra / sale</th>
+          <th class="end">Queda ahí</th>
+          <th class="end">Queda en total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td colspan="5" class="muted">Saldo al final{{ k.to ? ' (' + formatShortDate(k.to) + ')' : '' }}</td>
+          <td class="end num strong">{{ formatQuantityWithUnit(closing(), k.stockUnit) }}</td>
+        </tr>
+        @for (entry of entries(); track entry.movement.id) {
+          @let m = entry.movement;
+          <tr [class.voided]="m.isVoided">
+            <td class="num">{{ formatShortDate(m.date) }}</td>
+            <td>
+              @if (movementLink(m); as link) {
+                <a class="name" [routerLink]="link">{{ movementLabel(m) }}</a>
+              } @else {
+                {{ movementLabel(m) }}
+              }
+              @if (m.isVoided) { <div class="sub">Anulado después</div> }
+            </td>
+            <td>{{ m.locationName }}</td>
+            <td class="end num qty" [class.in]="m.quantityMilli > 0 && !m.isVoided" [class.out]="m.quantityMilli < 0 && !m.isVoided">
+              {{ formatSignedQuantity(m.quantityMilli, m.stockUnit) }}
+            </td>
+            <td class="end num" [class.negative]="entry.locationBalanceMilli < 0">
+              {{ formatQuantityWithUnit(entry.locationBalanceMilli, m.stockUnit) }}
+            </td>
+            <td class="end num" [class.negative]="entry.totalBalanceMilli < 0">
+              {{ formatQuantityWithUnit(entry.totalBalanceMilli, m.stockUnit) }}
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="none">No hubo movimientos {{ hasFilters() ? 'con estos filtros' : 'todavía' }}.</td></tr>
+        }
+        <tr>
+          <td colspan="5" class="muted">Saldo al inicio{{ k.from ? ' (' + formatShortDate(k.from) + ')' : '' }}</td>
+          <td class="end num strong">{{ formatQuantityWithUnit(opening(), k.stockUnit) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+} @else if (loading()) {
+  <p class="muted">Cargando…</p>
+}

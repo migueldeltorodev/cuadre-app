@@ -1,6 +1,6 @@
 # Requisitos funcionales: App de gestión para pequeño comercio
 
-> **Versión:** 1.2 · **Fecha:** 10/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
+> **Versión:** 1.4 · **Fecha:** 12/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
 > **Primer caso de uso:** el bodegón (ver `RESUMEN_PROFIT_FIRST_BODEGON.md`).
 > Este documento es la **memoria oficial** de los requisitos. Cualquier cambio se anota en el historial (sección 10).
 
@@ -368,6 +368,21 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | D-17 | La merma no se repone desde ningún sobre: es pérdida directa y se informa. | Simplicidad; la tolerancia ya la contempla. |
 | D-18 | Los faltantes de caja se registran como pendientes de reclamo y se siguen hasta resolverlos. | Normalmente se resuelven con el dependiente; si no, tiene que quedar historial para reclamar. |
 | D-19 | El % del dependiente se calcula sobre A1 (lo cobrado). | Regla del negocio: "sobre lo real". |
+| D-20 | % por defecto: Ganancia 5% · Dueño 50% · Impuestos 15% · Operación 30%. Rigen "desde el principio" hasta que se cargue un reparto nuevo. | Tabla del libro para un ingreso real chico. |
+| D-21 | Cada movimiento de caja pertenece a un sobre: en cada caja, la suma de sus sobres es el saldo de la caja. | Así los sobres nunca mienten sobre la plata real. |
+| D-22 | Saldo inicial por caja y sobre: se escribe lo que hay físicamente y la app mueve la diferencia con lo que ya tenía registrado (por ejemplo, las compras anteriores). | Arrancar con la plata real sin borrar el historial. |
+| D-23 | Las compras y sus costos asociados se pagan siempre desde Reposición. | Reposición recibe A2 justamente para reponer mercadería. |
+| D-24 | El consumo de la casa mueve su costo de Dueño a Reposición dentro de la caja de efectivo CUP; no sale efectivo. | RN-11 sin inventar un movimiento de plata que no existió. |
+| D-25 | Un reparto nuevo no puede empezar antes del último; si empieza el mismo día, lo reemplaza. | Los % con los que se repartió un día pasado no cambian (RF-PF-05). |
+| D-26 | Un día cerrado queda bloqueado: no se puede registrar nada con fecha igual o anterior al último día cerrado (compras, traslados, salidas, conteos, operaciones de sobres, anulaciones, repartos y esquemas de pago nuevos). Las anulaciones se fechan hoy, así que hoy tiene que estar abierto. | Un cierre ya hecho nunca deja de cuadrar con su mostrador ni con su reparto (RF-CIE-10). |
+| D-27 | Reabrir un cierre = anularlo con un motivo. Solo se puede reabrir el último día cerrado; sus movimientos se revierten con la fecha del mismo día, así el día queda exactamente como antes de cerrarlo y se puede volver a cerrar. | Corregir sin romper la cadena de mostrador y de deuda de los días siguientes. |
+| D-28 | El cierre solo cobra en CUP: pide las formas de cobro activas cuya caja está activa y es en CUP. | Las ventas del mostrador son en CUP; el USD entra por otros caminos. |
+| D-29 | Los días se cierran en orden: un cierre nuevo tiene que ser posterior al último y no puede ser futuro. Si se saltea un día, lo vendido entra en el cierre siguiente (el conteo lo absorbe). | La venta por diferencia (RN-05) necesita el conteo anterior. |
+| D-30 | Planilla del cierre: los productos con stock en un mostrador antes del día o con movimientos en un mostrador ese día. Vendido = esperado − contado (puede ser negativo: baja la venta y el costo, sin merma). Precio = el vigente ese día; costo = el promedio actual. Se exige contar todos; un producto vendido sin precio no deja cerrar. | RN-05, RN-06, RN-07 sin huecos. |
+| D-31 | Mecánica del cobro: todo lo cobrado entra a Reposición en su caja; después el reparto mueve efectivo de Reposición a cada sobre (primero de la caja de efectivo CUP principal) y el pago al dependiente sale en efectivo del sobre Operación. | Cada peso queda en un sobre (D-21) y el movimiento explica el reparto. |
+| D-32 | Deuda interna (RN-10, RF-PF-09): un solo saldo total. Lo que entra por transferencia por encima de A2 queda en Reposición (en el banco) y es deuda con los demás sobres; se devuelve con el efectivo que Reposición recibiría en los días siguientes con A3 positivo, repartido por los % vigentes. | Simple de seguir y nunca deja a los sobres sin su parte. |
+| D-33 | Faltante o sobrante = diferencia de caja después de la merma aceptada. Un faltante queda pendiente de reclamar; un sobrante solo se registra. Si supera el umbral, el cierre exige una nota. | RN-06c, RF-CIE-04. La resolución (recuperado / perdido) llega en la etapa 6b. |
+| D-34 | Pago al dependiente = fijo + % de A1, redondeado a pesos enteros. El esquema rige desde una fecha; uno nuevo no puede empezar antes del último y el mismo día lo reemplaza. | Se paga en mano; los días cerrados conservan lo que pagaron (RF-PER-02). |
 
 ---
 
@@ -375,7 +390,7 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 
 | # | Pregunta |
 |---|---|
-| P-01 | **% por defecto de Profit First.** Propuesta inicial según la tabla del libro para ingreso real chico: Ganancia 5% · Dueño 50% · Impuestos 15% · Operación 30%. Falta confirmar. |
+| ~~P-01~~ | Resuelta → D-20. |
 | ~~P-02~~ | Resuelta → D-17. |
 | ~~P-03~~ | Resuelta → D-18. |
 | ~~P-04~~ | Resuelta → D-19. |
@@ -408,3 +423,5 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | 1.0 | 10/11/2026 | Consolidación de todas las decisiones de la sesión de requisitos (v0.1 a v0.5). |
 | 1.1 | 10/11/2026 | Resueltas P-02, P-03 y P-04: merma como pérdida (RN-06b), faltantes y sobrantes con seguimiento (RN-06c, RF-CIE-12 a 14), % del dependiente sobre A1. Nuevo RF-REP-08. |
 | 1.2 | 10/11/2026 | Sin impresora: la planilla de conteo y la lista de precios se muestran en pantalla para copiarlas a mano (RF-CIE-01, RF-PRD-09); la impresión pasa a futuro. Interfaz adaptable (RNF-01b). |
+| 1.3 | 12/11/2026 | Etapa 5 (sobres): resuelta P-01 y nuevas D-20 a D-25. La deuda interna (RF-PF-09) y la evaluación por período (RF-PF-10) quedan para la etapa 6, con el cierre. |
+| 1.4 | 12/11/2026 | Etapa 6 (cierre diario): nuevas D-26 a D-34 (bloqueo de días cerrados, reapertura, cierre en CUP, planilla, deuda interna, faltantes, pago al dependiente). Quedan para la etapa 6b: resolver faltantes, aviso de días sin cerrar, evaluación por período (RF-PF-10) y detección de duplicados. |

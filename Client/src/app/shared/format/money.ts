@@ -50,6 +50,16 @@ export function formatPercent(bps: number): string {
   return `${formatHundredths(bps)}%`;
 }
 
+const UNIT_COST = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+/**
+ * Unit costs travel in MILLIONTHS (a pound of rice can cost 0.638235 USD).
+ * To READ: 620000 → "0.62", 9166667 → "9.1667", 201500000 → "201.50". Display only.
+ */
+export function formatMicros(micros: number): string {
+  return UNIT_COST.format(micros / 1_000_000);
+}
+
 /**
  * Markup ("recargo", over cost) → margin (over price), in basis points.
  * 20% markup = 16.67% margin: price 120, profit 20, 20 / 120.

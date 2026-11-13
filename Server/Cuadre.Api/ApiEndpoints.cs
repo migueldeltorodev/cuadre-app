@@ -78,6 +78,9 @@ public static class ApiEndpoints
         public const string GetAll = Base;
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Update = $"{Base}/{{id:guid}}";
+
+        /// <summary>What we buy from this supplier and at what cost (RF-PRV-02).</summary>
+        public const string Products = $"{Base}/{{id:guid}}/products";
     }
 
     /// <summary>"next-code" is a literal segment, so it never collides with {id:guid}.</summary>
@@ -91,6 +94,10 @@ public static class ApiEndpoints
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Update = $"{Base}/{{id:guid}}";
         public const string PriceHistory = $"{Base}/{{id:guid}}/price-history";
+        public const string Purchases = $"{Base}/{{id:guid}}/purchases";
+
+        /// <summary>Only the price: accepting a suggestion must not resend the whole product.</summary>
+        public const string SalePrice = $"{Base}/{{id:guid}}/sale-price";
     }
 
     /// <summary>The fixed list of measure units (read-only, defined in code).</summary>
@@ -107,5 +114,124 @@ public static class ApiEndpoints
 
         /// <summary>POST = "ya lo copié al cartel".</summary>
         public const string Copies = $"{Base}/copies";
+    }
+
+    /// <summary>No PUT and no DELETE: a confirmed purchase is only voided, with a reason (RF-CMP-07).</summary>
+    public static class Purchases
+    {
+        private const string Base = $"{ApiBase}/purchases";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>No DELETE: locations hold movements, so they are deactivated (RF-INV-01).</summary>
+    public static class Locations
+    {
+        private const string Base = $"{ApiBase}/locations";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>
+    /// Transfers, exits and counts. One POST per kind (each has its own shape); one history and one void for all.
+    /// Like purchases: no PUT, no DELETE.
+    /// </summary>
+    public static class StockOperations
+    {
+        private const string Base = $"{ApiBase}/stock-operations";
+
+        public const string CreateTransfer = $"{Base}/transfers";
+        public const string CreateExit = $"{Base}/exits";
+        public const string CreateCount = $"{Base}/counts";
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>Read-only views over the stock ledger.</summary>
+    public static class Inventory
+    {
+        private const string Base = $"{ApiBase}/inventory";
+
+        public const string Stock = $"{Base}/stock";
+        public const string Movements = $"{Base}/movements";
+        public const string ShoppingList = $"{Base}/shopping-list";
+        public const string Kardex = $"{ApiBase}/products/{{id:guid}}/kardex";
+    }
+
+    /// <summary>
+    /// Profit First envelopes. No DELETE: they hold movements, so only the user's own are deactivated.
+    /// "balances" is a literal segment, so it never collides with {id:guid}.
+    /// </summary>
+    public static class Envelopes
+    {
+        private const string Base = $"{ApiBase}/envelopes";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+        public const string Balances = $"{Base}/balances";
+        public const string Movements = $"{Base}/{{id:guid}}/movements";
+    }
+
+    /// <summary>The % of each envelope from a date on. Only created: a change is a new plan (RF-PF-05).</summary>
+    public static class AllocationPlans
+    {
+        private const string Base = $"{ApiBase}/allocation-plans";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+    }
+
+    /// <summary>Openings, moves between envelopes, withdrawals and tax payments. Like purchases: no PUT, no DELETE.</summary>
+    public static class EnvelopeOperations
+    {
+        private const string Base = $"{ApiBase}/envelope-operations";
+
+        public const string CreateOpening = $"{Base}/openings";
+        public const string CreateTransfer = $"{Base}/transfers";
+        public const string CreateWithdrawal = $"{Base}/withdrawals";
+        public const string CreateTaxPayment = $"{Base}/tax-payments";
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>The close of a day. Never edited: reopening voids it (only the latest closed day).</summary>
+    public static class DailyClosings
+    {
+        private const string Base = $"{ApiBase}/daily-closings";
+
+        public const string Draft = $"{Base}/draft";
+        public const string Preview = $"{Base}/preview";
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Reopen = $"{Base}/{{id:guid}}/reopen";
+    }
+
+    /// <summary>Who works the counter. Never deleted, only deactivated.</summary>
+    public static class Employees
+    {
+        private const string Base = $"{ApiBase}/employees";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>Pay of the post from a date on.</summary>
+    public static class StaffPaySchemes
+    {
+        private const string Base = $"{ApiBase}/staff-pay-schemes";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
     }
 }

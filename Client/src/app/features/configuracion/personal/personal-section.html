@@ -1,0 +1,109 @@
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (employees(); as people) {
+  <section class="card" aria-labelledby="pay-title">
+    <div>
+      <h2 class="card__title" id="pay-title">Pago del dependiente</h2>
+      <p class="card__lead">Es del puesto, no de la persona: un fijo por día más un % de lo cobrado. Se paga en efectivo al cerrar, del sobre Operación.</p>
+    </div>
+
+    @if (current(); as s) {
+      <p class="current num">
+        {{ formatMoney(s.dailyFixedCents) }} por día + {{ formatPercent(s.percentOfSalesBps) }} de lo cobrado
+        <span class="card__lead"> · {{ planStartLabel(s.effectiveFrom) }}</span>
+      </p>
+    }
+
+    <form class="scheme-form" [formGroup]="form" (ngSubmit)="saveScheme()" novalidate>
+      <div class="form__row">
+        <label class="field">
+          <span class="field__label">Desde</span>
+          <input class="input num" type="date" formControlName="effectiveFrom"
+            [class.input--invalid]="showError('effectiveFrom')" />
+          <span class="field__hint">Los días ya cerrados no cambian.</span>
+        </label>
+        <label class="field">
+          <span class="field__label">Fijo por día</span>
+          <span class="input input--affix" [class.input--invalid]="showError('fixed')">
+            <input formControlName="fixed" inputmode="decimal" autocomplete="off" aria-label="Fijo por día" />
+            <span class="input__affix">CUP</span>
+          </span>
+          @if (showError('fixed')) {
+            <span class="field__error">Escribí un monto, por ejemplo 1000.</span>
+          }
+        </label>
+        <label class="field">
+          <span class="field__label">% de lo cobrado</span>
+          <span class="input input--affix" [class.input--invalid]="showError('percent')">
+            <input formControlName="percent" inputmode="decimal" autocomplete="off" aria-label="Porcentaje de lo cobrado" />
+            <span class="input__affix">%</span>
+          </span>
+          @if (showError('percent')) {
+            <span class="field__error">Va de 0 a 100.</span>
+          }
+        </label>
+      </div>
+      <label class="field">
+        <span class="field__label">Nota <span class="card__lead">(opcional)</span></span>
+        <input class="input" formControlName="notes" autocomplete="off" maxlength="300" placeholder="Aumento de diciembre…" />
+      </label>
+
+      @if (feedback.error(); as e) {
+        <div class="alert alert--bad" role="alert">
+          {{ e.message }}
+          @for (message of e.fields | keyvalue; track message.key) {
+            <div>· {{ message.value }}</div>
+          }
+        </div>
+      }
+
+      <div class="form__actions">
+        @if (feedback.saved()) {
+          <span class="ok" role="status">Guardado ✓</span>
+        }
+        <button class="btn btn--primary" type="submit" [disabled]="feedback.saving()">
+          {{ feedback.saving() ? 'Guardando…' : 'Guardar pago nuevo' }}
+        </button>
+      </div>
+    </form>
+
+    @if (schemes().length > 1) {
+      <ul class="history num">
+        @for (s of schemes().slice(1); track s.id) {
+          <li>Antes: {{ formatMoney(s.dailyFixedCents) }} + {{ formatPercent(s.percentOfSalesBps) }} · {{ planStartLabel(s.effectiveFrom) }}</li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="card" aria-labelledby="people-title">
+    <div class="card__head">
+      <div>
+        <h2 class="card__title" id="people-title">Quién trabaja</h2>
+        <p class="card__lead">Al cerrar elegís quién trabajó: queda en el historial y en los faltantes. No cambia el pago.</p>
+      </div>
+      <button class="btn btn--small" type="button" (click)="openEmployee()">+ Agregar persona</button>
+    </div>
+
+    <div class="rows">
+      @for (person of people; track person.id) {
+        <div class="row" [class.row--inactive]="!person.isActive">
+          <div class="row__main">
+            <div class="row__title">{{ person.name }}</div>
+          </div>
+          @if (person.isActive) {
+            <span class="pill pill--ok">Trabaja</span>
+          } @else {
+            <span class="pill pill--muted">Ya no trabaja</span>
+          }
+          <button class="btn btn--ghost btn--small" type="button" (click)="openEmployee(person)"
+            [attr.aria-label]="'Editar ' + person.name">Editar</button>
+        </div>
+      } @empty {
+        <p class="card__lead">Todavía no agregaste a nadie.</p>
+      }
+    </div>
+  </section>
+}

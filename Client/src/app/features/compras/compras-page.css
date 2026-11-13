@@ -1,0 +1,150 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.head__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filters .field {
+  flex: 0 1 170px;
+}
+
+.filters .field--wide {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--c-ink-2);
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--c-accent);
+}
+
+.table-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--c-muted);
+  padding: 14px 12px;
+}
+
+.table td {
+  padding: 14px 12px;
+  border-top: 1px solid var(--c-line-soft);
+  vertical-align: middle;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 24px;
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 24px;
+}
+
+.end {
+  text-align: right !important;
+}
+
+.name {
+  color: var(--c-ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.name:hover {
+  color: var(--c-link);
+}
+
+.sub {
+  font-size: 12.5px;
+  color: var(--c-muted);
+  margin-top: 2px;
+}
+
+/* Long product lists stay on one line; the full list is in the tooltip and the detail. */
+.products span {
+  display: block;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.voided td {
+  color: var(--c-muted);
+}
+
+.voided .price {
+  text-decoration: line-through;
+}
+
+.none {
+  color: var(--c-muted);
+  text-align: center;
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  font-size: 13.5px;
+  color: var(--c-muted);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}

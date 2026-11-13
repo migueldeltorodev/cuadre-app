@@ -1,0 +1,128 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/compras">Compras</a> <span aria-hidden="true">/</span>
+  {{ purchase() ? 'Compra #' + purchase()!.number : '…' }}
+</nav>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Esa compra no existe.' : e.message }}</p>
+}
+
+@if (purchase(); as p) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">Compra #{{ p.number }}</h1>
+      <div class="tags">
+        <span class="tag">{{ p.supplierName }}</span>
+        <span class="tag">{{ formatShortDate(p.date) }}</span>
+        @if (state(); as s) {
+          <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+        }
+      </div>
+    </div>
+    @if (p.status === 'Confirmed' && !voiding()) {
+      <button class="btn" type="button" (click)="startVoid()">Anular compra</button>
+    }
+  </header>
+
+  @if (p.status === 'Voided') {
+    <p class="alert alert--warn">
+      Anulada el {{ p.voidedAt ? formatTimestampDay(p.voidedAt) : '' }}: {{ p.voidReason }}.
+      La mercadería y la plata se devolvieron con movimientos de ese día, y el costo de los productos se recalculó
+      como si esta compra no hubiera existido.
+    </p>
+  }
+
+  @if (voiding()) {
+    <section class="card void" aria-labelledby="void-title">
+      <h2 class="card__title" id="void-title">Anular la compra #{{ p.number }}</h2>
+      <p class="card__lead">
+        Sale del stock lo que entró ({{ p.lines.length }} {{ p.lines.length === 1 ? 'producto' : 'productos' }}),
+        vuelve la plata a las cajas y el costo de cada producto se recalcula sin esta compra. Queda registrada
+        como anulada: no se borra.
+      </p>
+      <label class="field">
+        <span class="field__label">Por qué se anula</span>
+        <input class="input" [formControl]="reason" autocomplete="off" placeholder="Se cargó dos veces, el proveedor no la entregó…"
+          [class.input--invalid]="reason.invalid && reason.touched" />
+        @if (reason.invalid && reason.touched) {
+          <span class="field__error">Escribí el motivo.</span>
+        }
+      </label>
+      @if (voidError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancelVoid()">No, volver</button>
+        <button class="btn btn--danger" type="button" [disabled]="savingVoid()" (click)="confirmVoid()">
+          {{ savingVoid() ? 'Anulando…' : 'Sí, anular la compra' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  <section class="card facts" aria-label="Datos de la compra">
+    <div class="fact"><span>Se pagó en</span><span>{{ p.currency }}</span></div>
+    <div class="fact"><span>Tasa</span><span class="num">{{ formatHundredths(p.rateCupPerUsdCents) }} CUP por USD</span></div>
+    <div class="fact"><span>Entró a</span><span>{{ locationName() }}</span></div>
+    <div class="fact"><span>Se pagó desde</span><span>{{ boxName(p.cashBoxId) }}</span></div>
+    @if (p.notes) {
+      <div class="fact"><span>Nota</span><span>{{ p.notes }}</span></div>
+    }
+  </section>
+
+  <section class="table-card" aria-labelledby="lines-title">
+    <div class="table-card__head">
+      <h2 class="section-title" id="lines-title">Productos</h2>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="end">Cantidad</th>
+          <th class="end">Costo unitario</th>
+          <th class="end">Subtotal</th>
+          <th class="end">Costo final / unidad de venta</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (line of p.lines; track line.id) {
+          <tr>
+            <td>
+              <a class="name" [routerLink]="['/productos', line.productId]">{{ line.productName }}</a>
+              <div class="sub num">{{ line.productCode }}</div>
+            </td>
+            <td class="end num">
+              {{ formatQuantityWithUnit(line.quantityMilli, line.purchaseUnit) }}
+              @if (line.purchaseUnit !== line.stockUnit) {
+                <div class="sub">= {{ formatQuantityWithUnit(line.stockQuantityMilli, line.stockUnit) }}</div>
+              }
+            </td>
+            <td class="end num">{{ formatMoney(line.unitCostCents, p.currency) }} <span class="sub">{{ perUnit(line.purchaseUnit) }}</span></td>
+            <td class="end num strong">{{ formatMoney(line.lineTotalCents, p.currency) }}</td>
+            <td class="end num">
+              <span class="strong">{{ formatMicros(line.landedUnitCostUsdMicros) }} USD</span> <span class="sub">{{ perUnit(line.stockUnit) }}</span>
+              <div class="sub">{{ formatMicros(line.landedUnitCostCupMicros) }} CUP
+                @if (line.allocatedChargesUsdMicros > 0) {
+                  · incluye {{ formatMicros(line.allocatedChargesUsdMicros) }} USD de gastos
+                }
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card totals" aria-label="Totales">
+    <div class="totals__row"><span>Mercadería</span><span class="num">{{ formatMoney(p.goodsTotalCents, p.currency) }}</span></div>
+    @for (charge of p.charges; track charge.id) {
+      <div class="totals__row">
+        <span>{{ charge.description }} <span class="sub">· desde {{ boxName(charge.cashBoxId) }}</span></span>
+        <span class="num">{{ formatMoney(charge.amountCents, charge.currency) }}</span>
+      </div>
+    }
+    @if (p.charges.length > 0) {
+      <p class="sub">Los gastos ({{ formatMicros(chargesTotalUsdMicros()) }} USD) se repartieron en el costo de cada producto según lo que vale.</p>
+    }
+  </section>
+}

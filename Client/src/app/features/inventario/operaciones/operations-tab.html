@@ -1,0 +1,97 @@
+<div class="head">
+  <div class="filters">
+    <label class="field">
+      <span class="field__label">Desde</span>
+      <input class="input num" type="date" [value]="from()" (change)="setFrom($any($event.target).value)" />
+    </label>
+    <label class="field">
+      <span class="field__label">Hasta</span>
+      <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
+    </label>
+    <label class="check">
+      <input type="checkbox" [checked]="includeVoided()" (change)="toggleVoided($any($event.target).checked)" />
+      <span>Ver anuladas</span>
+    </label>
+    @if (hasFilters()) {
+      <button class="btn btn--ghost btn--small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+    }
+  </div>
+  <a class="btn" [routerLink]="copy().actionLink">{{ copy().action }}</a>
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  @if (r.total === 0 && !hasFilters() && !includeVoided()) {
+    <section class="card empty">
+      <h2 class="card__title">{{ copy().emptyTitle }}</h2>
+      <p class="card__lead">{{ copy().emptyLead }}</p>
+      <div><a class="btn btn--primary" [routerLink]="copy().actionLink">{{ copy().action }}</a></div>
+    </section>
+  } @else {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>
+              @switch (kind()) {
+                @case ('Transfer') { Desde → hasta }
+                @case ('Exit') { Motivo }
+                @default { Ubicación }
+              }
+            </th>
+            <th>Productos</th>
+            @if (kind() !== 'Transfer') {
+              <th class="end">{{ kind() === 'Count' ? 'Pérdida (− sobrante)' : 'Valor a costo' }}</th>
+            }
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (operation of r.items; track operation.id) {
+            @let state = operationStateLabel(operation.status);
+            <tr [class.voided]="operation.status === 'Voided'">
+              <td>
+                <a class="name" [routerLink]="['/inventario/operaciones', operation.id]">{{ formatShortDate(operation.date) }}</a>
+                <div class="sub num">#{{ operation.number }}</div>
+              </td>
+              <td>
+                @switch (kind()) {
+                  @case ('Transfer') { {{ operation.locationName }} → {{ operation.toLocationName }} }
+                  @case ('Exit') {
+                    {{ exitReasonLabel(operation.exitReason) }}
+                    <div class="sub">desde {{ operation.locationName }}</div>
+                  }
+                  @default { {{ operation.locationName }} }
+                }
+              </td>
+              <td>
+                <span class="products" [title]="operation.productNames">{{ operation.productNames }}</span>
+                <div class="sub">{{ operation.lineCount }} {{ operation.lineCount === 1 ? 'producto' : 'productos' }}</div>
+              </td>
+              @if (kind() !== 'Transfer') {
+                <td class="end num qty" [class.negative]="kind() === 'Count' && (operation.valueCupCents ?? 0) > 0">
+                  {{ operation.valueCupCents === null ? '—' : formatMoney(operation.valueCupCents) }}
+                </td>
+              }
+              <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="kind() === 'Transfer' ? 4 : 5" class="none">Ninguna coincide con los filtros.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1" (click)="goTo(r.page - 1)">Anterior</button>
+        <span class="num">Página {{ r.page }} · {{ r.total }}</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage" (click)="goTo(r.page + 1)">Siguiente</button>
+      </nav>
+    }
+  }
+}

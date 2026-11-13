@@ -1,0 +1,161 @@
+<div class="filters">
+  <label class="field field--wide">
+    <span class="field__label">Buscar</span>
+    <input class="input" type="search" placeholder="Nombre o código" [value]="search()"
+      (input)="setSearch($any($event.target).value)" autocomplete="off" />
+  </label>
+  <label class="field">
+    <span class="field__label">Categoría</span>
+    <select class="input" [value]="categoryId()" (change)="setCategory($any($event.target).value)">
+      <option value="">Todas</option>
+      @for (category of topCategories(); track category.id) {
+        <option [value]="category.id">{{ category.name }}</option>
+      }
+    </select>
+  </label>
+  <label class="check">
+    <input type="checkbox" [checked]="lowOnly()" (change)="toggleLowOnly($any($event.target).checked)" />
+    <span>Solo stock bajo</span>
+  </label>
+  <label class="check">
+    <input type="checkbox" [checked]="includeInactive()" (change)="toggleInactive($any($event.target).checked)" />
+    <span>Ver desactivados</span>
+  </label>
+  @if (hasFilters()) {
+    <button class="btn btn--ghost btn--small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+  }
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+<div class="layout">
+  <div class="main">
+    @if (stock(); as s) {
+      @if (s.items.length === 0 && !hasFilters()) {
+        <section class="card empty">
+          <h2 class="card__title">Todavía no hay productos</h2>
+          <p class="card__lead">El stock aparece solo: cada compra hace entrar la mercadería al almacén.</p>
+          <div><a class="btn btn--primary" routerLink="/productos/nuevo">Crear un producto</a></div>
+        </section>
+      } @else {
+        <section class="table-card">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                @for (location of s.locations; track location.id) {
+                  <th class="end">{{ location.name }}</th>
+                }
+                <th class="end">Total</th>
+                <th class="end">Mínimo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (product of s.items; track product.productId) {
+                <tr [class.inactive]="!product.isActive">
+                  <td>
+                    <a class="name" routerLink="../historial" [queryParams]="{ producto: product.productId }"
+                      title="Ver el historial">{{ product.name }}</a>
+                    <div class="sub num">{{ product.code }}</div>
+                  </td>
+                  @for (location of s.locations; track location.id) {
+                    @let qty = quantityAt(product, location.id);
+                    <td class="end num" [class.negative]="qty < 0">
+                      @if (qty === 0) {
+                        <span class="zero">—</span>
+                      } @else {
+                        @if (alt(product, qty); as sacks) {
+                          {{ sacks }}
+                          <div class="sub">{{ formatQuantityWithUnit(qty, product.stockUnit) }}</div>
+                        } @else {
+                          {{ formatQuantityWithUnit(qty, product.stockUnit) }}
+                        }
+                      }
+                    </td>
+                  }
+                  <td class="end num strong" [class.negative]="product.totalMilli < 0">
+                    {{ formatQuantityWithUnit(product.totalMilli, product.stockUnit) }}
+                  </td>
+                  <td class="end num sub-cell">
+                    {{ product.minStockMilli > 0 ? formatQuantityWithUnit(product.minStockMilli, product.stockUnit) : '—' }}
+                  </td>
+                  <td>
+                    @if (!product.isActive) {
+                      <span class="pill pill--muted">Desactivado</span>
+                    } @else if (hasNegative(product)) {
+                      <span class="pill pill--bad" title="Falta cargar una compra o un traslado">En negativo</span>
+                    } @else if (product.isLow) {
+                      <span class="pill pill--warn">Stock bajo</span>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td [attr.colspan]="s.locations.length + 4" class="none">Ningún producto coincide con los filtros.</td></tr>
+              }
+            </tbody>
+          </table>
+        </section>
+      }
+    }
+  </div>
+
+  <aside class="side">
+    @for (reminder of reminders(); track reminder.location.id) {
+      @if (reminder.due) {
+        <section class="card reminder" aria-label="Recordatorio de conteo">
+          <h2 class="card__title">Contar el {{ reminder.location.name.toLowerCase() }}</h2>
+          <p class="card__lead">
+            @if (reminder.days === null) {
+              Nunca se contó. Un conteo físico deja el stock igual a lo que de verdad hay.
+            } @else {
+              El último conteo fue hace {{ reminder.days }} días. Conviene contarlo cada dos semanas.
+            }
+          </p>
+          <div>
+            <a class="btn btn--small" routerLink="../conteo" [queryParams]="{ ubicacion: reminder.location.id }">Empezar conteo</a>
+          </div>
+        </section>
+      } @else {
+        <p class="muted">
+          {{ reminder.location.name }}: contado el {{ formatShortDate(reminder.location.lastCountDate!) }}.
+          <a routerLink="../conteo" [queryParams]="{ ubicacion: reminder.location.id }">Contar</a>
+        </p>
+      }
+    }
+
+    @if (shoppingList().length > 0) {
+      <section class="card low" aria-label="Stock bajo">
+        <h2 class="card__title">{{ shoppingList().length }} {{ shoppingList().length === 1 ? 'producto' : 'productos' }} con stock bajo</h2>
+        <p class="card__lead">Están por debajo del mínimo. La lista sugiere cuánto comprar.</p>
+        <div><a class="btn btn--small" routerLink="../lista-de-compras">Ver lista de compras</a></div>
+      </section>
+    }
+
+    <section class="card today" aria-labelledby="today-title">
+      <h2 class="card__title" id="today-title">Movimientos de hoy</h2>
+      @for (movement of movements(); track movement.id) {
+        <div class="move" [class.voided]="movement.isVoided">
+          <div class="move__main">
+            <span class="strong">{{ movement.productName }}</span>
+            <span class="num qty" [class.in]="movement.quantityMilli > 0" [class.out]="movement.quantityMilli < 0">
+              {{ formatSignedQuantity(movement.quantityMilli, movement.stockUnit) }}
+            </span>
+          </div>
+          <div class="sub">
+            @if (movementLink(movement); as link) {
+              <a [routerLink]="link">{{ movementLabel(movement) }}</a>
+            } @else {
+              {{ movementLabel(movement) }}
+            }
+            · {{ movement.locationName }}
+          </div>
+        </div>
+      } @empty {
+        <p class="muted">Hoy no se movió nada todavía.</p>
+      }
+    </section>
+  </aside>
+</div>

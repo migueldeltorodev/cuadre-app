@@ -1,0 +1,142 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/cierre">Cierre del día</a> <span aria-hidden="true">/</span>
+  <a routerLink="/cierre/historial">Cierres anteriores</a> <span aria-hidden="true">/</span>
+  {{ closing() ? formatShortDate(closing()!.date) : '…' }}
+</nav>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese cierre no existe.' : e.message }}</p>
+}
+
+@if (closing(); as c) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">Cierre del {{ formatShortDate(c.date) }}</h1>
+      <div class="tags">
+        @if (state(); as s) {
+          <span class="pill" [class]="'pill--' + s.tone">{{ s.label }}</span>
+        }
+        @if (c.employeeName) {
+          <span class="tag">Trabajó {{ c.employeeName }}</span>
+        }
+        <span class="tag">Cerrado el {{ formatTimestampDay(c.createdAt) }}</span>
+      </div>
+    </div>
+    @if (c.status === 'Confirmed' && !reopening()) {
+      <button class="btn" type="button" (click)="startReopen()">Reabrir</button>
+    }
+  </header>
+
+  @if (justClosed && c.status === 'Confirmed') {
+    <p class="alert" role="status">
+      <strong>Día cerrado.</strong> Ahora seguí los pasos de "Qué hacer con la plata" para dejar cada sobre como dice la app.
+    </p>
+  }
+
+  @if (c.status === 'Voided') {
+    <div class="alert alert--warn">
+      Reabierto el {{ c.voidedAt ? formatTimestampDay(c.voidedAt) : '' }}: {{ c.voidReason }}.
+      Sus movimientos se revirtieron con fecha de ese día.
+      <a [routerLink]="['/cierre']" [queryParams]="{ fecha: c.date }">Volver a cerrar el {{ formatShortDate(c.date) }}</a>
+    </div>
+  }
+
+  @if (reopening()) {
+    <section class="card reopen" aria-labelledby="reopen-title">
+      <h2 class="card__title" id="reopen-title">Reabrir el cierre del {{ formatShortDate(c.date) }}</h2>
+      <p class="card__lead">
+        Se deshace todo lo que hizo el cierre (las ventas del mostrador, los cobros, el reparto y el pago al dependiente)
+        con movimientos del mismo día. Queda registrado como reabierto y después lo podés volver a cerrar. Solo se puede
+        reabrir el último día cerrado.
+      </p>
+      <label class="field">
+        <span class="field__label">Por qué se reabre</span>
+        <input class="input" [formControl]="reason" autocomplete="off" placeholder="Faltó contar un saco, el cobro estaba mal…"
+          [class.input--invalid]="reason.invalid && reason.touched" />
+        @if (reason.invalid && reason.touched) {
+          <span class="field__error">Escribí el motivo.</span>
+        }
+      </label>
+      @if (reopenError(); as e) {
+        <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+      }
+      <div class="form__actions">
+        <button class="btn" type="button" (click)="cancelReopen()">No, volver</button>
+        <button class="btn btn--danger" type="button" [disabled]="savingReopen()" (click)="confirmReopen()">
+          {{ savingReopen() ? 'Reabriendo…' : 'Sí, reabrir' }}
+        </button>
+      </div>
+    </section>
+  }
+
+  @if (c.discrepancy; as d) {
+    <p class="alert" [class.alert--bad]="d.kind === 'Shortage' && d.status === 'Pending'"
+      [class.alert--warn]="d.kind === 'Surplus'">
+      {{ discrepancyText(d) }}.
+      @if (d.note) { {{ d.note }} }
+    </p>
+  }
+
+  @if (c.notes && c.notes !== c.discrepancy?.note) {
+    <p class="muted">Nota: {{ c.notes }}</p>
+  }
+
+  <app-closing-summary [closing]="c" />
+
+  <section class="table-card" aria-labelledby="count-title">
+    <div class="table-card__head">
+      <h2 class="section-title" id="count-title">Conteo del mostrador</h2>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="end">Esperado</th>
+          <th class="end">Quedó</th>
+          <th class="end">Vendido</th>
+          <th class="end">Venta</th>
+          <th class="end">Costo</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (line of c.lines; track line.id) {
+          <tr>
+            <td>
+              <span class="strong">{{ line.productName }}</span>
+              <div class="sub">
+                {{ line.productCode }} · {{ line.locationName }}
+                @if (line.unitPriceCents !== null) { · {{ formatMoney(line.unitPriceCents) }} }
+              </div>
+            </td>
+            <td class="end num">{{ formatQuantityWithUnit(line.expectedMilli, line.stockUnit) }}</td>
+            <td class="end num">{{ formatQuantityWithUnit(line.countedMilli, line.stockUnit) }}</td>
+            <td class="end num strong" [class.negative]="line.soldMilli < 0">
+              {{ formatQuantityWithUnit(line.soldMilli, line.stockUnit) }}
+            </td>
+            <td class="end num">
+              {{ formatCup(line.salesCents) }}
+              @if (line.toleranceCents > 0) {
+                <div class="sub">merma aceptada {{ formatCup(line.toleranceCents) }}</div>
+              }
+            </td>
+            <td class="end num">{{ formatCup(line.costCents) }}</td>
+          </tr>
+        } @empty {
+          <tr><td colspan="6" class="none">No había nada en el mostrador.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card cobros" aria-labelledby="cobros-title">
+    <h2 class="card__title" id="cobros-title">Cobros</h2>
+    @for (collection of c.collections; track collection.paymentMethodId) {
+      <div class="cobros__row">
+        <span>{{ collection.paymentMethodName }} <span class="sub">→ {{ collection.cashBoxName }}</span></span>
+        <span class="num strong">{{ formatCup(collection.amountCents) }}</span>
+      </div>
+    } @empty {
+      <p class="muted">No se cobró nada.</p>
+    }
+  </section>
+}

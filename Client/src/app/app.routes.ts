@@ -11,14 +11,26 @@ export const routes: Routes = [
     component: Shell,
     children: [
       { path: '', title: 'Inicio · Cuadre', loadComponent: () => import('./features/inicio/inicio-page') },
-      placeholder('cierre', 'Cierre del día'),
+      {
+        path: 'cierre',
+        loadChildren: () => import('./features/cierre/cierre.routes').then((m) => m.CIERRE_ROUTES),
+      },
       {
         path: 'productos',
         loadChildren: () => import('./features/productos/productos.routes').then((m) => m.PRODUCTOS_ROUTES),
       },
-      placeholder('compras', 'Compras'),
-      placeholder('inventario', 'Inventario'),
-      placeholder('sobres', 'Sobres'),
+      {
+        path: 'compras',
+        loadChildren: () => import('./features/compras/compras.routes').then((m) => m.COMPRAS_ROUTES),
+      },
+      {
+        path: 'inventario',
+        loadChildren: () => import('./features/inventario/inventario.routes').then((m) => m.INVENTARIO_ROUTES),
+      },
+      {
+        path: 'sobres',
+        loadChildren: () => import('./features/sobres/sobres.routes').then((m) => m.SOBRES_ROUTES),
+      },
       placeholder('gastos', 'Gastos'),
       placeholder('reportes', 'Reportes'),
       {

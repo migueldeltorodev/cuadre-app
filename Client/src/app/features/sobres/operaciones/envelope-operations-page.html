@@ -1,0 +1,94 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/sobres">Sobres</a> <span aria-hidden="true">/</span> Operaciones
+</nav>
+
+<h1 class="page-title">Operaciones de los sobres</h1>
+
+<div class="head">
+  <div class="filters">
+    <label class="field">
+      <span class="field__label">Tipo</span>
+      <select class="input" [value]="kind()" (change)="setKind($any($event.target).value)">
+        <option value="">Todas</option>
+        @for (k of kinds; track k) {
+          <option [value]="k">{{ kindLabel(k) }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      <span class="field__label">Desde</span>
+      <input class="input num" type="date" [value]="from()" (change)="setFrom($any($event.target).value)" />
+    </label>
+    <label class="field">
+      <span class="field__label">Hasta</span>
+      <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
+    </label>
+    <label class="check">
+      <input type="checkbox" [checked]="includeVoided()" (change)="toggleVoided($any($event.target).checked)" />
+      <span>Ver anuladas</span>
+    </label>
+    @if (hasFilters()) {
+      <button class="btn btn--ghost btn--small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+    }
+  </div>
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  @if (r.total === 0 && !hasFilters() && !includeVoided()) {
+    <section class="card empty">
+      <h2 class="card__title">Todavía no hay operaciones</h2>
+      <p class="card__lead">
+        Acá quedan el saldo inicial, los retiros, los movimientos entre sobres y los pagos de impuestos. Nada se borra:
+        si algo estuvo mal, se anula.
+      </p>
+      <div><a class="btn btn--primary" routerLink="/sobres">Volver a Sobres</a></div>
+    </section>
+  } @else {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Qué</th>
+            <th>Sobre</th>
+            <th>Caja</th>
+            <th class="end">Monto</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (operation of r.items; track operation.id) {
+            @let state = stateLabel(operation.status);
+            <tr [class.voided]="operation.status === 'Voided'">
+              <td>
+                <a class="name" [routerLink]="['/sobres/operaciones', operation.id]">{{ formatShortDate(operation.date) }}</a>
+                <div class="sub num">#{{ operation.number }}</div>
+              </td>
+              <td>{{ kindLabel(operation.kind) }}</td>
+              <td><span class="products" [title]="what(operation)">{{ what(operation) }}</span></td>
+              <td>{{ operation.cashBoxName ?? 'Varias' }}</td>
+              <td class="end num qty">
+                {{ operation.amountCents === null || operation.currency === null ? '—' : formatMoney(operation.amountCents, operation.currency) }}
+              </td>
+              <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="none">Ninguna coincide con los filtros.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1" (click)="goTo(r.page - 1)">Anterior</button>
+        <span class="num">Página {{ r.page }} · {{ r.total }}</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage" (click)="goTo(r.page + 1)">Siguiente</button>
+      </nav>
+    }
+  }
+}

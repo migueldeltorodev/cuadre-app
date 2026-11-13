@@ -5,15 +5,15 @@ import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ApiError, toApiError } from '../../core/api/api-error';
 import { CategoriesApi, ProductsApi } from '../../core/api/catalog-api';
 import { PagedResponse, ProductResponse } from '../../core/api/models';
-import { formatHundredths } from '../../shared/format/money';
-import { perUnit } from '../../shared/format/quantity';
+import { formatHundredths, formatMicros, formatPercent } from '../../shared/format/money';
+import { formatQuantityWithUnit, perUnit } from '../../shared/format/quantity';
 import { CategoryIndex, productState } from './catalog-labels';
 
 const PAGE_SIZE = 50;
 
 /**
  * Product list (design "Productos", RF-PRD-01/06). Search and category filter run on the server.
- * Stock, cost and margin columns arrive with purchases (slice 3) and inventory (slice 4).
+ * Stock is the total of all locations (by location arrives with inventory, slice 4).
  */
 @Component({
   imports: [RouterLink],
@@ -27,6 +27,9 @@ export default class ProductosPage implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly formatHundredths = formatHundredths;
+  protected readonly formatMicros = formatMicros;
+  protected readonly formatPercent = formatPercent;
+  protected readonly formatQuantityWithUnit = formatQuantityWithUnit;
   protected readonly perUnit = perUnit;
   protected readonly productState = productState;
 

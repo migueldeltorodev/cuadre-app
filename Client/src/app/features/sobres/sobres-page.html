@@ -1,0 +1,169 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Sobres y cajas</h1>
+    <p class="page-subtitle">
+      Los sobres dicen <strong>para qué</strong> es la plata. Las cajas, <strong>dónde</strong> está.
+    </p>
+  </div>
+  <div class="actions">
+    <a class="btn btn--ghost btn--small" routerLink="operaciones">Ver operaciones</a>
+    <a class="btn btn--ghost btn--small" routerLink="saldo-inicial">Saldo inicial</a>
+    <button class="btn" type="button" [disabled]="!canOperate()" (click)="open('TaxPayment')">Pagar impuestos</button>
+    <button class="btn" type="button" [disabled]="!canOperate()" (click)="open('Transfer')">Mover entre sobres</button>
+    <button class="btn btn--primary" type="button" [disabled]="!canOperate()" (click)="open('Withdrawal')">
+      Sacar de un sobre
+    </button>
+  </div>
+</header>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (lastSaved(); as saved) {
+  <div class="alert" [class.alert--warn]="saved.warnings.length > 0" role="status">
+    <a [routerLink]="['operaciones', saved.id]">{{ savedLabel(saved) }}</a> guardado.
+    @for (text of warningText(saved); track text) {
+      <div>{{ text }}</div>
+    }
+    <button class="btn btn--ghost btn--small dismiss" type="button" (click)="lastSaved.set(null)">Cerrar</button>
+  </div>
+}
+
+@if (negatives().length > 0) {
+  <div class="alert alert--bad" role="alert">
+    Hay sobres en negativo. Se permite, pero hay que reponerlos:
+    @for (n of negatives(); track n.key) {
+      <div class="num">· {{ n.text }}</div>
+    }
+  </div>
+}
+
+@if (overview()) {
+  @if (isEmpty()) {
+    <section class="card empty">
+      <h2 class="card__title">Todavía no hay plata en los sobres</h2>
+      <p class="card__lead">
+        Empezá por el saldo inicial: escribí cuánto hay hoy en cada caja y de qué sobre es. A partir de ahí, cada
+        compra, retiro y cierre mueve los sobres solo.
+      </p>
+      <div><a class="btn btn--primary" routerLink="saldo-inicial">Cargar el saldo inicial</a></div>
+    </section>
+  }
+
+  <section class="block" aria-labelledby="sob">
+    <h2 class="section-title" id="sob">Sobres</h2>
+    <div class="grid">
+      @for (card of cards(); track card.row.envelope.id) {
+        <a class="envelope" [routerLink]="card.row.envelope.id" [class.envelope--inactive]="!card.row.envelope.isActive">
+          <div class="envelope__head">
+            <span class="envelope__name">
+              <span class="swatch" [style.background]="card.swatch"></span>{{ card.row.envelope.name }}
+            </span>
+            <span class="chip">{{ card.row.envelope.isActive ? card.pill : 'inactivo' }}</span>
+          </div>
+          <div class="envelope__total num" [class.negative]="card.cupCents < 0">
+            {{ signedNumber(card.cupCents) }} <span class="currency">CUP</span>
+          </div>
+          @if (card.usdCents !== null) {
+            <div class="envelope__usd num" [class.negative]="card.usdCents < 0">
+              y {{ formatBalance(card.usdCents, 'USD') }}
+            </div>
+          }
+          @if (card.parts.length > 1 || card.usdCents !== null) {
+            <div class="parts">
+              @for (part of card.parts; track part.label) {
+                <div class="parts__row">
+                  <span class="muted">{{ part.label }}</span>
+                  <span class="num" [class.negative]="part.cents < 0">{{ formatBalance(part.cents, part.currency) }}</span>
+                </div>
+              }
+            </div>
+          } @else if (card.parts.length === 1) {
+            <div class="parts">
+              <div class="parts__row"><span class="muted">Todo en {{ card.parts[0].label }}</span></div>
+            </div>
+          }
+          <div class="rule"></div>
+          <div class="envelope__month num">
+            @if (card.monthIn.length === 0 && card.monthOut.length === 0) {
+              {{ monthName() }}: sin movimientos
+            } @else {
+              {{ monthName() }}:
+              @if (card.monthIn.length) { <span>+{{ joinAmounts(card.monthIn) }} entró</span> }
+              @if (card.monthIn.length && card.monthOut.length) { · }
+              @if (card.monthOut.length) { <span>−{{ joinAmounts(card.monthOut) }} salió</span> }
+            }
+          </div>
+        </a>
+      }
+    </div>
+  </section>
+
+  <section class="card boxes" aria-labelledby="cajas">
+    <h2 class="section-title" id="cajas">Cajas</h2>
+    @for (box of boxes(); track box.id) {
+      <div class="boxes__row">
+        <span>
+          {{ box.name }}
+          @if (boxNote(box); as note) { <span class="muted">· {{ note }}</span> }
+        </span>
+        <span class="num strong" [class.negative]="box.totalCents < 0">{{ formatBalance(box.totalCents, box.currency) }}</span>
+      </div>
+    } @empty {
+      <p class="muted">No hay cajas activas. Crealas en Configuración › Cobros y cajas.</p>
+    }
+    @if (trappedCents() > 0) {
+      <p class="note">
+        La plata del banco está atrapada: no sirve para pagar en efectivo ni para cambiar a USD. Los sobres la cuentan
+        igual, pero mirá cuánto de cada sobre está en efectivo antes de sacar.
+      </p>
+    }
+    @if (overview()!.internalDebtCents > 0) {
+      <p class="note">
+        <strong>Deuda interna: {{ formatBalance(overview()!.internalDebtCents, 'CUP') }}.</strong>
+        Entró por transferencia más de lo que Reposición necesitaba, y esa plata quedó en el banco. Reposición se la
+        debe a los otros sobres y la devuelve sola en los próximos cierres.
+      </p>
+    }
+  </section>
+
+  <section class="table-card" aria-labelledby="mov">
+    <div class="table-card__head">
+      <h2 class="section-title" id="mov">Movimientos recientes</h2>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Día</th>
+          <th>Sobre</th>
+          <th>Qué pasó</th>
+          <th>Caja</th>
+          <th class="end">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (movement of recent(); track movement.id) {
+          @let link = cashMovementLink(movement);
+          <tr>
+            <td class="num">{{ formatShortDate(movement.date) }}</td>
+            <td><a class="name" [routerLink]="movement.envelopeId">{{ movement.envelopeName }}</a></td>
+            <td>
+              @if (link) {
+                <a class="name" [routerLink]="link">{{ cashMovementLabel(movement) }}</a>
+              } @else {
+                {{ cashMovementLabel(movement) }}
+              }
+            </td>
+            <td>{{ movement.cashBoxName }}</td>
+            <td class="end num strong" [class.in]="movement.amountCents > 0" [class.out]="movement.amountCents < 0">
+              {{ formatSignedMoney(movement.amountCents, movement.currency) }}
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="5" class="none">No hubo movimientos en los últimos 30 días.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+}

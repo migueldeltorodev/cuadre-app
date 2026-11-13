@@ -24,6 +24,13 @@ public interface IProductRepository
     Task<bool> UpdateAsync(Product product, ProductPriceChange? priceChange,
         CancellationToken cancellationToken = default);
 
+    /// <summary>True once any stock movement exists: from then on the stock unit is frozen.</summary>
+    Task<bool> HasStockMovementsAsync(Guid productId, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets a new sale price and appends its history row, in one transaction.</summary>
+    Task<bool> UpdateSalePriceAsync(Guid productId, long priceCents, DateTime updatedAt, ProductPriceChange priceChange,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Newest first.</summary>
     Task<IEnumerable<ProductPriceChange>> GetPriceHistoryAsync(Guid productId,
         CancellationToken cancellationToken = default);
@@ -39,8 +46,14 @@ public class ProductRepository : IProductRepository
         id, code, barcode, name, brand, presentation, category_id, subcategory_id, usual_supplier_id,
         purchase_unit, stock_unit, conversion_factor_milli, sale_price_cents, listed_price_cents,
         min_stock_milli, shrinkage_tolerance_bps, exchange_buffer_cents, markup_bps,
-        is_perishable, is_active, notes, created_at, updated_at
+        is_perishable, is_active, notes, created_at, updated_at,
+        (SELECT COALESCE(SUM(m.quantity_milli), 0) FROM stock_movements m WHERE m.product_id = products.id) AS stock_milli,
+        avg_cost_usd_micros, avg_cost_cup_micros, last_purchase_date
         """;
+
+    // The cost cache's column names are unique on purpose, so the select list needs no table prefixes.
+    private const string FromWithCosts =
+        "products LEFT JOIN product_costs ON product_costs.product_id = products.id";
 
     // Shared by GetAll and GetCount so the total always matches the page.
     // ESCAPE: a search for "50%" must look for a literal %, not "50 followed by anything".
@@ -88,7 +101,7 @@ public class ProductRepository : IProductRepository
     {
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<Product>(new CommandDefinition(
-            $"SELECT {SelectColumns} FROM products WHERE id = @id",
+            $"SELECT {SelectColumns} FROM {FromWithCosts} WHERE id = @id",
             new { id }, cancellationToken: cancellationToken));
     }
 
@@ -96,7 +109,7 @@ public class ProductRepository : IProductRepository
     {
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<Product>(new CommandDefinition(
-            $"SELECT {SelectColumns} FROM products WHERE code = @code",
+            $"SELECT {SelectColumns} FROM {FromWithCosts} WHERE code = @code",
             new { code }, cancellationToken: cancellationToken));
     }
 
@@ -104,7 +117,7 @@ public class ProductRepository : IProductRepository
     {
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<Product>(new CommandDefinition(
-            $"SELECT {SelectColumns} FROM products WHERE barcode = @barcode",
+            $"SELECT {SelectColumns} FROM {FromWithCosts} WHERE barcode = @barcode",
             new { barcode }, cancellationToken: cancellationToken));
     }
 
@@ -114,7 +127,7 @@ public class ProductRepository : IProductRepository
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
         return await connection.QueryAsync<Product>(new CommandDefinition($"""
             SELECT {SelectColumns}
-            FROM products
+            FROM {FromWithCosts}
             WHERE {ListFilter}
             ORDER BY is_active DESC, name COLLATE NOCASE, code
             LIMIT @pageSize OFFSET @offset
@@ -185,6 +198,30 @@ public class ProductRepository : IProductRepository
             WHERE product_id = @productId
             ORDER BY created_at DESC, rowid DESC
             """, new { productId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> HasStockMovementsAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "SELECT EXISTS(SELECT 1 FROM stock_movements WHERE product_id = @productId)",
+            new { productId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> UpdateSalePriceAsync(Guid productId, long priceCents, DateTime updatedAt,
+        ProductPriceChange priceChange, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        var result = await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE products SET sale_price_cents = @priceCents, updated_at = @updatedAt WHERE id = @productId",
+            new { productId, priceCents, updatedAt }, transaction, cancellationToken: cancellationToken));
+
+        await InsertPriceChangeAsync(connection, transaction, priceChange, cancellationToken);
+
+        transaction.Commit();
+        return result > 0;
     }
 
     private static async Task InsertPriceChangeAsync(IDbConnection connection, IDbTransaction transaction,

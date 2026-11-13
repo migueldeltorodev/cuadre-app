@@ -1,0 +1,131 @@
+<nav class="crumbs" aria-label="Ruta">
+  <a routerLink="/sobres">Sobres</a> <span aria-hidden="true">/</span> {{ envelope()?.name ?? '…' }}
+</nav>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese sobre no existe.' : e.message }}</p>
+}
+
+@if (envelope(); as env) {
+  <header class="head">
+    <div>
+      <h1 class="page-title title">
+        <span class="swatch" [style.background]="swatch()"></span>{{ env.name }}
+        @if (pill()) { <span class="chip">{{ pill() }}</span> }
+        @if (!env.isActive) { <span class="pill pill--muted">Inactivo</span> }
+      </h1>
+      <p class="page-subtitle">{{ note() }}</p>
+    </div>
+    @if (env.isActive) {
+      <div class="actions">
+        <button class="btn" type="button" (click)="open('Transfer')">Mover a otro sobre</button>
+        <button class="btn btn--primary" type="button" (click)="open(outKind())">
+          {{ outKind() === 'TaxPayment' ? 'Pagar impuestos' : 'Sacar de este sobre' }}
+        </button>
+      </div>
+    }
+  </header>
+
+  @if (lastSaved(); as saved) {
+    <div class="alert" [class.alert--warn]="saved.warnings.length > 0" role="status">
+      <a [routerLink]="['/sobres/operaciones', saved.id]">Operación #{{ saved.number }}</a> guardada.
+      @for (w of saved.warnings; track w.envelopeId + w.cashBoxId) {
+        <div>{{ w.envelopeName }} en {{ w.cashBoxName }} quedó en {{ formatBalance(w.balanceCents, w.currency) }}.</div>
+      }
+    </div>
+  }
+
+  <section class="card now" aria-label="Hoy">
+    <div class="now__totals">
+      @for (t of totals(); track t.currency) {
+        <span class="num big" [class.negative]="t.cents < 0">{{ formatBalance(t.cents, t.currency) }}</span>
+      } @empty {
+        <span class="num big">0 CUP</span>
+      }
+    </div>
+    @for (balance of row()?.balances ?? []; track balance.cashBoxId) {
+      <div class="now__row">
+        <span class="muted">{{ boxName(balance.cashBoxId) }}</span>
+        <span class="num" [class.negative]="balance.amountCents < 0">{{ balanceText(balance) }}</span>
+      </div>
+    }
+  </section>
+
+  <div class="head">
+    <div class="filters">
+      <label class="field">
+        <span class="field__label">Caja</span>
+        <select class="input" [value]="cashBoxId()" (change)="setBox($any($event.target).value)">
+          <option value="">Todas</option>
+          @for (box of boxes(); track box.id) {
+            <option [value]="box.id">{{ box.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span class="field__label">Desde</span>
+        <input class="input num" type="date" [value]="from()" (change)="setFrom($any($event.target).value)" />
+      </label>
+      <label class="field">
+        <span class="field__label">Hasta</span>
+        <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
+      </label>
+      @if (hasFilters()) {
+        <button class="btn btn--ghost btn--small" type="button" (click)="clearFilters()">Limpiar filtros</button>
+      }
+    </div>
+  </div>
+
+  @if (ledger(); as l) {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Qué pasó</th>
+            <th>Caja</th>
+            <th class="end">Monto</th>
+            <th class="end">Saldo en la caja</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (l.from && l.openingBalances.length > 0) {
+            <tr class="carry">
+              <td class="num">{{ formatShortDate(l.from) }}</td>
+              <td colspan="3">Traía de antes</td>
+              <td class="end num">
+                @for (b of l.openingBalances; track b.cashBoxId) {
+                  <div>{{ balanceText(b) }} <span class="sub">{{ boxName(b.cashBoxId) }}</span></div>
+                }
+              </td>
+            </tr>
+          }
+          @for (entry of l.entries; track entry.movement.id) {
+            @let m = entry.movement;
+            @let link = cashMovementLink(m);
+            <tr [class.voided]="m.isVoided">
+              <td class="num">{{ formatShortDate(m.date) }}</td>
+              <td>
+                @if (link) {
+                  <a class="name" [routerLink]="link">{{ cashMovementLabel(m) }}</a>
+                } @else {
+                  {{ cashMovementLabel(m) }}
+                }
+                @if (m.isVoided) { <div class="sub">anulada</div> }
+              </td>
+              <td>{{ m.cashBoxName }}</td>
+              <td class="end num strong qty" [class.in]="m.amountCents > 0" [class.out]="m.amountCents < 0">
+                {{ formatSignedMoney(m.amountCents, m.currency) }}
+              </td>
+              <td class="end num" [class.negative]="entry.boxBalanceCents < 0">
+                {{ formatBalance(entry.boxBalanceCents, m.currency) }}
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5" class="none">No hubo movimientos en esas fechas.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+}

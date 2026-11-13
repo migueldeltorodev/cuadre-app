@@ -1,0 +1,323 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Cierre del día</h1>
+    @if (draft(); as d) {
+      <p class="page-subtitle">{{ formatDayMonth(d.date) }} · paso {{ step() }} de {{ steps.length }}</p>
+    }
+  </div>
+  <a class="btn btn--ghost btn--small" routerLink="historial">Ver cierres anteriores</a>
+</header>
+
+<ol class="stepper" aria-label="Pasos del cierre">
+  @for (s of steps; track s.step) {
+    <li class="stepper__item" [class.stepper__item--done]="s.step < step()" [class.stepper__item--current]="s.step === step()">
+      @if (s.step < step()) {
+        <button class="stepper__btn" type="button" (click)="goTo(s.step)">
+          <span class="stepper__dot">✓</span>{{ s.label }}
+        </button>
+      } @else {
+        <span class="stepper__btn" [attr.aria-current]="s.step === step() ? 'step' : null">
+          <span class="stepper__dot">{{ s.step }}</span>{{ s.label }}
+        </span>
+      }
+    </li>
+  }
+</ol>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (draft(); as d) {
+  @switch (step()) {
+    @case (1) {
+      <section class="card step">
+        <h2 class="card__title">¿Qué día cerrás?</h2>
+        <div class="form__row">
+          <label class="field day">
+            <span class="field__label">Día</span>
+            <input class="input num" type="date" [value]="d.date" (change)="setDate($any($event.target).value)" />
+            @if (d.lastClosedDate) {
+              <span class="field__hint">El último día cerrado es el {{ formatShortDate(d.lastClosedDate) }}.</span>
+            } @else {
+              <span class="field__hint">Todavía no se cerró ningún día.</span>
+            }
+          </label>
+        </div>
+
+        @if (d.problem) {
+          <div class="alert alert--bad" role="alert">
+            {{ d.problem }}
+            @if (d.existingClosingId) {
+              <a [routerLink]="['/cierre', d.existingClosingId]">Ver ese cierre</a>
+            }
+          </div>
+        }
+        @if (d.isClosedDay) {
+          <p class="alert alert--warn">Este día el negocio normalmente no abre. Si abrió, cerralo igual.</p>
+        }
+
+        <div class="rate">
+          @if (d.isExchangeRateMissing) {
+            <p class="alert alert--warn">
+              No está cargada la tasa del {{ formatShortDate(d.date) }}. El cierre es en pesos y no la usa, pero
+              conviene tenerla para las compras y los reportes.
+            </p>
+            <div><button class="btn" type="button" (click)="openRateDialog()">Cargar la tasa</button></div>
+          } @else {
+            <p class="muted">✓ La tasa del día está cargada.</p>
+          }
+        </div>
+      </section>
+    }
+
+    @case (2) {
+      <section class="card step">
+        <h2 class="card__title">Antes de contar: ¿qué entró y salió del mostrador?</h2>
+        <p class="card__lead">
+          Si abriste un saco, repusiste una caja o algo se rompió o se lo llevó la casa, registralo ahora. Si no, lo que
+          falte en el conteo se toma como vendido. Después volvé a Cierre del día: arranca de nuevo en este día.
+        </p>
+        <div class="actions">
+          <a class="btn" routerLink="/inventario/traslado">Llevar mercadería al mostrador</a>
+          <a class="btn" routerLink="/inventario/salida">Registrar una salida</a>
+          <button class="btn btn--ghost" type="button" (click)="refresh()">Actualizar</button>
+        </div>
+
+        @if (movedLines().length > 0) {
+          <div class="grid-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Dónde</th>
+                  <th class="end">Entró hoy</th>
+                  <th class="end">Salió hoy</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of movedLines(); track lineKey(line)) {
+                  <tr>
+                    <td><span class="strong">{{ line.name }}</span> <span class="sub">{{ line.code }}</span></td>
+                    <td>{{ line.locationName }}</td>
+                    <td class="end num in">{{ line.inMilli ? formatQuantityWithUnit(line.inMilli, line.stockUnit) : '—' }}</td>
+                    <td class="end num out">{{ line.outMilli ? formatQuantityWithUnit(line.outMilli, line.stockUnit) : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="muted">Hoy no hay movimientos registrados en el mostrador.</p>
+        }
+      </section>
+    }
+
+    @case (3) {
+      <section class="card step">
+        <div class="card__head">
+          <div>
+            <h2 class="card__title">Conteo del mostrador</h2>
+            <p class="card__lead">Escribí lo que quedó de cada producto. Lo que falta respecto de lo esperado es lo vendido.</p>
+          </div>
+          @if (d.lines.length > 0) {
+            <button class="btn btn--small" type="button" [disabled]="pendingCounts() === 0" (click)="fillBlanksWithExpected()">
+              Lo que no conté: igual a lo esperado
+            </button>
+          }
+        </div>
+
+        @if (d.lines.length === 0) {
+          <p class="muted">No hay nada en el mostrador. Si se vendió algo, primero registrá el traslado (paso 2).</p>
+        } @else {
+          <details class="sheet">
+            <summary>Ver la planilla para copiar a mano</summary>
+            <table class="sheet__table">
+              <thead>
+                <tr><th>Código</th><th>Producto</th><th class="end">Había</th><th>Quedó</th></tr>
+              </thead>
+              <tbody>
+                @for (line of d.lines; track lineKey(line)) {
+                  <tr>
+                    <td class="num">{{ line.code }}</td>
+                    <td>{{ line.name }}</td>
+                    <td class="end num">{{ formatQuantityWithUnit(line.expectedMilli, line.stockUnit) }}</td>
+                    <td class="blank"></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </details>
+
+          <div class="grid-wrap">
+            <table class="table count">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="end">Había</th>
+                  <th class="end">Entró / salió</th>
+                  <th class="end">Esperado</th>
+                  <th class="end">Quedó</th>
+                  <th class="end">Vendido</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of d.lines; track lineKey(line)) {
+                  @let sold = soldMilli(line);
+                  <tr>
+                    <td>
+                      <span class="strong">{{ line.name }}</span>
+                      <div class="sub">
+                        {{ line.code }} · {{ line.locationName }} ·
+                        @if (line.unitPriceCents !== null) {
+                          {{ formatMoney(line.unitPriceCents) }} {{ perUnit(line.stockUnit) }}
+                        } @else {
+                          <span class="negative">sin precio</span>
+                        }
+                      </div>
+                    </td>
+                    <td class="end num">{{ formatQuantityWithUnit(line.openingMilli, line.stockUnit) }}</td>
+                    <td class="end num">
+                      @if (line.inMilli) { <span class="in">+{{ formatQuantityWithUnit(line.inMilli, line.stockUnit) }}</span> }
+                      @if (line.outMilli) { <span class="out"> −{{ formatQuantityWithUnit(line.outMilli, line.stockUnit) }}</span> }
+                      @if (!line.inMilli && !line.outMilli) { — }
+                    </td>
+                    <td class="end num strong">{{ formatQuantityWithUnit(line.expectedMilli, line.stockUnit) }}</td>
+                    <td class="end">
+                      <input class="input num qty-input" inputmode="decimal" autocomplete="off"
+                        [attr.aria-label]="'Quedó de ' + line.name"
+                        [value]="countText(line)" [class.input--invalid]="showCountError(line)"
+                        (input)="setCount(line, $any($event.target).value)" />
+                      @if (showCountError(line)) {
+                        <div class="field__error">{{ countText(line).trim() === '' ? 'Falta contar' : line.allowsDecimals ? 'Revisá el número' : 'Solo enteros' }}</div>
+                      }
+                    </td>
+                    <td class="end num" [class.negative]="sold !== null && sold < 0">
+                      {{ sold === null ? '—' : formatQuantityWithUnit(sold, line.stockUnit) }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          @if (countSubmitted() && invalidCounts().size > 0) {
+            <p class="alert alert--bad" role="alert">
+              Faltan {{ invalidCounts().size }} productos por contar o están mal escritos (marcados en rojo).
+            </p>
+          }
+          @if (countSubmitted() && unpricedSold().length > 0) {
+            <p class="alert alert--bad" role="alert">
+              Se vendió {{ unpricedSold()[0].name }} pero no tiene precio de venta. Ponéselo en Productos antes de cerrar.
+            </p>
+          }
+          @if (pendingCounts() > 0) {
+            <p class="muted">Faltan {{ pendingCounts() }} de {{ d.lines.length }}.</p>
+          }
+        }
+      </section>
+    }
+
+    @case (4) {
+      <section class="card step">
+        <h2 class="card__title">¿Cuánto se cobró?</h2>
+        <p class="card__lead">Contá el efectivo y mirá las transferencias del día. Lo que dejes vacío cuenta como 0.</p>
+
+        @if (d.paymentMethods.length === 0) {
+          <p class="alert alert--bad">No hay formas de cobro activas en pesos. Crealas en Configuración › Cobros y cajas.</p>
+        }
+        <div class="methods">
+          @for (method of d.paymentMethods; track method.id) {
+            <label class="field">
+              <span class="field__label">{{ method.name }}</span>
+              <span class="input input--affix" [class.input--invalid]="showCollectionError(method.id)">
+                <input inputmode="decimal" autocomplete="off" placeholder="0" [value]="collectionText(method.id)"
+                  (input)="setCollection(method.id, $any($event.target).value)" />
+                <span class="input__affix">CUP</span>
+              </span>
+              @if (showCollectionError(method.id)) {
+                <span class="field__error">Usá números como 1500 o 1500.50.</span>
+              } @else {
+                <span class="field__hint">Entra a {{ method.cashBoxName }}{{ method.isTransfer ? ' (banco)' : '' }}</span>
+              }
+            </label>
+          }
+        </div>
+        <p class="total num">Cobrado en total: <strong>{{ formatCup(typedTotal()) }}</strong></p>
+
+        <label class="field who">
+          <span class="field__label">¿Quién trabajó? <span class="opt">(opcional)</span></span>
+          <select class="input" [value]="employeeId()" (change)="employeeId.set($any($event.target).value)">
+            <option value="">Nadie en particular</option>
+            @for (employee of employees(); track employee.id) {
+              <option [value]="employee.id">{{ employee.name }}</option>
+            }
+          </select>
+          <span class="field__hint">
+            Solo queda en el historial y en los faltantes. El pago es del puesto:
+            {{ formatMoney(d.payScheme.dailyFixedCents) }} + {{ formatPercent(d.payScheme.percentOfSalesBps) }} de lo cobrado.
+          </span>
+        </label>
+      </section>
+    }
+
+    @case (5) {
+      @if (previewing()) {
+        <p class="muted">Calculando el cierre…</p>
+      }
+      @if (previewError(); as e) {
+        <div class="alert alert--bad" role="alert">
+          {{ e.message }}
+          @for (message of fieldMessages(e); track message) {
+            <div>· {{ message }}</div>
+          }
+        </div>
+      }
+      @if (preview(); as p) {
+        <app-closing-summary [closing]="p" />
+
+        <section class="card step">
+          <label class="field">
+            <span class="field__label">
+              Nota
+              @if (!p.requiresNote) { <span class="opt">(opcional)</span> }
+            </span>
+            <textarea class="input notes" maxlength="500" rows="3"
+              [placeholder]="p.requiresNote ? 'Qué pasó con la diferencia de caja' : 'Algo para recordar de este día'"
+              [class.input--invalid]="confirmSubmitted() && needsNote()"
+              [value]="notes()" (input)="notes.set($any($event.target).value)"></textarea>
+            @if (p.requiresNote) {
+              <span class="field__hint" [class.field__error]="confirmSubmitted() && needsNote()">
+                La diferencia supera el umbral de {{ formatCup(p.thresholdCents) }}: escribí qué pasó.
+              </span>
+            }
+          </label>
+
+          @if (saveError(); as e) {
+            <div class="alert alert--bad" role="alert">
+              {{ e.message }}
+              @for (message of fieldMessages(e); track message) {
+                <div>· {{ message }}</div>
+              }
+            </div>
+          }
+        </section>
+      }
+    }
+  }
+
+  <div class="form__actions nav">
+    @if (step() > 1) {
+      <button class="btn" type="button" (click)="back()">Atrás</button>
+    }
+    @if (step() < 5) {
+      <button class="btn btn--primary" type="button" [disabled]="step() === 1 && !d.canClose" (click)="next()">
+        Siguiente
+      </button>
+    } @else {
+      <button class="btn btn--primary" type="button" [disabled]="!preview() || saving()" (click)="confirm()">
+        {{ saving() ? 'Cerrando…' : 'Confirmar y cerrar el día' }}
+      </button>
+    }
+  </div>
+}
