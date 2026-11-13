@@ -1188,6 +1188,8 @@ export interface ProfitFirstEvaluationResponse {
   recoveredCents: number;
   internalDebtCents: number;
   envelopes: EnvelopeEvaluationResponse[];
+  /** The confirmed expenses of the period, per currency (never added up). */
+  expenses: ExpenseTotalResponse[];
 }
 
 export interface DailyClosingResponse {
