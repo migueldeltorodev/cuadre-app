@@ -167,6 +167,8 @@ export interface ProductResponse {
   exchangeBufferCents: number | null;
   markupBps: number | null;
   isPerishable: boolean;
+  /** Typical shelf life in days (RF-PRD-10); only perishables. */
+  shelfLifeDays: number | null;
   isActive: boolean;
   notes: string | null;
   /** All locations; can be negative (sold before the purchase was typed). */
@@ -178,11 +180,18 @@ export interface ProductResponse {
   updatedAt: string;
 }
 
-/** Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit. */
+/**
+ * Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit.
+ * D-52: the suggested price, the margin and the colchón alert use the LAST purchase's cost and rate;
+ * the weighted average is what the stock on the shelf cost.
+ */
 export interface ProductCostResponse {
   avgCostUsdMicros: number;
   avgCostCupMicros: number;
-  averageRateCents: number;
+  lastCostUsdMicros: number;
+  lastCostCupMicros: number;
+  /** The last purchase's rate, CUP cents per USD. */
+  lastRateCents: number;
   effectiveBufferCents: number;
   effectiveMarkupBps: number;
   suggestedPriceCents: number;
@@ -208,6 +217,7 @@ interface ProductRequestBase {
   exchangeBufferCents: number | null;
   markupBps: number | null;
   isPerishable: boolean;
+  shelfLifeDays: number | null;
   notes: string | null;
 }
 
@@ -1188,6 +1198,8 @@ export interface ProfitFirstEvaluationResponse {
   recoveredCents: number;
   internalDebtCents: number;
   envelopes: EnvelopeEvaluationResponse[];
+  /** The confirmed expenses of the period, per currency (never added up). */
+  expenses: ExpenseTotalResponse[];
 }
 
 export interface DailyClosingResponse {

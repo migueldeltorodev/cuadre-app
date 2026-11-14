@@ -2,8 +2,7 @@ import { Routes } from '@angular/router';
 import { Shell } from './core/layout/shell';
 
 /**
- * One route per menu entry. Each feature slice replaces its placeholder with
- * a lazy-loaded page (loadComponent) as it gets built.
+ * One route per menu entry, each a lazy-loaded feature.
  * `data.crumb` names each level of the breadcrumb trail (core/layout/breadcrumbs.ts).
  */
 export const routes: Routes = [
@@ -42,7 +41,11 @@ export const routes: Routes = [
         data: { crumb: 'Gastos' },
         loadChildren: () => import('./features/gastos/gastos.routes').then((m) => m.GASTOS_ROUTES),
       },
-      placeholder('reportes', 'Reportes'),
+      {
+        path: 'reportes',
+        data: { crumb: 'Reportes' },
+        loadChildren: () => import('./features/reportes/reportes.routes').then((m) => m.REPORTES_ROUTES),
+      },
       {
         path: 'configuracion',
         title: 'Configuración · Cuadre',
@@ -54,12 +57,3 @@ export const routes: Routes = [
   },
   { path: '**', redirectTo: '' },
 ];
-
-function placeholder(path: string, name: string) {
-  return {
-    path,
-    title: `${name} · Cuadre`,
-    data: { name, crumb: name },
-    loadComponent: () => import('./shared/placeholder-page'),
-  };
-}

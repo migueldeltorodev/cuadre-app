@@ -1,3 +1,4 @@
+import { Dialog } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -37,6 +38,8 @@ import {
   quantityValidator,
   toQuantityInput,
 } from '../../../shared/format/quantity';
+import { DIALOG_DEFAULTS } from '../../../shared/ui/dialog-config';
+import { SupplierDialog, SupplierDialogData } from '../../productos/proveedores/supplier-dialog';
 import { convertCents, lineSubtotalCents, localToday, stockQuantityMilli } from '../purchase-format';
 
 /** What the person decided about each suggested price after confirming. */
@@ -95,6 +98,7 @@ export default class CompraFormPage implements OnInit {
   private readonly cashBoxesApi = inject(CashBoxesApi);
   private readonly locationsApi = inject(LocationsApi);
   private readonly rateStore = inject(ExchangeRateStore);
+  private readonly dialog = inject(Dialog);
 
   protected readonly formatHundredths = formatHundredths;
   protected readonly formatMoney = formatMoney;
@@ -298,6 +302,18 @@ export default class CompraFormPage implements OnInit {
     if (!this.boxesFor(currency).some((box) => box.id === control.value)) {
       control.setValue(this.boxesFor(currency)[0]?.id ?? '');
     }
+  }
+
+  /** RF-PRD-11: a supplier that is not in the list yet is created here, without losing the purchase typed so far. */
+  protected newSupplier(): void {
+    this.dialog
+      .open<SupplierResponse, SupplierDialogData>(SupplierDialog, { ...DIALOG_DEFAULTS, data: {} })
+      .closed.subscribe((created) => {
+        if (created) {
+          this.suppliers.set([...this.suppliers(), created].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+          this.form.controls.supplierId.setValue(created.id);
+        }
+      });
   }
 
   protected invalid(control: { invalid: boolean; touched: boolean }): boolean {

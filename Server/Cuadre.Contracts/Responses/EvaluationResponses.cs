@@ -55,4 +55,7 @@ public class ProfitFirstEvaluationResponse
     public required long InternalDebtCents { get; init; }
 
     public required IReadOnlyList<EnvelopeEvaluationResponse> Envelopes { get; init; } = [];
+
+    /// <summary>The confirmed expenses of the period, per currency (currencies are never added up).</summary>
+    public required IReadOnlyList<ExpenseTotalResponse> Expenses { get; init; } = [];
 }

@@ -1,0 +1,11 @@
+.supplier {
+  flex: 0 1 240px;
+}
+
+.tag {
+  margin-left: 8px;
+}
+
+.table.compact {
+  min-width: 460px;
+}

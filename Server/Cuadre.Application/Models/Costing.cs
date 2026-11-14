@@ -66,8 +66,10 @@ public static class PurchaseCalculator
 /// <summary>A stock movement as the cost replay sees it.</summary>
 public sealed record CostMovement(long QuantityMilli, long? UnitCostUsdMicros, long? UnitCostCupMicros);
 
-/// <summary>Average cost per stock unit: USD (RN-01) and historical CUP (RN-02).</summary>
-public sealed record AverageCost(long UsdMicros, long CupMicros);
+/// <summary>
+/// A cost per stock unit in USD and CUP: the weighted average (RN-01, RN-02) or the last purchase's landed cost (D-52).
+/// </summary>
+public sealed record UnitCost(long UsdMicros, long CupMicros);
 
 public static class CostCalculator
 {
@@ -79,7 +81,7 @@ public static class CostCalculator
     /// Replaying from scratch makes voiding exact: drop the voided rows and replay; nothing to "un-average".
     /// Null when no costed entry exists.
     /// </summary>
-    public static AverageCost? Replay(IEnumerable<CostMovement> movements)
+    public static UnitCost? Replay(IEnumerable<CostMovement> movements)
     {
         decimal stock = 0;
         decimal? usd = null;
@@ -107,21 +109,22 @@ public static class CostCalculator
 
         return usd is null || cup is null
             ? null
-            : new AverageCost(Units.RoundToLong(usd.Value), Units.RoundToLong(cup.Value));
+            : new UnitCost(Units.RoundToLong(usd.Value), Units.RoundToLong(cup.Value));
     }
 }
 
 public static class PriceCalculator
 {
-    /// <summary>RN-02: average purchase rate = historical CUP cost / USD cost, in CUP cents per USD.</summary>
-    public static long AverageRateCents(AverageCost cost) =>
+    /// <summary>The purchase rate of a cost = CUP cost / USD cost, in CUP cents per USD (RN-02 for the average).</summary>
+    public static long PurchaseRateCents(UnitCost cost) =>
         Units.RoundToLong(cost.CupMicros * 100m / cost.UsdMicros);
 
     /// <summary>
     /// RN-03: Cost USD × (purchase rate + colchón) × (1 + recargo) = (cost CUP + cost USD × colchón) × (1 + recargo),
     /// rounded UP to the business rounding step (264.12 with a step of 5 → 265): rounding down would eat margin.
+    /// The cost given is the LAST one (D-52): the price must pay for restocking.
     /// </summary>
-    public static long SuggestedPriceCents(AverageCost cost, long bufferCents, int markupBps, long roundingStepCents)
+    public static long SuggestedPriceCents(UnitCost cost, long bufferCents, int markupBps, long roundingStepCents)
     {
         var baseCents = cost.CupMicros / 10_000m + cost.UsdMicros * (decimal)bufferCents / Units.MicrosPerUnit;
         // 4 decimals first: a division artifact like 26500.0000000001 must not jump to the next step.
@@ -130,8 +133,8 @@ public static class PriceCalculator
         return (long)(decimal.Ceiling(priced / step) * step);
     }
 
-    /// <summary>(price − historical CUP cost) / price, in basis points. Null when there is no price.</summary>
-    public static int? MarginBps(long? salePriceCents, AverageCost cost)
+    /// <summary>(price − CUP cost) / price, in basis points. Null when there is no price.</summary>
+    public static int? MarginBps(long? salePriceCents, UnitCost cost)
     {
         if (salePriceCents is not > 0)
         {
@@ -143,15 +146,21 @@ public static class PriceCalculator
     }
 
     /// <summary>RN-04: today's rate above purchase rate + colchón → the price needs a look.</summary>
-    public static bool IsBufferExceeded(long? todayRateCents, long averageRateCents, long bufferCents) =>
-        todayRateCents is { } today && today > averageRateCents + bufferCents;
+    public static bool IsBufferExceeded(long? todayRateCents, long purchaseRateCents, long bufferCents) =>
+        todayRateCents is { } today && today > purchaseRateCents + bufferCents;
 }
 
-/// <summary>Everything the screens show about a product's cost and price. Computed, never stored.</summary>
+/// <summary>
+/// Everything the screens show about a product's cost and price. Computed, never stored.
+/// D-52: the suggested price, the margin and the colchón alert use the LAST cost and its rate (they look ahead:
+/// restocking); the average is shown beside it (it values what is already on the shelf).
+/// </summary>
 public sealed record ProductPricing(
     long AvgCostUsdMicros,
     long AvgCostCupMicros,
-    long AverageRateCents,
+    long LastCostUsdMicros,
+    long LastCostCupMicros,
+    long LastRateCents,
     long EffectiveBufferCents,
     int EffectiveMarkupBps,
     long SuggestedPriceCents,
@@ -167,24 +176,27 @@ public static class ProductPricingRules
     /// </summary>
     public static ProductPricing? Build(Product product, BusinessSettings settings, long? todayRateCents)
     {
-        if (product.AverageCost is not { } cost)
+        if (product.AverageCost is not { } average)
         {
             return null;
         }
 
+        var last = product.LastCost ?? average;
         var buffer = product.ExchangeBufferCents ?? settings.ExchangeBufferCents;
         var markup = product.MarkupBps ?? settings.DefaultMarkupBps;
-        var averageRate = PriceCalculator.AverageRateCents(cost);
+        var lastRate = PriceCalculator.PurchaseRateCents(last);
 
         return new ProductPricing(
-            cost.UsdMicros,
-            cost.CupMicros,
-            averageRate,
+            average.UsdMicros,
+            average.CupMicros,
+            last.UsdMicros,
+            last.CupMicros,
+            lastRate,
             buffer,
             markup,
-            PriceCalculator.SuggestedPriceCents(cost, buffer, markup, settings.PriceRoundingStepCents),
-            PriceCalculator.MarginBps(product.SalePriceCents, cost),
+            PriceCalculator.SuggestedPriceCents(last, buffer, markup, settings.PriceRoundingStepCents),
+            PriceCalculator.MarginBps(product.SalePriceCents, last),
             todayRateCents,
-            PriceCalculator.IsBufferExceeded(todayRateCents, averageRate, buffer));
+            PriceCalculator.IsBufferExceeded(todayRateCents, lastRate, buffer));
     }
 }

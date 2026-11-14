@@ -319,7 +319,7 @@ public class PurchaseService : IPurchaseService
         return Result.Ok();
     }
 
-    /// <summary>Products whose suggested price (with the NEW average cost) differs from their current price.</summary>
+    /// <summary>Products whose suggested price (with the NEW last cost, D-52) differs from their current price.</summary>
     private async Task<IReadOnlyList<PriceSuggestion>> BuildSuggestionsAsync(Purchase purchase, DateOnly today,
         CancellationToken cancellationToken)
     {

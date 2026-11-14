@@ -41,3 +41,17 @@
   height: 18px;
   accent-color: var(--c-accent);
 }
+
+.shelf-life {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.shelf-life__amount {
+  width: 120px;
+}
+
+.shelf-life__unit {
+  width: 160px;
+}

@@ -1,0 +1,196 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Cierre del mes</h1>
+    <p class="page-subtitle">Cuánto se cobró, cuánto quedó, cómo se repartió y qué se gastó, día por día.</p>
+  </div>
+  @if (report(); as r) {
+    <div class="month-nav" role="group" aria-label="Mes">
+      <button class="btn btn--small" type="button" (click)="go(-1)" [disabled]="loading()" aria-label="Mes anterior">‹</button>
+      <span class="month-nav__name">{{ monthName(r.year, r.month) }}</span>
+      <button class="btn btn--small" type="button" (click)="go(1)" [disabled]="loading() || isCurrent()"
+        aria-label="Mes siguiente">›</button>
+    </div>
+  }
+</header>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (report(); as r) {
+  @let e = r.evaluation;
+  @let g = changes();
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    <p class="muted">
+      {{ e.closedDays === 1 ? '1 día cerrado' : e.closedDays + ' días cerrados' }}, del {{ formatShortDate(e.from) }}
+      al {{ formatShortDate(e.to) }}.
+      @if (previous()) {
+        La comparación es con {{ previousName() }} completo.
+      }
+    </p>
+
+    <section class="kpis" aria-label="A1, A2 y A3">
+      <div class="kpi">
+        <div class="kpi__label">Cobrado <span class="kpi__code">A1</span></div>
+        <div class="kpi__value num">{{ formatMoney(e.collectedCents) }}</div>
+        <div class="kpi__note">
+          @if (g.collected; as t) {
+            <span class="trend" [class]="'trend--' + t.tone">{{ t.text }}</span> que {{ previousName() }}
+          } @else {
+            Sin datos del mes anterior
+          }
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi__label">Costo de lo vendido <span class="kpi__code">A2</span></div>
+        <div class="kpi__value num">{{ formatMoney(e.costOfSalesCents) }}</div>
+        <div class="kpi__note">
+          @if (e.costRatioBps !== null) {
+            {{ formatPercent(e.costRatioBps) }} de lo cobrado
+          }
+        </div>
+      </div>
+      <div class="kpi kpi--accent">
+        <div class="kpi__label">Ingreso real <span class="kpi__code">A3</span></div>
+        <div class="kpi__value num" [class.negative]="e.realIncomeCents < 0">{{ formatMoney(e.realIncomeCents) }}</div>
+        <div class="kpi__note">
+          @if (g.income; as t) {
+            <span class="trend" [class]="'trend--' + t.tone">{{ t.text }}</span> que {{ previousName() }}
+          } @else if (e.realIncomeRatioBps !== null) {
+            {{ formatPercent(e.realIncomeRatioBps) }} de lo cobrado
+          }
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi__label">Gastos</div>
+        <div class="kpi__value num">{{ expensesLabel(e.expenses) }}</div>
+        <div class="kpi__note">Personal aparte: {{ formatMoney(e.staffPayCents) }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card__head">
+        <div>
+          <h2 class="card__title">Cada día</h2>
+          <p class="card__lead">Lo cobrado en cada cierre: la parte que repone la mercadería y la que queda.</p>
+        </div>
+      </div>
+      @if (dayColumns().length > 0) {
+        <app-stacked-columns [columns]="dayColumns()" [caption]="'Cierres de ' + monthName(r.year, r.month)" />
+      } @else {
+        <p class="muted">No hay días cerrados en este mes.</p>
+      }
+    </section>
+
+    <section class="card">
+      <div class="card__head">
+        <div>
+          <h2 class="card__title">Últimos 12 meses</h2>
+          <p class="card__lead">Mes contra mes: lo cobrado, lo que costó y lo que quedó.</p>
+        </div>
+      </div>
+      @if (hasTrend()) {
+        <app-stacked-columns [columns]="monthColumns()" caption="Cobrado de los últimos 12 meses" />
+      } @else {
+        <p class="muted">Todavía no hay meses con cierres para comparar.</p>
+      }
+    </section>
+
+    <div class="columns-2">
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">El reparto en sobres</h2>
+          <a class="link" routerLink="/sobres/evaluacion">Ver la evaluación</a>
+        </div>
+        <table class="mini">
+          <thead>
+            <tr><th>Sobre</th><th class="end">Real</th><th class="end">Objetivo</th><th class="end">Recibió</th></tr>
+          </thead>
+          <tbody>
+            @for (env of percentEnvelopes(); track env.envelopeId) {
+              <tr>
+                <td><span class="swatch" [style.background]="swatches[env.role]"></span>{{ env.name }}</td>
+                <td class="end num">{{ env.realPercentBps !== null ? formatPercent(env.realPercentBps) : '—' }}</td>
+                <td class="end num muted-inline">{{ env.targetPercentBps !== null ? formatPercent(env.targetPercentBps) : '—' }}</td>
+                <td class="end num">{{ formatMoney(env.receivedCents) }}</td>
+              </tr>
+            }
+            @if (replenishment(); as rep) {
+              <tr>
+                <td><span class="swatch" [style.background]="swatches.Replenishment"></span>{{ rep.name }}</td>
+                <td class="end muted-inline" colspan="2">recibe el costo</td>
+                <td class="end num">{{ formatMoney(rep.receivedCents) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="fact">
+          <span>Deuda interna al {{ formatShortDate(e.to) }}</span>
+          <span class="num" [class.negative]="e.internalDebtCents > 0">{{ formatMoney(e.internalDebtCents) }}</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title">Gastos por categoría</h2>
+          <a class="link" routerLink="/gastos">Ver gastos</a>
+        </div>
+        @if (r.expensesByCategory.length > 0) {
+          <table class="mini">
+            <thead>
+              <tr><th>Categoría</th><th class="end">Cuántos</th><th class="end">Total</th></tr>
+            </thead>
+            <tbody>
+              @for (item of r.expensesByCategory; track item.categoryId + item.currency) {
+                <tr>
+                  <td>{{ item.categoryName }}</td>
+                  <td class="end num muted-inline">{{ item.count }}</td>
+                  <td class="end num">{{ formatMoney(item.amountCents, item.currency) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="muted">No hubo gastos este mes.</p>
+        }
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title">Diferencias de caja y pérdidas</h2>
+        <a class="link" routerLink="/reportes/perdidas">Ver el detalle de pérdidas</a>
+      </div>
+      @let dis = r.discrepancies;
+      <div class="facts">
+        <div class="fact">
+          <span>Faltantes ({{ dis.shortageCount }})</span>
+          <span class="num" [class.negative]="dis.shortageCents > 0">{{ formatMoney(dis.shortageCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Recuperado de esos faltantes</span><span class="num">{{ formatMoney(dis.recoveredCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Dado por perdido</span>
+          <span class="num" [class.negative]="dis.lostCents > 0">{{ formatMoney(dis.lostCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Todavía por reclamar</span><span class="num">{{ formatMoney(dis.pendingCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Sobrantes ({{ dis.surplusCount }})</span><span class="num">{{ formatMoney(dis.surplusCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Merma registrada, a costo</span>
+          <span class="num" [class.negative]="r.merchandiseLossCents > 0">{{ formatMoney(r.merchandiseLossCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Venta teórica</span><span class="num">{{ formatMoney(e.theoreticalSalesCents) }}</span>
+        </div>
+        <div class="fact">
+          <span>Pago al dependiente</span><span class="num">{{ formatMoney(e.staffPayCents) }}</span>
+        </div>
+      </div>
+    </section>
+  </div>
+}

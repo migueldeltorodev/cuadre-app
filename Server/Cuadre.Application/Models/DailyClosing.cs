@@ -278,8 +278,14 @@ public class CounterLine
     public long? UnitPriceCents { get; init; }
 
     public int ToleranceBps { get; init; }
-    public long? AvgCostUsdMicros { get; init; }
-    public long? AvgCostCupMicros { get; init; }
+
+    /// <summary>
+    /// D-54 (RN-07): what sold is costed at the LAST purchase's landed cost, so A2 (Reposición) is what it takes to
+    /// buy it again. Null = never bought.
+    /// </summary>
+    public long? LastCostUsdMicros { get; init; }
+
+    public long? LastCostCupMicros { get; init; }
 
     public long ExpectedMilli => OpeningMilli + InMilli - OutMilli;
     public bool AllowsDecimals => StockUnit.AllowsDecimals();

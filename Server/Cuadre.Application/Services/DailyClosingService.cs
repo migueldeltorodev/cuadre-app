@@ -286,7 +286,7 @@ public class DailyClosingService : IDailyClosingService
 
             var result = ClosingCalculator.Count(new CountInput(counter.OpeningMilli, counter.InMilli,
                 counter.OutMilli, count.CountedMilli, counter.UnitPriceCents, counter.ToleranceBps,
-                counter.AvgCostCupMicros));
+                counter.LastCostCupMicros));
 
             if (result.SoldMilli != 0 && counter.UnitPriceCents is null)
             {
@@ -315,8 +315,8 @@ public class DailyClosingService : IDailyClosingService
                 SalesCents = result.SalesCents,
                 ToleranceBps = counter.ToleranceBps,
                 ToleranceCents = result.ToleranceCents,
-                UnitCostUsdMicros = counter.AvgCostUsdMicros,
-                UnitCostCupMicros = counter.AvgCostCupMicros,
+                UnitCostUsdMicros = counter.LastCostUsdMicros,
+                UnitCostCupMicros = counter.LastCostCupMicros,
                 CostCents = result.CostCents
             });
         }

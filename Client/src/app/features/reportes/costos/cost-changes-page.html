@@ -1,0 +1,91 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Costos y proveedores</h1>
+    <p class="page-subtitle">
+      Cuánto cambió el costo puesto de cada producto en el período. Entrá a uno para ver todas sus compras, su precio
+      y qué proveedor lo vende más barato.
+    </p>
+  </div>
+</header>
+
+@if (report(); as r) {
+  <app-period-filter [from]="r.from" [to]="r.to" [today]="today()" [longPresets]="true" (periodChange)="load($event)" />
+  <div class="filters">
+    <label class="field field--wide">
+      <span class="field__label">Categoría</span>
+      <select class="input" [value]="categoryId()" (change)="setCategory($any($event.target).value)">
+        <option value="">Todas</option>
+        @for (c of categories(); track c.id) {
+          <option [value]="c.id">{{ c.label }}</option>
+        }
+      </select>
+    </label>
+    <label class="field field--wide">
+      <span class="field__label">Proveedor</span>
+      <select class="input" [value]="supplierId()" (change)="setSupplier($any($event.target).value)">
+        <option value="">Todos</option>
+        @for (s of suppliers(); track s.id) {
+          <option [value]="s.id">{{ s.name }}</option>
+        }
+      </select>
+    </label>
+  </div>
+}
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (report(); as r) {
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    <p class="muted">
+      La variación en USD es la del proveedor; la de CUP le suma el cambio de la tasa. Costos por unidad de stock,
+      con los gastos de la compra incluidos.
+    </p>
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="end">Compras</th>
+            <th class="end">Primer costo</th>
+            <th class="end">Último costo</th>
+            <th class="end">En USD</th>
+            <th class="end">En CUP</th>
+            <th class="end">Precio de venta</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of r.items; track item.productId) {
+            @let usd = change(item.usdChangeBps);
+            @let cup = change(item.cupChangeBps);
+            <tr>
+              <td>
+                <a class="name" [routerLink]="[item.productId]">{{ item.name }}</a>
+                <div class="sub num">{{ item.code }}</div>
+              </td>
+              <td class="end num">{{ item.purchaseCount }}</td>
+              <td class="end num">
+                {{ formatMicros(item.firstUnitCostCupMicros) }} CUP
+                <div class="sub">{{ formatMicros(item.firstUnitCostUsdMicros) }} USD · {{ formatShortDate(item.firstDate) }}</div>
+              </td>
+              <td class="end num">
+                {{ formatMicros(item.lastUnitCostCupMicros) }} CUP {{ perUnit(item.stockUnit) }}
+                <div class="sub">{{ formatMicros(item.lastUnitCostUsdMicros) }} USD · {{ formatShortDate(item.lastDate) }}</div>
+              </td>
+              <td class="end num" [class]="usd.tone">{{ usd.text }}</td>
+              <td class="end num" [class]="cup.tone">{{ cup.text }}</td>
+              <td class="end num">{{ item.salePriceCents !== null ? formatMoney(item.salePriceCents) : 'Sin precio' }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td class="none" colspan="7">
+                No hubo compras entre el {{ formatShortDate(r.from) }} y el {{ formatShortDate(r.to) }} con esos filtros.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  </div>
+}

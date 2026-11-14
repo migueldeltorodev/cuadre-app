@@ -144,7 +144,7 @@ public class CostCalculatorTests
         // 100 lb at 0.60 + 100 lb at 0.70 → 0.65; CUP at 325: 195 and 227.5 → 211.25
         var cost = CostCalculator.Replay([In(100_000, 600_000), In(100_000, 700_000)]);
 
-        cost.Should().Be(new AverageCost(650_000, 211_250_000));
+        cost.Should().Be(new UnitCost(650_000, 211_250_000));
     }
 
     [Fact]
@@ -171,19 +171,19 @@ public class CostCalculatorTests
         // Same USD cost, rates 300 and 350 → CUP 180 and 210 → average 195 (RN-02)
         var cost = CostCalculator.Replay([In(100_000, 600_000, 30_000), In(100_000, 600_000, 35_000)]);
 
-        cost.Should().Be(new AverageCost(600_000, 195_000_000));
+        cost.Should().Be(new UnitCost(600_000, 195_000_000));
     }
 }
 
 public class PriceCalculatorTests
 {
     // 0.62 USD/lb bought at 325 → 201.50 CUP/lb
-    private static readonly AverageCost Rice = new(620_000, 201_500_000);
+    private static readonly UnitCost Rice = new(620_000, 201_500_000);
 
     [Fact]
-    public void AverageRateCents_ShouldBeCupCostOverUsdCost()
+    public void PurchaseRateCents_ShouldBeCupCostOverUsdCost()
     {
-        PriceCalculator.AverageRateCents(Rice).Should().Be(32_500);
+        PriceCalculator.PurchaseRateCents(Rice).Should().Be(32_500);
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public class PriceCalculatorTests
     [Fact]
     public void SuggestedPriceCents_ShouldNotJump_WhenAlreadyOnAStep()
     {
-        var cost = new AverageCost(615_385, 200_000_000);   // exactly 200.00 CUP
+        var cost = new UnitCost(615_385, 200_000_000);   // exactly 200.00 CUP
 
         PriceCalculator.SuggestedPriceCents(cost, 0, 0, 100).Should().Be(20_000);
     }
@@ -237,7 +237,8 @@ public class ProductPricingRulesTests
         PriceRoundingStepCents = 500
     };
 
-    private static Product Rice(long? ownBufferCents = null, int? ownMarkupBps = null, bool bought = true) => new()
+    private static Product Rice(long? ownBufferCents = null, int? ownMarkupBps = null, bool bought = true,
+        long? lastUsdMicros = null, long? lastCupMicros = null) => new()
     {
         Id = Guid.NewGuid(),
         Code = "ARR-001",
@@ -250,7 +251,9 @@ public class ProductPricingRulesTests
         ExchangeBufferCents = ownBufferCents,
         MarkupBps = ownMarkupBps,
         AvgCostUsdMicros = bought ? 620_000 : null,
-        AvgCostCupMicros = bought ? 201_500_000 : null
+        AvgCostCupMicros = bought ? 201_500_000 : null,
+        LastCostUsdMicros = bought ? lastUsdMicros ?? 620_000 : null,
+        LastCostCupMicros = bought ? lastCupMicros ?? 201_500_000 : null
     };
 
     [Fact]
@@ -279,5 +282,53 @@ public class ProductPricingRulesTests
         pricing.SuggestedPriceCents.Should().Be(20_500);
         pricing.TodayRateCents.Should().BeNull();
         pricing.IsBufferExceeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Build_ShouldPriceFromTheLastCost_AndKeepTheAverageBeside()
+    {
+        // D-52: average 0.62 at 325; last purchase 0.70 at 350 = 245 CUP.
+        // (245 + 0.70 x 30) x 1.20 = 266 x 1.20 = 319.20 -> step 5 -> 320. Margin at 250 against 245 = 2 %.
+        var pricing = ProductPricingRules.Build(Rice(lastUsdMicros: 700_000, lastCupMicros: 245_000_000), Settings, null)!;
+
+        pricing.AvgCostCupMicros.Should().Be(201_500_000);
+        pricing.LastCostCupMicros.Should().Be(245_000_000);
+        pricing.LastRateCents.Should().Be(35_000);
+        pricing.SuggestedPriceCents.Should().Be(32_000);
+        pricing.MarginBps.Should().Be(200);
+    }
+
+    [Theory]
+    [InlineData(38_000L, false)]   // exactly 350 + 30: still covered
+    [InlineData(38_100L, true)]    // beyond 350 + 30
+    [InlineData(35_600L, false)]   // beyond the AVERAGE rate + 30 (355), but not the last purchase's
+    public void Build_ShouldCompareTodaysRate_WithTheLastPurchaseRate(long today, bool expected)
+    {
+        var pricing = ProductPricingRules.Build(Rice(lastUsdMicros: 700_000, lastCupMicros: 245_000_000), Settings, today)!;
+
+        pricing.IsBufferExceeded.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Build_ShouldFallBackToTheAverage_WhenThereIsNoLastCost()
+    {
+        var withoutLast = new Product
+        {
+            Id = Guid.NewGuid(),
+            Code = "ARR-001",
+            Name = "Arroz",
+            CategoryId = Guid.NewGuid(),
+            PurchaseUnit = MeasureUnit.Sack,
+            StockUnit = MeasureUnit.Pound,
+            ConversionFactorMilli = 100_000,
+            SalePriceCents = 25_000,
+            AvgCostUsdMicros = 620_000,
+            AvgCostCupMicros = 201_500_000
+        };
+
+        var pricing = ProductPricingRules.Build(withoutLast, Settings, null)!;
+
+        pricing.LastCostCupMicros.Should().Be(201_500_000);
+        pricing.SuggestedPriceCents.Should().Be(26_500);
     }
 }

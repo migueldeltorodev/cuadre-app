@@ -110,7 +110,18 @@ const NAV: NavGroup[] = [
           { path: '/gastos/fijos', label: 'Gastos fijos', badge: 'dueExpenses' },
         ],
       },
-      { id: 'reportes', path: '/reportes', label: 'Reportes', icon: 'chart' },
+      {
+        id: 'reportes',
+        path: '/reportes',
+        label: 'Reportes',
+        icon: 'chart',
+        children: [
+          { path: '/reportes/mensual', label: 'Cierre del mes' },
+          { path: '/reportes/productos', label: 'Productos' },
+          { path: '/reportes/perdidas', label: 'Pérdidas' },
+          { path: '/reportes/costos', label: 'Costos y proveedores' },
+        ],
+      },
     ],
   },
   {

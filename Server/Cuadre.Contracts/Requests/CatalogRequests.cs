@@ -71,6 +71,10 @@ public abstract class ProductRequestBase
     public int? MarkupBps { get; init; }
 
     public bool IsPerishable { get; init; }
+
+    /// <summary>Typical shelf life in days (1-3650); only for perishables.</summary>
+    public int? ShelfLifeDays { get; init; }
+
     public string? Notes { get; init; }
 }
 

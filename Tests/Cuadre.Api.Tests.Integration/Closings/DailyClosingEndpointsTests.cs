@@ -144,6 +144,29 @@ public class DailyClosingEndpointsTests(ApiFactory factory) : IntegrationTestBas
     }
 
     [Fact]
+    public async Task Create_ShouldCostTheSales_AtTheLastPurchase_SoReposicionCanBuyItAgain()
+    {
+        // D-54: two sacks, at 40 USD (130 CUP/lb) and then 46 USD (149.50 CUP/lb). The average would be 139.75,
+        // but restocking costs 149.50: A2 = 100 lb x 149.50 = 14,950.
+        var (rice, supplier) = await Client.CreateRiceAsync(Ct, PricePerLb);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 4_000)), Ct);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 4_600)), Ct);
+        var (storage, counter) = await Client.GetSeededLocationsAsync(Ct);
+        await Client.TransferAsync(Clock.Today, storage.Id, counter.Id, Ct, SacksOf(rice.Id, 1));
+        var draft = await Client.GetDraftAsync(Clock.Today, Ct);
+
+        var closing = await Client.CloseAsync(Request(Clock.Today, Counted(rice.Id, counter.Id, 0),
+            draft.Collected("Efectivo", 2_500_000)), Ct);
+
+        closing.CostOfSalesCents.Should().Be(1_495_000);
+        closing.RealIncomeCents.Should().Be(1_005_000);
+        closing.Lines.Should().ContainSingle().Which.CostCents.Should().Be(1_495_000);
+        closing.Allocation(EnvelopeType.Replenishment).AmountCents.Should().Be(1_495_000);
+    }
+
+    [Fact]
     public async Task Create_ShouldCreateDebt_ThenRepayIt_WhenTheTransfersGoBeyondA2()
     {
         var yesterday = Clock.Today.AddDays(-1);

@@ -26,9 +26,12 @@
           <section class="card form" aria-labelledby="who-title">
             <h2 class="visually-hidden" id="who-title">Datos de la compra</h2>
             <div class="form__row">
-              <label class="field">
-                <span class="field__label">Proveedor</span>
-                <select class="input" formControlName="supplierId"
+              <div class="field">
+                <div class="field__head">
+                  <label class="field__label" for="supplierId">Proveedor</label>
+                  <button class="field__action" type="button" (click)="newSupplier()">+ Nuevo</button>
+                </div>
+                <select class="input" id="supplierId" formControlName="supplierId"
                   [class.input--invalid]="invalid(form.controls.supplierId)">
                   <option value="" disabled>Elegí uno…</option>
                   @for (supplier of activeSuppliers(); track supplier.id) {
@@ -36,11 +39,11 @@
                   }
                 </select>
                 @if (activeSuppliers().length === 0) {
-                  <span class="field__hint">No hay proveedores. <a routerLink="/productos/proveedores">Crear uno</a></span>
+                  <span class="field__hint">Todavía no hay proveedores: creá el primero con "+ Nuevo".</span>
                 } @else if (invalid(form.controls.supplierId)) {
                   <span class="field__error">Elegí el proveedor.</span>
                 }
-              </label>
+              </div>
               <label class="field">
                 <span class="field__label">Fecha</span>
                 <input class="input num" type="date" formControlName="date"
@@ -95,80 +98,76 @@
           </section>
 
           <!-- Lines -->
-          <section class="table-card" aria-labelledby="lines-title">
+          <section class="lines-card" aria-labelledby="lines-title" formArrayName="lines">
             <h2 class="visually-hidden" id="lines-title">Productos</h2>
-            <table class="table" formArrayName="lines">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Cantidad</th>
-                  <th>Costo unitario</th>
-                  <th class="end">Subtotal</th>
-                  <th><span class="visually-hidden">Quitar</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (line of lines.controls; track line; let i = $index) {
-                  @let view = lineViews()[i];
-                  <tr [formGroupName]="i">
-                    <td class="cell-product">
-                      <select class="input" formControlName="productId"
-                        [class.input--invalid]="invalid(line.controls.productId)" [attr.aria-label]="'Producto de la línea ' + (i + 1)">
-                        <option value="" disabled>Elegí el producto…</option>
-                        @for (product of products(); track product.id) {
-                          <option [value]="product.id">{{ product.name }} · {{ product.code }}</option>
-                        }
-                      </select>
-                      @if (view?.product) {
-                        <div class="sub">{{ view.conversionText }}</div>
-                      }
-                    </td>
-                    <td class="cell-qty">
-                      <span class="input input--affix" [class.input--invalid]="invalid(line.controls.quantity)">
-                        <input formControlName="quantity" inputmode="decimal" autocomplete="off"
-                          [attr.aria-label]="'Cantidad de la línea ' + (i + 1)" />
-                        <span class="input__affix">{{ view?.quantityUnit }}</span>
-                      </span>
-                      @if (view?.showFactor) {
-                        <label class="factor">
-                          <span>Este lote: 1 =</span>
-                          <input class="input input--tiny num" formControlName="factor" inputmode="decimal"
-                            autocomplete="off" [placeholder]="view.factorPlaceholder" />
-                          <span>{{ view.factorUnit }}</span>
-                        </label>
-                      }
-                      @if (view?.stockText) {
-                        <div class="sub num">{{ view.stockText }}</div>
-                      }
-                    </td>
-                    <td class="cell-cost">
-                      <span class="input input--affix" [class.input--invalid]="invalid(line.controls.unitCost)">
-                        <input formControlName="unitCost" inputmode="decimal" autocomplete="off"
-                          [attr.aria-label]="'Costo unitario de la línea ' + (i + 1)" />
-                        <span class="input__affix">{{ view?.costUnit }}</span>
-                      </span>
-                    </td>
-                    <td class="end num strong">
-                      {{ view?.subtotalCents != null ? formatHundredths(view.subtotalCents!) : '—' }}
-                    </td>
-                    <td class="end">
-                      <button class="btn btn--ghost btn--small" type="button" [disabled]="lines.length === 1"
-                        (click)="removeLine(i)" [attr.aria-label]="'Quitar la línea ' + (i + 1)">Quitar</button>
-                    </td>
-                  </tr>
-                  @if (view?.problem) {
-                    <tr class="problem-row">
-                      <td colspan="5"><span class="field__error">{{ view.problem }}</span></td>
-                    </tr>
+            <!-- A grid, not a table: it reads as a table when the card is wide and stacks each line when it is not
+                 (container query on the card, so the prices panel beside it counts). -->
+            <div class="line line--head" aria-hidden="true">
+              <span>Producto</span>
+              <span>Cantidad</span>
+              <span>Costo unitario</span>
+              <span class="end">Subtotal</span>
+              <span></span>
+            </div>
+            @for (line of lines.controls; track line; let i = $index) {
+              @let view = lineViews()[i];
+              <div class="line" [formGroupName]="i" role="group" [attr.aria-label]="'Línea ' + (i + 1)">
+                <div class="line__product">
+                  <span class="line__label">Producto</span>
+                  <select class="input" formControlName="productId"
+                    [class.input--invalid]="invalid(line.controls.productId)" [attr.aria-label]="'Producto de la línea ' + (i + 1)">
+                    <option value="" disabled>Elegí el producto…</option>
+                    @for (product of products(); track product.id) {
+                      <option [value]="product.id">{{ product.name }} · {{ product.code }}</option>
+                    }
+                  </select>
+                  @if (view?.product) {
+                    <div class="sub">{{ view.conversionText }}</div>
                   }
+                </div>
+                <div class="line__qty">
+                  <span class="line__label">Cantidad</span>
+                  <span class="input input--affix" [class.input--invalid]="invalid(line.controls.quantity)">
+                    <input formControlName="quantity" inputmode="decimal" autocomplete="off"
+                      [attr.aria-label]="'Cantidad de la línea ' + (i + 1)" />
+                    <span class="input__affix">{{ view?.quantityUnit }}</span>
+                  </span>
+                  @if (view?.showFactor) {
+                    <label class="factor">
+                      <span>Este lote: 1 =</span>
+                      <input class="input input--tiny num" formControlName="factor" inputmode="decimal"
+                        autocomplete="off" [placeholder]="view.factorPlaceholder" />
+                      <span>{{ view.factorUnit }}</span>
+                    </label>
+                  }
+                  @if (view?.stockText) {
+                    <div class="sub num">{{ view.stockText }}</div>
+                  }
+                </div>
+                <div class="line__cost">
+                  <span class="line__label">Costo unitario</span>
+                  <span class="input input--affix" [class.input--invalid]="invalid(line.controls.unitCost)">
+                    <input formControlName="unitCost" inputmode="decimal" autocomplete="off"
+                      [attr.aria-label]="'Costo unitario de la línea ' + (i + 1)" />
+                    <span class="input__affix">{{ view?.costUnit }}</span>
+                  </span>
+                </div>
+                <div class="line__subtotal num strong">
+                  <span class="line__label">Subtotal</span>
+                  {{ view?.subtotalCents != null ? formatHundredths(view.subtotalCents!) : '—' }}
+                </div>
+                <div class="line__remove">
+                  <button class="btn btn--ghost btn--small" type="button" [disabled]="lines.length === 1"
+                    (click)="removeLine(i)" [attr.aria-label]="'Quitar la línea ' + (i + 1)">Quitar</button>
+                </div>
+                @if (view?.problem) {
+                  <div class="line__problem"><span class="field__error">{{ view.problem }}</span></div>
                 }
-                <tr>
-                  <td colspan="5">
-                    <button class="btn btn--ghost" type="button" (click)="addLine()">+ Agregar producto</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+              </div>
+            }
+            <div class="line-add">
+              <button class="btn btn--ghost" type="button" (click)="addLine()">+ Agregar producto</button>
+            </div>
           </section>
 
           <!-- Charges -->
@@ -277,10 +276,10 @@
         <h2 class="card__title" id="prices-title">Así cambian tus precios</h2>
         <p class="card__lead">
           @if (confirmed()) {
-            Con esta compra cambió el costo promedio. Vos decidís si adoptás el precio sugerido.
+            Con esta compra cambió el último costo. Vos decidís si adoptás el precio sugerido.
           } @else {
-            Al confirmar, el costo promedio de cada producto se recalcula con esta compra (incluidos los gastos)
-            y te muestro el precio sugerido. Vos decidís si lo adoptás.
+            Al confirmar, el precio sugerido de cada producto se calcula con el costo de esta compra (incluidos
+            los gastos). Vos decidís si lo adoptás.
           }
         </p>
       </div>

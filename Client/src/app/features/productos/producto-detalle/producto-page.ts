@@ -19,7 +19,7 @@ import {
   perUnit,
   unitName,
 } from '../../../shared/format/quantity';
-import { CategoryIndex, isLowStock, productState } from '../catalog-labels';
+import { CategoryIndex, isLowStock, productState, shelfLifeText } from '../catalog-labels';
 import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /** What the colchón says about today's rate (RN-04), ready to print. */
@@ -53,6 +53,7 @@ export default class ProductoPage implements OnInit {
   protected readonly formatMoney = formatMoney;
   protected readonly formatPercent = formatPercent;
   protected readonly formatShortDate = formatShortDate;
+  protected readonly shelfLifeText = shelfLifeText;
   protected readonly formatQuantityWithUnit = formatQuantityWithUnit;
   protected readonly perUnit = perUnit;
 
@@ -103,8 +104,8 @@ export default class ProductoPage implements OnInit {
   );
 
   /**
-   * The actual recargo of the CURRENT price over the CUP cost. Display only: the server owns the
-   * suggested price; this just tells you what you are charging today.
+   * The actual recargo of the CURRENT price over the LAST CUP cost (D-52, the same base as the margin).
+   * Display only: the server owns the suggested price; this just tells you what you are charging today.
    */
   protected readonly actualMarkupBps = computed(() => {
     const product = this.product();
@@ -112,7 +113,7 @@ export default class ProductoPage implements OnInit {
     if (!product?.salePriceCents || !cost) {
       return null;
     }
-    const costCents = cost.avgCostCupMicros / 10_000;
+    const costCents = cost.lastCostCupMicros / 10_000;
     return Math.round(((product.salePriceCents - costCents) / costCents) * 10_000);
   });
 
@@ -121,8 +122,8 @@ export default class ProductoPage implements OnInit {
     if (!cost) {
       return null;
     }
-    const limit = cost.averageRateCents + cost.effectiveBufferCents;
-    const limitText = `${formatHundredths(cost.averageRateCents)} + ${formatHundredths(cost.effectiveBufferCents)} = ${formatHundredths(limit)}`;
+    const limit = cost.lastRateCents + cost.effectiveBufferCents;
+    const limitText = `${formatHundredths(cost.lastRateCents)} + ${formatHundredths(cost.effectiveBufferCents)} = ${formatHundredths(limit)}`;
     if (cost.todayRateCents === null) {
       return {
         tone: 'muted',

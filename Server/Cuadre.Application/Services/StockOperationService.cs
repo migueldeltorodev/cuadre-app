@@ -193,8 +193,8 @@ public class StockOperationService : IStockOperationService
     }
 
     /// <summary>
-    /// Consumo de la casa (RN-11, D-13): an owner's withdrawal in kind. Its value at historical cost leaves the Dueño
-    /// envelope and goes to Reposición, because those goods have to be bought again. No cash actually moves, so both
+    /// Consumo de la casa (RN-11, D-13): an owner's withdrawal in kind. Its value at the LAST cost (D-54) leaves the
+    /// Dueño envelope and goes to Reposición, because those goods have to be bought again. No cash actually moves, so both
     /// rows go to the same box: the main CUP cash box. Products never bought have no cost and move nothing.
     /// </summary>
     private async Task<Result<List<CashMovement>>> HouseConsumptionMovementsAsync(StockOperation operation,
@@ -267,7 +267,8 @@ public class StockOperationService : IStockOperationService
 
     /// <summary>
     /// Loads each product, converts what was typed into stock units (exact, and whole for countable units),
-    /// fills the count's expected/counted and snapshots the average cost where a value is needed.
+    /// fills the count's expected/counted and snapshots the cost where a value is needed (D-54: the last cost for
+    /// house consumption, which funds Reposición; the average for losses and count differences, what they cost).
     /// Inactive products are allowed: their leftover stock still has to be moved, written off or counted.
     /// </summary>
     private async Task<Result> ResolveLinesAsync(StockOperation operation, CancellationToken cancellationToken)
@@ -327,8 +328,11 @@ public class StockOperationService : IStockOperationService
             // The value of what left (exit) or of the difference found (count), at the cost of that moment.
             if (operation.Kind != StockOperationKind.Transfer && line.QuantityMilli != 0)
             {
-                line.UnitCostUsdMicros = product.AvgCostUsdMicros;
-                line.UnitCostCupMicros = product.AvgCostCupMicros;
+                var cost = operation.ExitReason == ExitReason.HouseConsumption
+                    ? product.LastCost ?? product.AverageCost
+                    : product.AverageCost;
+                line.UnitCostUsdMicros = cost?.UsdMicros;
+                line.UnitCostCupMicros = cost?.CupMicros;
             }
         }
 

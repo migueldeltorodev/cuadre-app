@@ -87,7 +87,7 @@ const COPY: Record<StockOperationType, Copy> = {
   },
   Exit: {
     title: 'Registrar salida',
-    lead: 'Lo que sale sin venderse. Se valora al costo promedio de hoy.',
+    lead: 'Lo que sale sin venderse. Las pérdidas se valoran al costo promedio; el consumo de la casa, al último costo.',
     locationLabel: 'Sale de',
     quantityHeader: 'Cuánto sale',
     confirm: 'Confirmar salida',

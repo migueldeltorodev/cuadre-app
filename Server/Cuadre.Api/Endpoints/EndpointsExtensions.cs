@@ -4,6 +4,7 @@ using Cuadre.Api.Endpoints.CashBoxes;
 using Cuadre.Api.Endpoints.CashDiscrepancies;
 using Cuadre.Api.Endpoints.Categories;
 using Cuadre.Api.Endpoints.DailyClosings;
+using Cuadre.Api.Endpoints.Dashboard;
 using Cuadre.Api.Endpoints.Employees;
 using Cuadre.Api.Endpoints.EnvelopeOperations;
 using Cuadre.Api.Endpoints.Envelopes;
@@ -16,6 +17,7 @@ using Cuadre.Api.Endpoints.PriceLists;
 using Cuadre.Api.Endpoints.ProfitFirst;
 using Cuadre.Api.Endpoints.Products;
 using Cuadre.Api.Endpoints.Purchases;
+using Cuadre.Api.Endpoints.Reports;
 using Cuadre.Api.Endpoints.Settings;
 using Cuadre.Api.Endpoints.StaffPaySchemes;
 using Cuadre.Api.Endpoints.StockOperations;
@@ -57,6 +59,8 @@ public static class EndpointsExtensions
         v1.MapExpenseCategoryEndpoints();
         v1.MapExpenseEndpoints();
         v1.MapRecurringExpenseEndpoints();
+        v1.MapDashboardEndpoints();
+        v1.MapReportEndpoints();
 
         return app;
     }

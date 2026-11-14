@@ -60,7 +60,7 @@
           <tr>
             <th>Producto</th>
             <th class="end">Stock</th>
-            <th class="end">Costo</th>
+            <th class="end">Último costo</th>
             <th class="end">Precio</th>
             <th class="end">Margen</th>
             <th>Estado</th>
@@ -85,8 +85,8 @@
               </td>
               <td class="end num">
                 @if (product.cost; as cost) {
-                  {{ formatMicros(cost.avgCostUsdMicros) }} <span class="unit">USD</span>
-                  <div class="sub">{{ formatMicros(cost.avgCostCupMicros) }} CUP</div>
+                  {{ formatMicros(cost.lastCostUsdMicros) }} <span class="unit">USD</span>
+                  <div class="sub">{{ formatMicros(cost.lastCostCupMicros) }} CUP</div>
                 } @else {
                   <span class="unit">—</span>
                 }
@@ -123,7 +123,7 @@
     }
 
     <p class="note">
-      El costo se lleva en USD (promedio de las compras) y en CUP según la tasa del día de cada compra.
+      El costo es el de la última compra (con sus gastos), en USD y en CUP a la tasa de esa compra.
       El margen es sobre el precio de venta.
     </p>
   }

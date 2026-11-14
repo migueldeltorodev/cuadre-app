@@ -46,9 +46,9 @@ public class ProductRepository : IProductRepository
         id, code, barcode, name, brand, presentation, category_id, subcategory_id, usual_supplier_id,
         purchase_unit, stock_unit, conversion_factor_milli, sale_price_cents, listed_price_cents,
         min_stock_milli, shrinkage_tolerance_bps, exchange_buffer_cents, markup_bps,
-        is_perishable, is_active, notes, created_at, updated_at,
+        is_perishable, shelf_life_days, is_active, notes, created_at, updated_at,
         (SELECT COALESCE(SUM(m.quantity_milli), 0) FROM stock_movements m WHERE m.product_id = products.id) AS stock_milli,
-        avg_cost_usd_micros, avg_cost_cup_micros, last_purchase_date
+        avg_cost_usd_micros, avg_cost_cup_micros, last_cost_usd_micros, last_cost_cup_micros, last_purchase_date
         """;
 
     // The cost cache's column names are unique on purpose, so the select list needs no table prefixes.
@@ -83,12 +83,12 @@ public class ProductRepository : IProductRepository
                 id, code, barcode, name, brand, presentation, category_id, subcategory_id, usual_supplier_id,
                 purchase_unit, stock_unit, conversion_factor_milli, sale_price_cents, listed_price_cents,
                 min_stock_milli, shrinkage_tolerance_bps, exchange_buffer_cents, markup_bps,
-                is_perishable, is_active, notes, created_at, updated_at)
+                is_perishable, shelf_life_days, is_active, notes, created_at, updated_at)
             VALUES (
                 @Id, @Code, @Barcode, @Name, @Brand, @Presentation, @CategoryId, @SubcategoryId, @UsualSupplierId,
                 @PurchaseUnit, @StockUnit, @ConversionFactorMilli, @SalePriceCents, NULL,
                 @MinStockMilli, @ShrinkageToleranceBps, @ExchangeBufferCents, @MarkupBps,
-                @IsPerishable, @IsActive, @Notes, @CreatedAt, @UpdatedAt)
+                @IsPerishable, @ShelfLifeDays, @IsActive, @Notes, @CreatedAt, @UpdatedAt)
             """, ToParameters(product), transaction, cancellationToken: cancellationToken));
 
         await InsertPriceChangeAsync(connection, transaction, priceChange, cancellationToken);
@@ -176,6 +176,7 @@ public class ProductRepository : IProductRepository
                 exchange_buffer_cents = @ExchangeBufferCents,
                 markup_bps = @MarkupBps,
                 is_perishable = @IsPerishable,
+                shelf_life_days = @ShelfLifeDays,
                 is_active = @IsActive,
                 notes = @Notes,
                 updated_at = @UpdatedAt
@@ -269,6 +270,7 @@ public class ProductRepository : IProductRepository
         product.ExchangeBufferCents,
         product.MarkupBps,
         product.IsPerishable,
+        product.ShelfLifeDays,
         product.IsActive,
         product.Notes,
         product.CreatedAt,

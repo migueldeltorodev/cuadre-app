@@ -42,6 +42,9 @@ public class Product
     public int? MarkupBps { get; set; }
 
     public bool IsPerishable { get; set; }
+
+    /// <summary>Typical shelf life in days (RF-PRD-10). Only for perishables; null = not set.</summary>
+    public int? ShelfLifeDays { get; set; }
     public bool IsActive { get; set; } = true;
     public string? Notes { get; set; }
 
@@ -61,10 +64,18 @@ public class Product
     /// <summary>Historical CUP cost per stock unit (RN-02). Null until the first purchase.</summary>
     public long? AvgCostCupMicros { get; init; }
 
+    /// <summary>Landed cost per stock unit of the last confirmed purchase (D-52). Null until the first purchase.</summary>
+    public long? LastCostUsdMicros { get; init; }
+
+    public long? LastCostCupMicros { get; init; }
+
     public DateOnly? LastPurchaseDate { get; init; }
 
-    public AverageCost? AverageCost =>
-        AvgCostUsdMicros is { } usd && AvgCostCupMicros is { } cup ? new AverageCost(usd, cup) : null;
+    public UnitCost? AverageCost =>
+        AvgCostUsdMicros is { } usd && AvgCostCupMicros is { } cup ? new UnitCost(usd, cup) : null;
+
+    public UnitCost? LastCost =>
+        LastCostUsdMicros is { } usd && LastCostCupMicros is { } cup ? new UnitCost(usd, cup) : null;
 
     /// <summary>Suggested price, margin, colchón alert. Computed by the service; null without purchases.</summary>
     public ProductPricing? Pricing { get; set; }

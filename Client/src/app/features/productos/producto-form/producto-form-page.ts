@@ -1,3 +1,4 @@
+import { Dialog } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -6,6 +7,7 @@ import { Observable, forkJoin, of } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/api/api-error';
 import { CategoriesApi, ProductsApi, SuppliersApi, UnitsApi } from '../../../core/api/catalog-api';
 import {
+  CategoryResponse,
   CreateProductRequest,
   ProductResponse,
   SupplierResponse,
@@ -25,8 +27,18 @@ import {
   toQuantityInput,
   unitName,
 } from '../../../shared/format/quantity';
-import { CategoryIndex } from '../catalog-labels';
+import {
+  CategoryIndex,
+  MAX_SHELF_LIFE_DAYS,
+  SHELF_LIFE_UNITS,
+  ShelfLifeUnit,
+  shelfLifeToDays,
+  splitShelfLife,
+} from '../catalog-labels';
 import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
+import { DIALOG_DEFAULTS } from '../../../shared/ui/dialog-config';
+import { CategoryDialog, CategoryDialogData } from '../categorias/category-dialog';
+import { SupplierDialog, SupplierDialogData } from '../proveedores/supplier-dialog';
 
 /**
  * Create or edit a product (RF-PRD-02). One page for both: `/productos/nuevo` and `/productos/:id/editar`.
@@ -47,9 +59,11 @@ export default class ProductoFormPage implements OnInit {
   private readonly categoriesApi = inject(CategoriesApi);
   private readonly suppliersApi = inject(SuppliersApi);
   private readonly unitsApi = inject(UnitsApi);
+  private readonly dialog = inject(Dialog);
   protected readonly settings = inject(BusinessSettingsStore).settings;
 
   protected readonly unitName = unitName;
+  protected readonly shelfLifeUnits = SHELF_LIFE_UNITS;
 
   protected readonly existing = signal<ProductResponse | null>(null);
 
@@ -90,16 +104,29 @@ export default class ProductoFormPage implements OnInit {
     shrinkage: ['0', amountValidator({ min: 0, max: 10_000 })],
     usualSupplierId: [''],
     isPerishable: [false],
+    shelfLife: ['', Validators.pattern(/^\s*\d*\s*$/)],
+    shelfLifeUnit: ['days' as ShelfLifeUnit],
     notes: ['', Validators.maxLength(500)],
     isActive: [true],
   });
 
   // Signals over the controls the template reacts to.
-  private readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+  protected readonly value = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
 
   protected readonly subcategories = computed(() => {
     const categoryId = this.value().categoryId;
     return categoryId ? this.categories().childrenOf(categoryId) : [];
+  });
+
+  /** Shelf life in days, null when blank; NaN-free: the pattern only lets digits through. */
+  private readonly shelfLifeDays = computed(() => {
+    const text = (this.value().shelfLife ?? '').trim();
+    return text === '' ? null : shelfLifeToDays(Number(text), this.value().shelfLifeUnit ?? 'days');
+  });
+
+  protected readonly shelfLifeOutOfRange = computed(() => {
+    const days = this.shelfLifeDays();
+    return days !== null && (days < 1 || days > MAX_SHELF_LIFE_DAYS);
   });
 
   protected readonly sameUnit = computed(() => this.value().purchaseUnit === this.value().stockUnit);
@@ -170,6 +197,46 @@ export default class ProductoFormPage implements OnInit {
     });
   }
 
+  /**
+   * RF-PRD-11: create a category (or a subcategory of the chosen one) without leaving the form.
+   * The form is untouched; the new one is added to the list and chosen.
+   */
+  protected newCategory(parent?: CategoryResponse): void {
+    this.dialog
+      .open<CategoryResponse, CategoryDialogData>(CategoryDialog, { ...DIALOG_DEFAULTS, data: { parent } })
+      .closed.subscribe((created) => {
+        if (!created) {
+          return;
+        }
+        this.categories.set(new CategoryIndex([...this.categories().all, created]));
+        if (parent) {
+          this.form.controls.subcategoryId.setValue(created.id);
+        } else {
+          this.form.controls.categoryId.setValue(created.id);
+          this.onCategoryChange(created.id);
+        }
+      });
+  }
+
+  protected newSubcategory(): void {
+    const categoryId = this.form.controls.categoryId.value;
+    const parent = this.categories().all.find((category) => category.id === categoryId);
+    if (parent) {
+      this.newCategory(parent);
+    }
+  }
+
+  protected newSupplier(): void {
+    this.dialog
+      .open<SupplierResponse, SupplierDialogData>(SupplierDialog, { ...DIALOG_DEFAULTS, data: {} })
+      .closed.subscribe((created) => {
+        if (created) {
+          this.suppliers.set([...this.suppliers(), created].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+          this.form.controls.usualSupplierId.setValue(created.id);
+        }
+      });
+  }
+
   protected invalid(name: string): boolean {
     const control = this.form.get(name)!;
     return control.invalid && (control.touched || this.submitted());
@@ -183,7 +250,13 @@ export default class ProductoFormPage implements OnInit {
   protected save(): void {
     this.submitted.set(true);
     const request = this.toRequest();
-    if (this.form.invalid || request === null || this.factorFraction() || this.minStockFraction()) {
+    if (
+      this.form.invalid ||
+      request === null ||
+      this.factorFraction() ||
+      this.minStockFraction() ||
+      (request.isPerishable && this.shelfLifeOutOfRange())
+    ) {
       return;
     }
 
@@ -234,11 +307,14 @@ export default class ProductoFormPage implements OnInit {
       exchangeBufferCents: blankToNull(v.buffer) === null ? null : parseHundredths(v.buffer),
       markupBps: blankToNull(v.markup) === null ? null : parseHundredths(v.markup),
       isPerishable: v.isPerishable,
+      // Only a perishable has one (the server rejects it otherwise): unchecking drops what was typed.
+      shelfLifeDays: v.isPerishable ? this.shelfLifeDays() : null,
       notes: blankToNull(v.notes),
     };
   }
 
   private fill(product: ProductResponse): void {
+    const shelfLife = product.shelfLifeDays === null ? null : splitShelfLife(product.shelfLifeDays);
     this.form.reset({
       name: product.name,
       brand: product.brand ?? '',
@@ -257,6 +333,8 @@ export default class ProductoFormPage implements OnInit {
       shrinkage: toInputText(product.shrinkageToleranceBps),
       usualSupplierId: product.usualSupplierId ?? '',
       isPerishable: product.isPerishable,
+      shelfLife: shelfLife === null ? '' : String(shelfLife.amount),
+      shelfLifeUnit: shelfLife?.unit ?? 'days',
       notes: product.notes ?? '',
       isActive: product.isActive,
     });

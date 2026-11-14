@@ -1,0 +1,108 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Productos</h1>
+    <p class="page-subtitle">Qué se vendió más, qué deja más margen y qué se pierde más. Ordená por la columna que te interese.</p>
+  </div>
+</header>
+
+@if (report(); as r) {
+  <app-period-filter [from]="r.from" [to]="r.to" [today]="today()" (periodChange)="setPeriod($event)" />
+  <div class="filters">
+    <label class="field field--wide">
+      <span class="field__label">Categoría</span>
+      <select class="input" [value]="categoryId()" (change)="setCategory($any($event.target).value)">
+        <option value="">Todas</option>
+        @for (c of categories(); track c.id) {
+          <option [value]="c.id">{{ c.label }}</option>
+        }
+      </select>
+    </label>
+  </div>
+}
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (report(); as r) {
+  @let t = totals();
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    <section class="kpis" aria-label="Totales del período">
+      <div class="kpi">
+        <div class="kpi__label">Venta teórica</div>
+        <div class="kpi__value num">{{ formatMoney(t.sales) }}</div>
+        <div class="kpi__note">Vendido × precio, según los cierres</div>
+      </div>
+      <div class="kpi kpi--accent">
+        <div class="kpi__label">Margen</div>
+        <div class="kpi__value num">{{ formatMoney(t.margin) }}</div>
+        <div class="kpi__note">
+          @if (t.marginBps !== null) {
+            {{ formatPercent(t.marginBps) }} de la venta
+          }
+        </div>
+      </div>
+      <div class="kpi" [class.kpi--bad]="t.loss > 0">
+        <div class="kpi__label">Perdido</div>
+        <div class="kpi__value num" [class.negative]="t.loss > 0">{{ formatMoney(t.loss) }}</div>
+        <div class="kpi__note">Merma, vencido, roto y faltas en conteos, a costo</div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="end">#</th>
+            <th>Producto</th>
+            <th class="end">Vendido</th>
+            <th class="end" [attr.aria-sort]="sort() === 'sales' ? 'descending' : null">
+              <button class="sort" type="button" [class.sort--on]="sort() === 'sales'" (click)="sort.set('sales')">Venta</button>
+            </th>
+            <th class="end">Costo</th>
+            <th class="end" [attr.aria-sort]="sort() === 'margin' ? 'descending' : null">
+              <button class="sort" type="button" [class.sort--on]="sort() === 'margin'" (click)="sort.set('margin')">Margen</button>
+            </th>
+            <th class="end" [attr.aria-sort]="sort() === 'marginPercent' ? 'descending' : null">
+              <button class="sort" type="button" [class.sort--on]="sort() === 'marginPercent'"
+                (click)="sort.set('marginPercent')">Margen %</button>
+            </th>
+            <th class="end" [attr.aria-sort]="sort() === 'loss' ? 'descending' : null">
+              <button class="sort" type="button" [class.sort--on]="sort() === 'loss'" (click)="sort.set('loss')">Perdido</button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of rows(); track item.productId; let i = $index) {
+            <tr>
+              <td class="end num muted-inline">{{ i + 1 }}</td>
+              <td>
+                <a class="name" [routerLink]="['/reportes/costos', item.productId]">{{ item.name }}</a>
+                <div class="sub num">{{ item.code }}</div>
+              </td>
+              <td class="end num">{{ item.soldMilli !== 0 ? formatQuantityWithUnit(item.soldMilli, item.stockUnit) : '—' }}</td>
+              <td class="end num">{{ formatMoney(item.salesCents) }}</td>
+              <td class="end num muted-inline">{{ formatMoney(item.costCents) }}</td>
+              <td class="end num" [class.negative]="item.marginCents < 0">{{ formatMoney(item.marginCents) }}</td>
+              <td class="end num">{{ item.marginBps !== null ? formatPercent(item.marginBps) : '—' }}</td>
+              <td class="end num" [class.negative]="item.lossCents > 0">
+                @if (item.lossCents > 0) {
+                  {{ formatMoney(item.lossCents) }}
+                  <div class="sub">{{ formatQuantityWithUnit(item.lossMilli, item.stockUnit) }}</div>
+                } @else {
+                  —
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td class="none" colspan="8">
+                No hay ventas ni pérdidas entre el {{ formatShortDate(r.from) }} y el {{ formatShortDate(r.to) }}.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  </div>
+}
