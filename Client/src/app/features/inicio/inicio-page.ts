@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { ApiError, toApiError } from '../../core/api/api-error';
 import { AppInfoService } from '../../core/api/app-info.service';
+import { BackupApi } from '../../core/api/backup-api';
+import { BackupStatusResponse } from '../../core/api/backup-models';
 import { EnvelopesApi } from '../../core/api/envelopes-api';
 import { EnvelopeOverviewResponse } from '../../core/api/models';
 import { DashboardResponse } from '../../core/api/report-models';
@@ -13,6 +15,7 @@ import { formatShortDate } from '../../shared/format/date';
 import { formatHundredths, formatMoney, formatPercent } from '../../shared/format/money';
 import { formatQuantityWithUnit } from '../../shared/format/quantity';
 import { StackedColumns } from '../../shared/ui/charts/stacked-columns';
+import { backupAlertText } from '../configuracion/respaldo/backup-format';
 import { dayColumns, differenceLabel, expensesLabel, growth, spanLabel } from '../reportes/report-format';
 import { ENVELOPE_SWATCHES, addDays, formatBalance, totalsByCurrency } from '../sobres/envelope-format';
 
@@ -33,6 +36,7 @@ export default class InicioPage implements OnInit {
   private readonly dashboardApi = inject(DashboardApi);
   private readonly envelopesApi = inject(EnvelopesApi);
   private readonly appInfo = inject(AppInfoService);
+  private readonly backupApi = inject(BackupApi);
   protected readonly alerts = inject(ClosingAlertsStore);
 
   protected readonly formatMoney = formatMoney;
@@ -48,6 +52,13 @@ export default class InicioPage implements OnInit {
   protected readonly dashboard = signal<DashboardResponse | null>(null);
   protected readonly overview = signal<EnvelopeOverviewResponse | null>(null);
   protected readonly loadError = signal<ApiError | null>(null);
+  protected readonly backupStatus = signal<BackupStatusResponse | null>(null);
+
+  /** RF-DAT-06: null = the backups are fine (or the server did not answer: the page shows that error). */
+  protected readonly backupAlert = computed(() => {
+    const status = this.backupStatus();
+    return status?.alert ? backupAlertText(status.alert, status.lastProblem) : null;
+  });
 
   /** The version in the footer; null when the server does not answer. */
   protected readonly version = toSignal(
@@ -138,6 +149,10 @@ export default class InicioPage implements OnInit {
     this.envelopesApi.balances().subscribe({
       next: (overview) => this.overview.set(overview),
       error: () => this.overview.set(null),
+    });
+    this.backupApi.status().subscribe({
+      next: (status) => this.backupStatus.set(status),
+      error: () => this.backupStatus.set(null),
     });
   }
 }

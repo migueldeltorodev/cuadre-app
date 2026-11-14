@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import ConfiguracionPage from './configuracion-page';
 
-/** Sub-sections from the approved design. The ones of later slices show a placeholder. */
+/** Sub-sections from the approved design. */
 export const CONFIGURACION_ROUTES: Routes = [
   {
     path: '',
@@ -44,16 +44,12 @@ export const CONFIGURACION_ROUTES: Routes = [
         data: { crumb: 'Categorías de gasto' },
         loadComponent: () => import('./gastos/gastos-section'),
       },
-      later('respaldo', 'Respaldo'),
+      {
+        path: 'respaldo',
+        title: 'Respaldo · Configuración · Cuadre',
+        data: { crumb: 'Respaldo' },
+        loadComponent: () => import('./respaldo/respaldo-section'),
+      },
     ],
   },
 ];
-
-function later(path: string, name: string) {
-  return {
-    path,
-    title: `${name} · Configuración · Cuadre`,
-    data: { name, crumb: name },
-    loadComponent: () => import('../../shared/placeholder-page'),
-  };
-}

@@ -1,0 +1,197 @@
+@if (restoredNotice(); as notice) {
+  <p class="alert alert--ok" role="status">{{ notice }}</p>
+}
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (status(); as s) {
+  <!-- Where things stand + "Respaldar ahora" -->
+  <section class="card state" aria-labelledby="state-title">
+    <div class="card__head">
+      <div>
+        <h2 class="card__title" id="state-title">Respaldos</h2>
+        <p class="card__lead">
+          Una copia completa de los datos. Se hace sola al cerrar el día y al cerrar la app, se revisa antes de
+          guardarla y se copia también al pendrive si está conectado.
+        </p>
+      </div>
+      <button class="btn btn--primary" type="button" [disabled]="creating() || restoring()" (click)="backUpNow()">
+        {{ creating() ? 'Respaldando…' : 'Respaldar ahora' }}
+      </button>
+    </div>
+
+    @if (alert(); as a) {
+      <p class="alert" [class.alert--bad]="a.tone === 'bad'" [class.alert--warn]="a.tone === 'warn'" role="status">
+        <strong>{{ a.title }}.</strong> {{ a.detail }}
+      </p>
+    }
+
+    @if (created(); as r) {
+      @switch (r.external) {
+        @case ('Copied') {
+          <p class="alert alert--ok" role="status">Respaldo hecho en la PC y en el pendrive ✓</p>
+        }
+        @case ('NotConfigured') {
+          <p class="alert alert--ok" role="status">
+            Respaldo hecho en la PC ✓ Elegí un pendrive abajo para tener una copia fuera de la PC.
+          </p>
+        }
+        @case ('Unavailable') {
+          <p class="alert alert--warn" role="status">Respaldo hecho en la PC ✓ {{ r.externalMessage }}</p>
+        }
+        @case ('Failed') {
+          <p class="alert alert--bad" role="alert">Respaldo hecho en la PC, pero no en el pendrive: {{ r.externalMessage }}</p>
+        }
+      }
+    }
+    @if (createError(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    <dl class="facts">
+      <div class="fact">
+        <dt>Último en la PC</dt>
+        <dd>{{ s.lastLocal ? formatBackupMoment(s.lastLocal.at) : 'Todavía ninguno' }}</dd>
+      </div>
+      <div class="fact">
+        <dt>Último en el pendrive</dt>
+        <dd>
+          {{ s.lastExternal ? formatBackupMoment(s.lastExternal.at) : 'Todavía ninguno' }}
+          @if (s.externalDirectory) {
+            <span class="pill" [class.pill--ok]="s.externalAvailable" [class.pill--muted]="!s.externalAvailable">
+              {{ s.externalAvailable ? 'Conectado' : 'No conectado' }}
+            </span>
+          }
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- The pendrive -->
+  <form class="card form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div>
+      <h2 class="card__title">Pendrive</h2>
+      <p class="card__lead">
+        La copia fuera de la PC: si la PC se rompe o se la roban, los datos están en el pendrive. No hace falta que
+        esté siempre conectado; conectalo cada tanto y tocá «Respaldar ahora».
+      </p>
+    </div>
+
+    <div class="drives">
+      <span class="drives__label">Pendrives conectados:</span>
+      @if (drives(); as list) {
+        @for (drive of list; track drive.rootPath) {
+          <button class="btn btn--small" type="button" (click)="useDrive(drive)">Usar {{ driveLabel(drive) }}</button>
+        } @empty {
+          <span class="drives__none">Ninguno.</span>
+        }
+      }
+      <button class="btn btn--ghost btn--small" type="button" [disabled]="searchingDrives()" (click)="searchDrives()">
+        {{ searchingDrives() ? 'Buscando…' : 'Buscar de nuevo' }}
+      </button>
+    </div>
+
+    <div class="form__row">
+      <label class="field field--wide">
+        <span class="field__label">Carpeta en el pendrive</span>
+        <input class="input" formControlName="externalDirectory" autocomplete="off" spellcheck="false"
+          placeholder="E:\Cuadre respaldos" [class.input--invalid]="fieldError('externalDirectory')" />
+        @if (fieldError('externalDirectory'); as message) {
+          <span class="field__error">{{ message }}</span>
+        } @else {
+          <span class="field__hint">Si no existe, se crea. Vacía = sin pendrive (no recomendado).</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">Avisar en Inicio después de</span>
+        <span class="input input--affix" [class.input--invalid]="invalidDays() || fieldError('alertAfterDays')">
+          <input type="number" min="1" max="60" step="1" formControlName="alertAfterDays" inputmode="numeric"
+            aria-label="Días sin copia en el pendrive" />
+          <span class="input__affix">días sin copia</span>
+        </span>
+        @if (invalidDays()) {
+          <span class="field__error">Entre 1 y 60 días.</span>
+        } @else if (fieldError('alertAfterDays'); as message) {
+          <span class="field__error">{{ message }}</span>
+        } @else {
+          <span class="field__hint">Sin copia en el pendrive por más tiempo, Inicio te avisa.</span>
+        }
+      </label>
+    </div>
+
+    @if (feedback.error(); as e) {
+      <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+    }
+
+    <div class="form__actions">
+      @if (feedback.saved()) {
+        <span class="pill pill--ok" role="status">Guardado ✓</span>
+      }
+      <button class="btn btn--primary" type="submit" [disabled]="feedback.saving() || form.pristine">
+        {{ feedback.saving() ? 'Probando la carpeta…' : 'Guardar' }}
+      </button>
+    </div>
+  </form>
+
+  <!-- The copies -->
+  <section class="card list" aria-labelledby="list-title">
+    <div>
+      <h2 class="card__title" id="list-title">Respaldos guardados</h2>
+      <p class="card__lead">
+        Quedan los de los últimos 7 días, 4 semanas y 12 meses; los más viejos se borran solos.
+        @if (s.externalDirectory && !s.externalAvailable) {
+          Los del pendrive aparecen cuando está conectado.
+        }
+      </p>
+    </div>
+
+    @if (s.backups.length > 0) {
+      <div class="rows">
+        @for (b of s.backups; track b.location + b.fileName) {
+          <div class="row">
+            <div class="row__main">
+              <div class="row__title num">{{ formatBackupMoment(b.createdAt) }}</div>
+              <div class="row__sub">{{ reasonLabels[b.reason] }} · {{ formatSize(b.sizeBytes) }}</div>
+            </div>
+            <span class="pill" [class.pill--ok]="b.location === 'External'" [class.pill--muted]="b.location === 'Local'">
+              {{ locationLabels[b.location] }}
+            </span>
+            @if (!isConfirming(b)) {
+              <button class="btn btn--ghost btn--small" type="button" [disabled]="restoring() || creating()"
+                (click)="askRestore(b)" [attr.aria-label]="'Restaurar el respaldo del ' + formatBackupMoment(b.createdAt)">
+                Restaurar
+              </button>
+            } @else {
+              <div class="restore" role="group" aria-labelledby="restore-title">
+                <h3 class="restore__title" id="restore-title">
+                  ¿Volver los datos al {{ formatBackupMoment(b.createdAt) }}?
+                </h3>
+                <p class="restore__text">
+                  Se reemplazan <strong>todos</strong> los datos de la app por los de ese momento. Lo que cargaste
+                  después (ventas, compras, cierres, gastos) deja de verse. Antes se guarda un respaldo «antes de
+                  restaurar» con lo que hay ahora, por si te arrepentís.
+                </p>
+                @if (restoreError(); as e) {
+                  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+                }
+                <div class="form__actions">
+                  <button class="btn" type="button" [disabled]="restoring()" (click)="cancelRestore()">No, volver</button>
+                  <button class="btn btn--danger" type="button" [disabled]="restoring()" (click)="confirmRestore()">
+                    {{ restoring() ? 'Restaurando…' : 'Sí, restaurar' }}
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <p class="empty">Todavía no hay respaldos. Tocá «Respaldar ahora» para hacer el primero.</p>
+    }
+  </section>
+} @else if (!loadError()) {
+  <p class="empty">Cargando…</p>
+}
