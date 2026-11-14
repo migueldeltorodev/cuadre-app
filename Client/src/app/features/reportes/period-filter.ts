@@ -14,14 +14,6 @@ export interface Period {
   selector: 'app-period-filter',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="presets" role="group" aria-label="Períodos rápidos">
-      @for (p of presets(); track p.label) {
-        <button class="preset" type="button" [class.preset--on]="p.from === from() && p.to === to()"
-          (click)="periodChange.emit({ from: p.from, to: p.to })">
-          {{ p.label }}
-        </button>
-      }
-    </div>
     <div class="dates">
       <label class="field">
         <span class="field__label">Desde</span>
@@ -32,9 +24,18 @@ export interface Period {
         <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
       </label>
     </div>
+    <div class="presets" role="group" aria-label="Períodos rápidos">
+      @for (p of presets(); track p.label) {
+        <button class="preset" type="button" [class.preset--on]="p.from === from() && p.to === to()"
+          (click)="periodChange.emit({ from: p.from, to: p.to })">
+          {{ p.label }}
+        </button>
+      }
+    </div>
   `,
   styles: `
-    :host { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; justify-content: space-between; }
+    /* The dates side by side right under the page header, the quick periods under them. */
+    :host { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
     .presets { display: flex; flex-wrap: wrap; gap: 8px; }
     .preset {
       min-height: 36px; padding: 0 14px; border: 1px solid var(--c-line); border-radius: var(--r-pill);
@@ -44,7 +45,8 @@ export interface Period {
     .preset--on { background: var(--c-ink); border-color: var(--c-ink); color: #ffffff; }
     .preset:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
     .dates { display: flex; flex-wrap: wrap; gap: 12px; }
-    .dates .field { flex: 0 1 170px; }
+    /* A fixed width, never squeezed: they only go one under the other on a narrow phone. */
+    .dates .field { flex: 0 0 170px; }
   `,
 })
 export class PeriodFilter {
