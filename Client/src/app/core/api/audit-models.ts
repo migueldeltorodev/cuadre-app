@@ -24,7 +24,8 @@ export type AuditSubjectCode =
   | 'ExchangeRate'
   | 'Envelope'
   | 'Employee'
-  | 'ExpenseCategory';
+  | 'ExpenseCategory'
+  | 'Tax';
 
 /** Before and after, already written for people ("20 %", "Activo"). */
 export interface FieldChangeResponse {

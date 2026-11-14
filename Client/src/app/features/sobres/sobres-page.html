@@ -95,6 +95,14 @@
               @if (card.monthOut.length) { <span>−{{ joinAmounts(card.monthOut) }} salió</span> }
             }
           </div>
+          @if (card.row.envelope.role === 'Tax') {
+            @if (taxSuggestion(); as suggested) {
+              <div class="envelope__tax num">
+                Impuestos sugeridos de {{ monthName() }}: <strong>{{ formatBalance(suggested, 'CUP') }}</strong>.
+                Apartá al menos eso.
+              </div>
+            }
+          }
         </a>
       }
     </div>

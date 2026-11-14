@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { toParams } from './query-params';
 import {
+  AccountantSummaryResponse,
   CostChangesReportResponse,
   DashboardResponse,
   LossReportResponse,
@@ -34,6 +35,11 @@ export class ReportsApi {
   /** Without year/month: this month up to today. */
   monthly(year?: number, month?: number): Observable<MonthlyReportResponse> {
     return this.http.get<MonthlyReportResponse>('/api/reports/monthly', { params: toParams({ year, month }) });
+  }
+
+  /** D-63: the estado de rendimiento of a month for the accountant. Without year/month: this month. */
+  accountant(year?: number, month?: number): Observable<AccountantSummaryResponse> {
+    return this.http.get<AccountantSummaryResponse>('/api/reports/accountant', { params: toParams({ year, month }) });
   }
 
   losses(query: PeriodQuery = {}): Observable<LossReportResponse> {

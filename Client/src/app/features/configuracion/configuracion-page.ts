@@ -47,6 +47,7 @@ export default class ConfiguracionPage {
     { path: 'personal', label: 'Personal' },
     { path: 'gastos', label: 'Categorías de gasto' },
     { path: 'precios-y-moneda', label: 'Precios y moneda' },
+    { path: 'impuestos', label: 'Impuestos' },
     { path: 'respaldo', label: 'Respaldo' },
   ];
 }

@@ -10,6 +10,12 @@ export const REPORTES_ROUTES: Routes = [
     loadComponent: () => import('./mensual/monthly-report-page'),
   },
   {
+    path: 'contador',
+    title: 'Resumen para el contador · Cuadre',
+    data: { crumb: 'Resumen para el contador' },
+    loadComponent: () => import('./contador/accountant-page'),
+  },
+  {
     path: 'productos',
     title: 'Productos · Reportes · Cuadre',
     data: { crumb: 'Productos' },

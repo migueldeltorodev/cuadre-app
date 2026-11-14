@@ -1438,3 +1438,33 @@ export interface ResolvePriceNoticeRequest {
   /** true = use the suggested price from today; false = keep the price. */
   acceptSuggested: boolean;
 }
+
+// ---------- Taxes (D-62) ----------
+
+/** Sales = over what was collected (A1); Profit = over the profit before taxes (never below 0). */
+export type TaxBaseCode = 'Sales' | 'Profit';
+
+/** Only a suggestion of how much to set aside: Profit First splits the same with or without it. */
+export interface TaxResponse {
+  id: string;
+  name: string;
+  /** Basis points: 1000 = 10 %. */
+  rateBps: number;
+  base: TaxBaseCode;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaxRequest {
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+}
+
+export interface UpdateTaxRequest {
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+  isActive: boolean;
+}
