@@ -20,14 +20,16 @@ public class PaymentMethodService : IPaymentMethodService
     private readonly IPaymentMethodRepository _repository;
     private readonly ICashBoxRepository _cashBoxRepository;
     private readonly IValidator<PaymentMethod> _validator;
+    private readonly IAuditService _audit;
     private readonly TimeProvider _clock;
 
     public PaymentMethodService(IPaymentMethodRepository repository, ICashBoxRepository cashBoxRepository,
-        IValidator<PaymentMethod> validator, TimeProvider clock)
+        IValidator<PaymentMethod> validator, IAuditService audit, TimeProvider clock)
     {
         _repository = repository;
         _cashBoxRepository = cashBoxRepository;
         _validator = validator;
+        _audit = audit;
         _clock = clock;
     }
 
@@ -83,6 +85,19 @@ public class PaymentMethodService : IPaymentMethodService
         paymentMethod.CreatedAt = existing.CreatedAt;
         paymentMethod.UpdatedAt = _clock.UtcNow();
         await _repository.UpdateAsync(paymentMethod, cancellationToken);
+
+        // RF-DAT-08. Where the money goes matters most: the box by its name, as it was called then.
+        var log = new ChangeList().Text("Nombre", existing.Name, paymentMethod.Name);
+        if (existing.CashBoxId != paymentMethod.CashBoxId)
+        {
+            var from = await _cashBoxRepository.GetByIdAsync(existing.CashBoxId, cancellationToken);
+            var to = await _cashBoxRepository.GetByIdAsync(paymentMethod.CashBoxId, cancellationToken);
+            log.Text("Entra a la caja", from?.Name, to?.Name);
+        }
+
+        log.Active(existing.IsActive, paymentMethod.IsActive);
+        await _audit.RecordAsync(ConfigSubject.PaymentMethod, paymentMethod.Id, paymentMethod.Name, log,
+            cancellationToken);
         return Result.Ok(paymentMethod);
     }
 

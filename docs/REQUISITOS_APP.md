@@ -1,6 +1,6 @@
 # Requisitos funcionales: App de gestión para pequeño comercio
 
-> **Versión:** 1.10 · **Fecha:** 14/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
+> **Versión:** 1.11 · **Fecha:** 14/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
 > **Primer caso de uso:** el bodegón (ver `RESUMEN_PROFIT_FIRST_BODEGON.md`).
 > Este documento es la **memoria oficial** de los requisitos. Cualquier cambio se anota en el historial (sección 10).
 
@@ -411,6 +411,7 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | D-56 | La configuración y la historia de los respaldos (carpeta del pendrive, días del aviso, último respaldo local y externo, último problema) se guardan en `backup.json`, **al lado** de la base y **no dentro** de ella. | Restaurar una copia de hace 10 días no debe hacer que la app olvide que ayer se respaldó, ni dónde está el pendrive. |
 | D-57 | Cuando una versión nueva de Cuadre necesita migrar la base, **antes** deja un respaldo (`antes-de-actualizar`). Si ese respaldo falla, la actualización sigue y el problema se avisa en Inicio. | Si una migración sale mal, se vuelve a la base como estaba. No arrancar dejaría al negocio sin su app. |
 | D-58 | **Restaurar** (RF-DAT-05): se elige un respaldo de la lista (de la PC o del pendrive). Antes de tocar nada se comprueba que el zip sea de Cuadre, que la huella coincida, que la base esté sana y que **no sea de una versión más nueva** de la app. Después se hace una copia de lo que hay ahora (`antes-de-restaurar`, solo en la PC), se reemplazan **todos** los datos y se aplican las migraciones que le falten a una copia vieja. Lo cargado después del respaldo se pierde (queda en la copia de seguridad). | Restaurar es la operación más peligrosa de la app: se valida todo antes y siempre hay vuelta atrás. |
+| D-59 | **Registro de auditoría** (RF-DAT-08): una sola lista, la más nueva primero, filtrable por días y por tipo. Muestra: **anulaciones** (compras, traslados/salidas/conteos, operaciones de sobres, gastos, recuperaciones de faltantes) con su motivo; **días reabiertos**; **cambios de precio** (no el primer precio de un producto); **planes Profit First** y **pagos del personal** nuevos, comparados con el anterior (no el primero de cada uno); y los **cambios en Configuración** (negocio y precios, cajas, formas de cobro, sobres, empleados, categorías de gasto) más las **correcciones de la tasa** (cargar la del día no es un cambio). Lo que ya se guardaba sin borrarse se lee de donde está; solo lo que antes se pisaba se guarda aparte, campo por campo, con el valor de antes y el de después **escritos como se leen** ("20 %", "Activo"), y solo si algo cambió de verdad. | No copiar lo que ya está guardado: una sola fuente de verdad. El valor se escribe al momento del cambio para que el historial se lea igual dentro de años, aunque después cambien los nombres. |
 
 ---
 
@@ -459,3 +460,4 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | 1.8 | 13/11/2026 | Pulido: nuevas D-52 (el precio sugerido y la alerta del colchón usan el último costo puesto; los reportes siguen con el promedio) y D-53 (vida útil). Nuevos RF-PRD-10 y RF-PRD-11. RN-03 y RN-04 actualizadas. Los deseables a futuro pasan a `REQUISITOS_V2.md`. |
 | 1.9 | 14/11/2026 | Nueva D-54: el A2 del cierre (RN-07) y el consumo de la casa (RN-11) pasan al último costo puesto; el promedio queda para las pérdidas y las diferencias de conteo. D-52 y RN-03 ajustadas. |
 | 1.10 | 14/11/2026 | Respaldos: nuevas D-55 (cómo se hace, verifica, nombra, copia al pendrive y rota un respaldo), D-56 (su estado vive fuera de la base), D-57 (respaldo antes de actualizar) y D-58 (reglas de la restauración). |
+| 1.11 | 14/11/2026 | Exportación, parte 1: nueva D-59 (qué muestra el registro de auditoría y de dónde lo lee). |

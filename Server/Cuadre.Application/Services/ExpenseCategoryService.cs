@@ -23,11 +23,14 @@ public class ExpenseCategoryService : IExpenseCategoryService
     private readonly IExpenseCategoryRepository _repository;
     private readonly IRecurringExpenseRepository _recurringRepository;
     private readonly IValidator<ExpenseCategory> _validator;
+    private readonly IAuditService _audit;
     private readonly TimeProvider _clock;
 
     public ExpenseCategoryService(IExpenseCategoryRepository repository,
-        IRecurringExpenseRepository recurringRepository, IValidator<ExpenseCategory> validator, TimeProvider clock)
+        IRecurringExpenseRepository recurringRepository, IValidator<ExpenseCategory> validator, IAuditService audit,
+        TimeProvider clock)
     {
+        _audit = audit;
         _repository = repository;
         _recurringRepository = recurringRepository;
         _validator = validator;
@@ -67,6 +70,8 @@ public class ExpenseCategoryService : IExpenseCategoryService
         }
 
         var deactivating = category.IsActive && !changes.IsActive;
+        var log = new ChangeList().Text("Nombre", category.Name, changes.Name)
+            .Active(category.IsActive, changes.IsActive);
         category.Name = changes.Name;
         category.IsActive = changes.IsActive;
 
@@ -92,6 +97,7 @@ public class ExpenseCategoryService : IExpenseCategoryService
 
         category.UpdatedAt = _clock.UtcNow();
         await _repository.UpdateAsync(category, cancellationToken);
+        await _audit.RecordAsync(ConfigSubject.ExpenseCategory, category.Id, category.Name, log, cancellationToken);
         return Result.Ok(category);
     }
 }

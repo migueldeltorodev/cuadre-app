@@ -317,6 +317,12 @@ public static class ApiEndpoints
         public const string Restore = $"{Base}/restore";
     }
 
+    /// <summary>RF-DAT-08: the audit log. Read-only: it is written by the actions themselves.</summary>
+    public static class Audit
+    {
+        public const string GetAll = $"{ApiBase}/audit";
+    }
+
     /// <summary>Who works the counter. Never deleted, only deactivated.</summary>
     public static class Employees
     {

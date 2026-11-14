@@ -34,4 +34,10 @@ export const REPORTES_ROUTES: Routes = [
       },
     ],
   },
+  {
+    path: 'registro',
+    title: 'Registro de cambios · Cuadre',
+    data: { crumb: 'Registro de cambios' },
+    loadComponent: () => import('./registro/audit-log-page'),
+  },
 ];

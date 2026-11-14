@@ -1,0 +1,89 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Registro de cambios</h1>
+    <p class="page-subtitle">
+      Qué se anuló, qué días se reabrieron y qué precios y configuraciones cambiaron: cuándo, por qué y de qué a qué.
+    </p>
+  </div>
+</header>
+
+<app-period-filter [from]="period().from" [to]="period().to" [today]="today" [longPresets]="true"
+  (periodChange)="setPeriod($event)" />
+
+<div class="kinds" role="group" aria-label="Qué mostrar">
+  <button class="kind" type="button" [class.kind--on]="kind() === null" [attr.aria-pressed]="kind() === null"
+    (click)="setKind(null)">Todo</button>
+  @for (k of kinds; track k.code) {
+    <button class="kind" type="button" [class.kind--on]="kind() === k.code" [attr.aria-pressed]="kind() === k.code"
+      (click)="setKind(k.code)">{{ filterLabels[k.code] }}</button>
+  }
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    @for (day of days(); track day.key) {
+      <section class="card day" [attr.aria-label]="day.label">
+        <h2 class="day__title">{{ day.label }}</h2>
+        <ol class="entries">
+          @for (e of day.entries; track $index) {
+            <li class="entry">
+              <span class="entry__time num">{{ e.time }}</span>
+              <div class="entry__body">
+                <div class="entry__head">
+                  <span class="pill" [class]="'pill--' + e.tone">{{ e.kindLabel }}</span>
+                  @if (e.link) {
+                    <a class="entry__title link" [routerLink]="e.link">{{ e.title }}</a>
+                  } @else {
+                    <span class="entry__title">{{ e.title }}</span>
+                  }
+                </div>
+                @if (e.reason) {
+                  <p class="entry__reason">«{{ e.reason }}»</p>
+                }
+                @if (e.changes.length > 0) {
+                  <dl class="changes">
+                    @for (c of e.changes; track c.field) {
+                      <div class="change">
+                        <dt>{{ c.field }}</dt>
+                        <dd>
+                          @if (c.before !== null) {
+                            <span class="change__before">{{ c.before }}</span>
+                            <span class="change__arrow" aria-label="pasó a">→</span>
+                          }
+                          <span class="change__after">{{ c.after ?? '(vacío)' }}</span>
+                        </dd>
+                      </div>
+                    }
+                  </dl>
+                }
+              </div>
+            </li>
+          }
+        </ol>
+      </section>
+    } @empty {
+      <p class="card none">
+        No hay nada registrado en estas fechas. Las anulaciones, los días reabiertos y los cambios de precios o de
+        configuración aparecen acá.
+      </p>
+    }
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1 || loading()" (click)="goTo(r.page - 1)">
+          Anterior
+        </button>
+        <span class="num">Página {{ r.page }} · {{ r.total }} cambios</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage || loading()" (click)="goTo(r.page + 1)">
+          Siguiente
+        </button>
+      </nav>
+    }
+  </div>
+} @else if (!loadError()) {
+  <p class="none">Cargando…</p>
+}

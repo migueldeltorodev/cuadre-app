@@ -19,12 +19,15 @@ public class CashBoxService : ICashBoxService
 {
     private readonly ICashBoxRepository _repository;
     private readonly IValidator<CashBox> _validator;
+    private readonly IAuditService _audit;
     private readonly TimeProvider _clock;
 
-    public CashBoxService(ICashBoxRepository repository, IValidator<CashBox> validator, TimeProvider clock)
+    public CashBoxService(ICashBoxRepository repository, IValidator<CashBox> validator, IAuditService audit,
+        TimeProvider clock)
     {
         _repository = repository;
         _validator = validator;
+        _audit = audit;
         _clock = clock;
     }
 
@@ -69,6 +72,7 @@ public class CashBoxService : ICashBoxService
         }
 
         var isBeingDeactivated = cashBox.IsActive && !changes.IsActive;
+        var log = new ChangeList().Text("Nombre", cashBox.Name, changes.Name).Active(cashBox.IsActive, changes.IsActive);
         cashBox.Name = changes.Name;
         cashBox.IsActive = changes.IsActive;
 
@@ -90,6 +94,7 @@ public class CashBoxService : ICashBoxService
 
         cashBox.UpdatedAt = _clock.UtcNow();
         await _repository.UpdateAsync(cashBox, cancellationToken);
+        await _audit.RecordAsync(ConfigSubject.CashBox, cashBox.Id, cashBox.Name, log, cancellationToken);
         return Result.Ok(cashBox);
     }
 }

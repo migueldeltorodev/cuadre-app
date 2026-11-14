@@ -1,5 +1,6 @@
 using Cuadre.Api.Endpoints.AllocationPlans;
 using Cuadre.Api.Endpoints.App;
+using Cuadre.Api.Endpoints.Audit;
 using Cuadre.Api.Endpoints.Backups;
 using Cuadre.Api.Endpoints.CashBoxes;
 using Cuadre.Api.Endpoints.CashDiscrepancies;
@@ -63,6 +64,7 @@ public static class EndpointsExtensions
         v1.MapDashboardEndpoints();
         v1.MapReportEndpoints();
         v1.MapBackupEndpoints();
+        v1.MapAuditEndpoints();
 
         return app;
     }
