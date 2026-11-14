@@ -62,13 +62,14 @@ internal static class ProductCostLedger
             row.PurchaseLineId)));
         var current = book.CurrentCost ?? new UnitCost(lastUsd, lastCup);
         var currentLineId = book.CurrentLayer?.PurchaseLineId;
+        var lastLineId = lastPurchase?.PurchaseLineId;
 
         await connection.ExecuteAsync(new CommandDefinition("""
             INSERT INTO product_costs (
                 product_id, avg_cost_usd_micros, avg_cost_cup_micros, last_cost_usd_micros, last_cost_cup_micros,
-                current_cost_usd_micros, current_cost_cup_micros, current_purchase_line_id,
+                current_cost_usd_micros, current_cost_cup_micros, current_purchase_line_id, last_purchase_line_id,
                 last_purchase_date, recalculated_at)
-            VALUES (@productId, @usd, @cup, @lastUsd, @lastCup, @currentUsd, @currentCup, @currentLineId,
+            VALUES (@productId, @usd, @cup, @lastUsd, @lastCup, @currentUsd, @currentCup, @currentLineId, @lastLineId,
                     @lastPurchaseDate, @now)
             ON CONFLICT (product_id) DO UPDATE SET
                 avg_cost_usd_micros = excluded.avg_cost_usd_micros,
@@ -78,12 +79,14 @@ internal static class ProductCostLedger
                 current_cost_usd_micros = excluded.current_cost_usd_micros,
                 current_cost_cup_micros = excluded.current_cost_cup_micros,
                 current_purchase_line_id = excluded.current_purchase_line_id,
+                last_purchase_line_id = excluded.last_purchase_line_id,
                 last_purchase_date = excluded.last_purchase_date,
                 recalculated_at = excluded.recalculated_at
             """, new
             {
                 productId, usd = cost.UsdMicros, cup = cost.CupMicros, lastUsd, lastCup,
-                currentUsd = current.UsdMicros, currentCup = current.CupMicros, currentLineId, lastPurchaseDate, now
+                currentUsd = current.UsdMicros, currentCup = current.CupMicros, currentLineId, lastLineId,
+                lastPurchaseDate, now
             },
             transaction, cancellationToken: cancellationToken));
     }

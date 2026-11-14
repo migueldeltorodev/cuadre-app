@@ -152,8 +152,9 @@ public static class PriceCalculator
 
 /// <summary>
 /// Everything the screens show about a product's cost and price. Computed, never stored.
-/// D-52: the suggested price, the margin and the colchón alert use the LAST cost and its rate (they look ahead:
-/// restocking); the average is shown beside it (it values what is already on the shelf).
+/// D-61: the suggested price, the margin and the colchón alert use the cost of the BATCH BEING SOLD (D-60) and its
+/// rate: that is what the price on the sign pays for now. The newest batch's suggested price is kept beside it to warn
+/// early when the next batch will not fit in today's price. The average is shown for reference.
 /// </summary>
 public sealed record ProductPricing(
     long AvgCostUsdMicros,
@@ -163,9 +164,11 @@ public sealed record ProductPricing(
     long CurrentCostUsdMicros,
     long CurrentCostCupMicros,
     long LastRateCents,
+    long CurrentRateCents,
     long EffectiveBufferCents,
     int EffectiveMarkupBps,
     long SuggestedPriceCents,
+    long NewestSuggestedPriceCents,
     int? MarginBps,
     long? TodayRateCents,
     bool IsBufferExceeded);
@@ -187,7 +190,7 @@ public static class ProductPricingRules
         var current = product.CurrentCost ?? last;
         var buffer = product.ExchangeBufferCents ?? settings.ExchangeBufferCents;
         var markup = product.MarkupBps ?? settings.DefaultMarkupBps;
-        var lastRate = PriceCalculator.PurchaseRateCents(last);
+        var currentRate = PriceCalculator.PurchaseRateCents(current);
 
         return new ProductPricing(
             average.UsdMicros,
@@ -196,12 +199,67 @@ public static class ProductPricingRules
             last.CupMicros,
             current.UsdMicros,
             current.CupMicros,
-            lastRate,
+            PriceCalculator.PurchaseRateCents(last),
+            currentRate,
             buffer,
             markup,
+            PriceCalculator.SuggestedPriceCents(current, buffer, markup, settings.PriceRoundingStepCents),
             PriceCalculator.SuggestedPriceCents(last, buffer, markup, settings.PriceRoundingStepCents),
-            PriceCalculator.MarginBps(product.SalePriceCents, last),
+            PriceCalculator.MarginBps(product.SalePriceCents, current),
             todayRateCents,
-            PriceCalculator.IsBufferExceeded(todayRateCents, lastRate, buffer));
+            PriceCalculator.IsBufferExceeded(todayRateCents, currentRate, buffer));
+    }
+}
+
+public enum PriceNoticeKind
+{
+    /// <summary>A new batch went on sale (the previous one ran out) and its suggested price is not the price.</summary>
+    BatchChanged,
+
+    /// <summary>A batch bought but not on sale yet will not fit in today's price: raising it early saves Reposición.</summary>
+    NewBatchCostlier
+}
+
+/// <summary>A price to look at (D-61). The app never changes a price by itself: the sign would go out of step.</summary>
+public sealed record PriceNotice(
+    Guid ProductId,
+    string ProductCode,
+    string ProductName,
+    PriceNoticeKind Kind,
+    long? SalePriceCents,
+    long SuggestedPriceCents,
+    long BatchCostCupMicros,
+    long BatchRateCents,
+    MeasureUnit StockUnit);
+
+public static class PriceNotices
+{
+    /// <summary>
+    /// The notices of one product. BatchChanged: the batch being sold came from a purchase, the price was not decided
+    /// for it yet, and it does not match its suggested price. NewBatchCostlier: the newest purchase is still waiting
+    /// behind the batch being sold, it was not dismissed, and its suggested price is above the price.
+    /// With an empty shelf there is nothing on sale: no notice.
+    /// </summary>
+    public static IEnumerable<PriceNotice> For(Product product, ProductPricing pricing)
+    {
+        if (product.CurrentPurchaseLineId is not { } current)
+        {
+            yield break;
+        }
+
+        if (current != product.PriceReviewedLineId && pricing.SuggestedPriceCents != product.SalePriceCents)
+        {
+            yield return new PriceNotice(product.Id, product.Code, product.Name, PriceNoticeKind.BatchChanged,
+                product.SalePriceCents, pricing.SuggestedPriceCents, pricing.CurrentCostCupMicros,
+                pricing.CurrentRateCents, product.StockUnit);
+        }
+
+        if (product.LastPurchaseLineId is { } newest && newest != current && newest != product.CostlierSeenLineId
+            && product.SalePriceCents is { } price && pricing.NewestSuggestedPriceCents > price)
+        {
+            yield return new PriceNotice(product.Id, product.Code, product.Name, PriceNoticeKind.NewBatchCostlier,
+                product.SalePriceCents, pricing.NewestSuggestedPriceCents, pricing.LastCostCupMicros,
+                pricing.LastRateCents, product.StockUnit);
+        }
     }
 }

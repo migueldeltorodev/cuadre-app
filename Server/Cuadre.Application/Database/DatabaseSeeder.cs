@@ -149,11 +149,24 @@ public sealed class DatabaseSeeder
             WHERE envelope_id IS NULL
             """, transaction: transaction, cancellationToken: cancellationToken));
 
-        // D-60: the cost cache learned the FIFO batch being sold. Products cached before it get it by a replay.
+        // D-60/D-61: the cost cache learned the FIFO batch being sold and the newest purchase line. Products cached
+        // before get them by a replay (one whose purchases were all voided has no line: it is replayed again, cheaply).
         var uncached = await connection.QueryAsync<Guid>(new CommandDefinition(
-            "SELECT product_id FROM product_costs WHERE current_cost_usd_micros IS NULL",
+            "SELECT product_id FROM product_costs WHERE current_cost_usd_micros IS NULL OR last_purchase_line_id IS NULL",
             transaction: transaction, cancellationToken: cancellationToken));
-        await StockLedger.RecalculateCostsAsync(connection, transaction, uncached, now, cancellationToken);
+        var replayed = uncached.ToList();
+        await StockLedger.RecalculateCostsAsync(connection, transaction, replayed, now, cancellationToken);
+
+        // Prices already in force were decided for the batch on sale: no "new batch" notice for them on this start.
+        foreach (var productId in replayed)
+        {
+            await connection.ExecuteAsync(new CommandDefinition("""
+                UPDATE products
+                SET price_reviewed_line_id =
+                    (SELECT current_purchase_line_id FROM product_costs WHERE product_id = @productId)
+                WHERE id = @productId AND price_reviewed_line_id IS NULL
+                """, new { productId }, transaction, cancellationToken: cancellationToken));
+        }
 
         transaction.Commit();
         return;

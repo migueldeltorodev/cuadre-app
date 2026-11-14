@@ -56,7 +56,10 @@ public sealed record PeriodSummary(
         expenses);
 }
 
-/// <summary>A product whose price needs a look: today's rate went beyond its last purchase rate + colchón (RN-04).</summary>
+/// <summary>
+/// A product whose price needs a look: today's rate went beyond the rate of the batch on sale + colchón (RN-04, D-61).
+/// LastRateCents keeps its name for the contract: it is the rate of the batch being sold.
+/// </summary>
 public sealed record BufferExceededProduct(
     Guid ProductId,
     string Code,

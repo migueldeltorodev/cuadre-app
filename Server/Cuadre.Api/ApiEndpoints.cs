@@ -98,6 +98,12 @@ public static class ApiEndpoints
 
         /// <summary>Only the price: accepting a suggestion must not resend the whole product.</summary>
         public const string SalePrice = $"{Base}/{{id:guid}}/sale-price";
+
+        /// <summary>D-61: prices to look at (a new batch on sale, or the next one will not fit).</summary>
+        public const string PriceNotices = $"{Base}/price-notices";
+
+        /// <summary>D-61: take the suggested price or keep the price.</summary>
+        public const string ResolvePriceNotice = $"{Base}/{{id:guid}}/price-notice";
     }
 
     /// <summary>The fixed list of measure units (read-only, defined in code).</summary>

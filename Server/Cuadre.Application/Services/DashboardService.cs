@@ -99,7 +99,7 @@ public class DashboardService : IDashboardService
                     product.Name,
                     product.SalePriceCents,
                     pricing.SuggestedPriceCents,
-                    pricing.LastRateCents,
+                    pricing.CurrentRateCents,
                     pricing.EffectiveBufferCents,
                     todayRate.Value)
                 : null)

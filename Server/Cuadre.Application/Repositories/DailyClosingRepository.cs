@@ -172,7 +172,8 @@ public class DailyClosingRepository : IDailyClosingRepository
                    COALESCE(d.out_milli, 0) AS out_milli,
                    COALESCE((SELECT h.price_cents FROM product_price_changes h
                              WHERE h.product_id = p.id AND h.effective_date <= @date
-                             ORDER BY h.effective_date DESC, h.created_at DESC
+                             -- rowid breaks a tie of two changes in the same millisecond: the later one wins.
+                             ORDER BY h.effective_date DESC, h.created_at DESC, h.rowid DESC
                              LIMIT 1), p.sale_price_cents) AS unit_price_cents,
                    p.shrinkage_tolerance_bps AS tolerance_bps,
                    p.exchange_buffer_cents
