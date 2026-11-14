@@ -49,8 +49,8 @@ public class BufferExceededProductResponse
     public long? SalePriceCents { get; init; }
     public required long SuggestedPriceCents { get; init; }
 
-    /// <summary>The rate its stock was bought at, its colchón and today's rate, in CUP cents per USD.</summary>
-    public required long AverageRateCents { get; init; }
+    /// <summary>The rate of its last purchase, its colchón and today's rate, in CUP cents per USD.</summary>
+    public required long LastRateCents { get; init; }
 
     public required long BufferCents { get; init; }
     public required long TodayRateCents { get; init; }

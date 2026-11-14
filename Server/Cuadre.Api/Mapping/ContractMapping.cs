@@ -288,6 +288,7 @@ public static partial class ContractMapping
             ExchangeBufferCents = request.ExchangeBufferCents,
             MarkupBps = request.MarkupBps,
             IsPerishable = request.IsPerishable,
+            ShelfLifeDays = request.ShelfLifeDays,
             IsActive = isActive,
             Notes = BlankToNull(request.Notes)
         };
@@ -317,6 +318,7 @@ public static partial class ContractMapping
             ExchangeBufferCents = product.ExchangeBufferCents,
             MarkupBps = product.MarkupBps,
             IsPerishable = product.IsPerishable,
+            ShelfLifeDays = product.ShelfLifeDays,
             IsActive = product.IsActive,
             Notes = product.Notes,
             StockMilli = product.StockMilli,

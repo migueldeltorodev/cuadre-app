@@ -29,7 +29,7 @@ public static partial class ContractMapping
                 Name = product.Name,
                 SalePriceCents = product.SalePriceCents,
                 SuggestedPriceCents = product.SuggestedPriceCents,
-                AverageRateCents = product.AverageRateCents,
+                LastRateCents = product.LastRateCents,
                 BufferCents = product.EffectiveBufferCents,
                 TodayRateCents = product.TodayRateCents
             }).ToList()

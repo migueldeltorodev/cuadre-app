@@ -175,7 +175,7 @@ public class DailyClosingRepository : IDailyClosingRepository
                              ORDER BY h.effective_date DESC, h.created_at DESC
                              LIMIT 1), p.sale_price_cents) AS unit_price_cents,
                    p.shrinkage_tolerance_bps AS tolerance_bps,
-                   pc.avg_cost_usd_micros, pc.avg_cost_cup_micros
+                   pc.last_cost_usd_micros, pc.last_cost_cup_micros
             FROM keys k
                 JOIN products p ON p.id = k.product_id
                 JOIN counters l ON l.id = k.location_id

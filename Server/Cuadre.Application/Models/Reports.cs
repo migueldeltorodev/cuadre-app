@@ -56,14 +56,14 @@ public sealed record PeriodSummary(
         expenses);
 }
 
-/// <summary>A product whose price needs a look: today's rate went beyond its purchase rate + colchón (RN-04).</summary>
+/// <summary>A product whose price needs a look: today's rate went beyond its last purchase rate + colchón (RN-04).</summary>
 public sealed record BufferExceededProduct(
     Guid ProductId,
     string Code,
     string Name,
     long? SalePriceCents,
     long SuggestedPriceCents,
-    long AverageRateCents,
+    long LastRateCents,
     long EffectiveBufferCents,
     long TodayRateCents);
 

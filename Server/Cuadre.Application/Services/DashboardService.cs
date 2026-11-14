@@ -99,12 +99,12 @@ public class DashboardService : IDashboardService
                     product.Name,
                     product.SalePriceCents,
                     pricing.SuggestedPriceCents,
-                    pricing.AverageRateCents,
+                    pricing.LastRateCents,
                     pricing.EffectiveBufferCents,
                     todayRate.Value)
                 : null)
             .OfType<BufferExceededProduct>()
-            .OrderByDescending(x => x.TodayRateCents - x.AverageRateCents - x.EffectiveBufferCents)
+            .OrderByDescending(x => x.TodayRateCents - x.LastRateCents - x.EffectiveBufferCents)
             .ThenBy(x => x.Name)
             .ToList();
     }

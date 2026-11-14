@@ -140,14 +140,19 @@ public class LocationsResponse
 /// <summary>Cost and price picture of a product. Absent until its first purchase.</summary>
 public class ProductCostResponse
 {
-    /// <summary>Per stock unit (RN-01).</summary>
+    /// <summary>Weighted average per stock unit (RN-01): what the stock on the shelf cost.</summary>
     public required long AvgCostUsdMicros { get; init; }
 
     /// <summary>Historical CUP per stock unit (RN-02).</summary>
     public required long AvgCostCupMicros { get; init; }
 
-    /// <summary>Average purchase rate, CUP cents per USD.</summary>
-    public required long AverageRateCents { get; init; }
+    /// <summary>Landed cost per stock unit of the last purchase (D-52): the base of the suggested price.</summary>
+    public required long LastCostUsdMicros { get; init; }
+
+    public required long LastCostCupMicros { get; init; }
+
+    /// <summary>The last purchase's rate, CUP cents per USD: the base of the colchón alert (RN-04).</summary>
+    public required long LastRateCents { get; init; }
 
     /// <summary>The colchón and recargo actually used (the product's own or the business default).</summary>
     public required long EffectiveBufferCents { get; init; }
@@ -155,7 +160,7 @@ public class ProductCostResponse
     public required int EffectiveMarkupBps { get; init; }
     public required long SuggestedPriceCents { get; init; }
 
-    /// <summary>Over the sale price; null without a price.</summary>
+    /// <summary>Over the sale price, against the last cost; null without a price.</summary>
     public int? MarginBps { get; init; }
 
     /// <summary>Latest rate on or before today; null when none was ever loaded.</summary>

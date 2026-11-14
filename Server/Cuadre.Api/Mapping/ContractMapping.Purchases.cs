@@ -220,7 +220,9 @@ public static partial class ContractMapping
         {
             AvgCostUsdMicros = pricing.AvgCostUsdMicros,
             AvgCostCupMicros = pricing.AvgCostCupMicros,
-            AverageRateCents = pricing.AverageRateCents,
+            LastCostUsdMicros = pricing.LastCostUsdMicros,
+            LastCostCupMicros = pricing.LastCostCupMicros,
+            LastRateCents = pricing.LastRateCents,
             EffectiveBufferCents = pricing.EffectiveBufferCents,
             EffectiveMarkupBps = pricing.EffectiveMarkupBps,
             SuggestedPriceCents = pricing.SuggestedPriceCents,

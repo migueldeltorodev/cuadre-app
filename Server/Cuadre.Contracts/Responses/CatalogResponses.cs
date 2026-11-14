@@ -67,6 +67,7 @@ public class ProductResponse
     public long? ExchangeBufferCents { get; init; }
     public int? MarkupBps { get; init; }
     public required bool IsPerishable { get; init; }
+    public int? ShelfLifeDays { get; init; }
     public required bool IsActive { get; init; }
     public string? Notes { get; init; }
 
