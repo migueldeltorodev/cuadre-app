@@ -63,3 +63,42 @@ export function productState(product: ProductResponse): ProductState {
 export function isLowStock(product: ProductResponse): boolean {
   return product.lastPurchaseDate !== null && product.stockMilli < product.minStockMilli;
 }
+
+// ---- Shelf life (RF-PRD-10, D-53): typed as days, weeks or months, stored in days. A month counts 30 days. ----
+
+export type ShelfLifeUnit = 'days' | 'weeks' | 'months';
+
+export const SHELF_LIFE_UNITS: { value: ShelfLifeUnit; label: string; days: number }[] = [
+  { value: 'days', label: 'días', days: 1 },
+  { value: 'weeks', label: 'semanas', days: 7 },
+  { value: 'months', label: 'meses', days: 30 },
+];
+
+export const MAX_SHELF_LIFE_DAYS = 3650;
+
+export function shelfLifeToDays(amount: number, unit: ShelfLifeUnit): number {
+  return amount * SHELF_LIFE_UNITS.find((u) => u.value === unit)!.days;
+}
+
+/** 90 → 3 months, 14 → 2 weeks, 45 → 45 days: the largest unit that divides it exactly. */
+export function splitShelfLife(days: number): { amount: number; unit: ShelfLifeUnit } {
+  for (const unit of [...SHELF_LIFE_UNITS].reverse()) {
+    if (days % unit.days === 0) {
+      return { amount: days / unit.days, unit: unit.value };
+    }
+  }
+  return { amount: days, unit: 'days' };
+}
+
+const SHELF_LIFE_WORDS: Record<ShelfLifeUnit, [string, string]> = {
+  days: ['día', 'días'],
+  weeks: ['semana', 'semanas'],
+  months: ['mes', 'meses'],
+};
+
+/** "3 meses", "1 semana", "45 días". */
+export function shelfLifeText(days: number): string {
+  const { amount, unit } = splitShelfLife(days);
+  const [one, many] = SHELF_LIFE_WORDS[unit];
+  return `${amount} ${amount === 1 ? one : many}`;
+}

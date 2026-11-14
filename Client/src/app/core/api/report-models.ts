@@ -46,8 +46,8 @@ export interface BufferExceededProductResponse {
   name: string;
   salePriceCents: number | null;
   suggestedPriceCents: number;
-  /** CUP cents per USD. */
-  averageRateCents: number;
+  /** The last purchase's rate, CUP cents per USD. */
+  lastRateCents: number;
   bufferCents: number;
   todayRateCents: number;
 }

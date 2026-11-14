@@ -129,7 +129,10 @@
         </span>
         <span class="num strong">{{ formatMoney(valueCents()! >= 0 ? valueCents()! : -valueCents()!) }}</span>
       </div>
-      <p class="sub">Valorado al costo promedio histórico de cada producto en ese momento.</p>
+      <p class="sub">
+        Valorado al costo de cada producto en ese momento: el promedio para las pérdidas y los conteos, el último
+        costo para el consumo de la casa (es lo que Reposición necesita para volver a comprarlo).
+      </p>
     </section>
   }
 

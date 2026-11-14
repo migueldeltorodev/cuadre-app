@@ -86,9 +86,9 @@
         @if (p.cost; as cost) {
           <div class="formula__title">Cómo se calcula el sugerido</div>
           <div class="formula__parts num">
-            <div><div class="formula__label">Costo</div><div class="formula__value">{{ formatMicros(cost.avgCostUsdMicros) }} USD</div></div>
+            <div><div class="formula__label">Último costo</div><div class="formula__value">{{ formatMicros(cost.lastCostUsdMicros) }} USD</div></div>
             <span class="op">×</span>
-            <div><div class="formula__label">( Tasa de compra</div><div class="formula__value">{{ formatHundredths(cost.averageRateCents) }}</div></div>
+            <div><div class="formula__label">( Tasa de esa compra</div><div class="formula__value">{{ formatHundredths(cost.lastRateCents) }}</div></div>
             <span class="op">+</span>
             <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ formatHundredths(cost.effectiveBufferCents) }}</div></div>
             <span class="op">×</span>
@@ -97,9 +97,24 @@
             <div><div class="formula__label">Sugerido</div><div class="formula__value formula__value--accent">{{ formatHundredths(cost.suggestedPriceCents) }}</div></div>
           </div>
           <p class="formula__note">
-            Costo en CUP: {{ formatMicros(cost.avgCostCupMicros) }} {{ perUnit(p.stockUnit) }}, a la tasa de cada compra.
-            Se redondea hacia arriba al paso del negocio.
+            Se calcula con el costo puesto de la última compra ({{ formatMicros(cost.lastCostCupMicros) }} CUP
+            {{ perUnit(p.stockUnit) }}): el precio tiene que alcanzar para reponer. Se redondea hacia arriba al paso
+            del negocio.
           </p>
+          <div class="costs num">
+            <div class="fact">
+              <span>Último costo</span>
+              <span>{{ formatMicros(cost.lastCostCupMicros) }} CUP · {{ formatMicros(cost.lastCostUsdMicros) }} USD</span>
+            </div>
+            <div class="fact">
+              <span>Promedio en stock</span>
+              <span>{{ formatMicros(cost.avgCostCupMicros) }} CUP · {{ formatMicros(cost.avgCostUsdMicros) }} USD</span>
+            </div>
+            <p class="formula__note">
+              El precio, el margen, el colchón y lo que va a Reposición en cada cierre usan el último costo: lo que
+              cuesta reponer. El promedio es lo que costó la mercadería que tenés hoy: con él se valúan las pérdidas.
+            </p>
+          </div>
           @if (bufferStatus(); as b) {
             <p class="buffer" [class]="'buffer buffer--' + b.tone"><strong>{{ b.title }}</strong> {{ b.text }}</p>
           }
@@ -133,7 +148,10 @@
       <div class="fact"><span>Mínimo</span><span class="num">{{ formatQuantityWithUnit(p.minStockMilli, p.stockUnit) }}</span></div>
       <div class="fact"><span>Merma aceptada</span><span class="num">{{ formatPercent(p.shrinkageToleranceBps) }}</span></div>
       <div class="fact"><span>Se compra en</span><span>{{ purchaseText() }}</span></div>
-      <div class="fact"><span>Perecedero</span><span>{{ p.isPerishable ? 'Sí' : 'No' }}</span></div>
+      <div class="fact">
+        <span>Perecedero</span>
+        <span>{{ p.isPerishable ? (p.shelfLifeDays ? 'Sí, dura ' + shelfLifeText(p.shelfLifeDays) : 'Sí') : 'No' }}</span>
+      </div>
       <div class="fact"><span>Proveedor habitual</span><span>{{ supplier()?.name ?? '—' }}</span></div>
       @if (p.barcode) {
         <div class="fact"><span>Código de barras</span><span class="num">{{ p.barcode }}</span></div>
