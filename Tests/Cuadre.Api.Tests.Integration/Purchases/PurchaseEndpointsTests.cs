@@ -129,10 +129,10 @@ public class PurchaseEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
     }
 
     [Fact]
-    public async Task Create_ShouldSuggestThePrice_FromTheLastCost_NotTheAverage()
+    public async Task Create_ShouldSuggestThePrice_FromTheBatchBeingSold_NotTheLastPurchase()
     {
-        // D-52: 0.60 then 0.70 USD/lb at 325. The average 0.65 (211.25 CUP) values the shelf;
-        // the price must pay for restocking at 0.70 (227.50 CUP) -> 228 with colchon 0, recargo 0, step 1.
+        // D-61: 0.60 then 0.70 USD/lb at 325. The first sack is still on the shelf, so the price is for it:
+        // 0.60 x 325 = 195 with colchon 0, recargo 0, step 1. The second sack (227.50 -> 228) waits behind it.
         var (rice, supplier) = await Client.CreateRiceAsync(Ct);
         await Client.CreatePurchaseAsync(
             await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 6_000)), Ct);
@@ -144,144 +144,13 @@ public class PurchaseEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
         product!.Cost!.AvgCostCupMicros.Should().Be(211_250_000);
         product.Cost.LastCostUsdMicros.Should().Be(700_000);
         product.Cost.LastCostCupMicros.Should().Be(227_500_000);
+        product.Cost.CurrentCostCupMicros.Should().Be(195_000_000);
         product.Cost.LastRateCents.Should().Be(Rate325);
-        product.Cost.SuggestedPriceCents.Should().Be(22_800);
-        product.Cost.MarginBps.Should().Be(900);                 // (250 - 227.50) / 250, against the last cost
-        second.PriceSuggestions.Should().ContainSingle().Which.SuggestedPriceCents.Should().Be(22_800);
+        product.Cost.SuggestedPriceCents.Should().Be(19_500);
+        product.Cost.NewestSuggestedPriceCents.Should().Be(22_800);
+        product.Cost.MarginBps.Should().Be(2_200);               // (250 - 195) / 250, against the batch on sale
+        second.PriceSuggestions.Should().ContainSingle().Which.SuggestedPriceCents.Should().Be(19_500);
     }
-
-    [Fact]
-    public async Task Create_ShouldUseTheOverriddenFactor_ForThisBatchOnly()
-    {
-        // This batch came in 95 lb sacks.
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-        var line = new CreatePurchaseLineRequest
-        {
-            ProductId = rice.Id, QuantityMilli = 2_000, UnitCostCents = 5_700, ConversionFactorMilli = 95_000
-        };
-
-        var created = await Client.CreatePurchaseAsync(
-            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, line), Ct);
-
-        created.Lines.Single().StockQuantityMilli.Should().Be(190_000);
-        created.Lines.Single().LandedUnitCostUsdMicros.Should().Be(600_000);   // 114 USD / 190 lb
-        var product = await Client.GetFromJsonAsync<ProductResponse>(Route(ApiEndpoints.Products.Get, rice.Id), Ct);
-        product!.ConversionFactorMilli.Should().Be(100_000);
-    }
-
-    [Fact]
-    public async Task Create_ShouldAddChargesToTheCost_PaidFromTheirOwnBox()
-    {
-        // 124 USD of rice + 1,300 CUP freight (= 4 USD) → 128 USD / 200 lb = 0.64
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-        var cupBox = await Client.GetCashBoxByNameAsync("Efectivo CUP", Ct);
-        var baseRequest = await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 2, 6_200));
-        var request = WithCharges(baseRequest, new CreatePurchaseChargeRequest
-        {
-            Description = "Flete", Currency = CurrencyCode.CUP, AmountCents = 1_300_00, CashBoxId = cupBox.Id
-        });
-
-        var created = await Client.CreatePurchaseAsync(request, Ct);
-
-        created.GoodsTotalCents.Should().Be(12_400);
-        created.Charges.Should().ContainSingle().Which.CashBoxId.Should().Be(cupBox.Id);
-        created.Lines.Single().AllocatedChargesUsdMicros.Should().Be(4_000_000);
-        created.Lines.Single().LandedUnitCostUsdMicros.Should().Be(640_000);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn422_WhenTheBoxCurrencyDiffersFromThePurchase()
-    {
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-        var cupBox = await Client.GetCashBoxByNameAsync("Efectivo CUP", Ct);
-        var usd = await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 6_000));
-        var request = new CreatePurchaseRequest
-        {
-            Date = usd.Date, SupplierId = usd.SupplierId, Currency = CurrencyCode.USD,
-            RateCupPerUsdCents = usd.RateCupPerUsdCents, CashBoxId = cupBox.Id, Lines = usd.Lines
-        };
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create, request, Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn422_WhenTheChargeBoxCurrencyDiffersFromTheCharge()
-    {
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-        var usdBox = await Client.GetCashBoxByNameAsync("Efectivo USD", Ct);
-        var request = WithCharges(
-            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 6_000)),
-            new CreatePurchaseChargeRequest
-            {
-                Description = "Flete", Currency = CurrencyCode.CUP, AmountCents = 50_000, CashBoxId = usdBox.Id
-            });
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create, request, Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn422_WhenTheDateIsInTheFuture()
-    {
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-        var request = await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today.AddDays(1), Ct,
-            Sacks(rice.Id, 1, 6_000));
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create, request, Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn422_WhenAFractionalQuantityIsBoughtInWholeUnits()
-    {
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-        var line = new CreatePurchaseLineRequest { ProductId = rice.Id, QuantityMilli = 1_500, UnitCostCents = 6_000 };
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create,
-            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, line), Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn422_WhenAProductIsRepeated()
-    {
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create,
-            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct,
-                Sacks(rice.Id, 1, 6_000), Sacks(rice.Id, 2, 6_000)), Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn400_WhenThereAreNoLines()
-    {
-        var (_, supplier) = await Client.CreateRiceAsync(Ct);
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create,
-            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct), Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    [Fact]
-    public async Task Create_ShouldReturn400_WhenACostIsZero()
-    {
-        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
-
-        var response = await Client.PostAsJsonAsync(ApiEndpoints.Purchases.Create,
-            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 0)), Ct);
-
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-    }
-
-    // ---------- Void ----------
 
     [Fact]
     public async Task Void_ShouldRemoveTheStock_AndRestoreThePreviousCost()

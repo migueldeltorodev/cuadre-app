@@ -1,0 +1,214 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Resumen para el contador</h1>
+    <p class="page-subtitle">El estado de rendimiento del mes y sus totales, en pesos.</p>
+  </div>
+  @if (summary(); as s) {
+    <div class="month-nav" role="group" aria-label="Mes">
+      <button class="btn btn--small" type="button" (click)="go(-1)" [disabled]="loading()" aria-label="Mes anterior">‹</button>
+      <span class="month-nav__name">{{ monthName(s.year, s.month) }}</span>
+      <button class="btn btn--small" type="button" (click)="go(1)" [disabled]="loading() || isCurrent()"
+        aria-label="Mes siguiente">›</button>
+    </div>
+  }
+</header>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (summary(); as s) {
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    <p class="muted">
+      {{ s.closedDays === 1 ? '1 día cerrado' : s.closedDays + ' días cerrados' }}, del {{ formatShortDate(s.from) }}
+      al {{ formatShortDate(s.to) }}. Todo en CUP; lo pagado en USD va aparte y también pasado a CUP.
+    </p>
+
+    @if (s.usdWithoutRateCents > 0) {
+      <p class="alert alert--warn" role="status">
+        Hay {{ formatMoney(s.usdWithoutRateCents, 'USD') }} de gastos sin ninguna tasa cargada antes de su día: quedan
+        fuera de los totales en CUP. <a routerLink="/configuracion/precios-y-moneda">Cargar la tasa</a>
+      </p>
+    }
+
+    <div class="columns-2">
+      <!-- The estado de rendimiento. -->
+      <section class="card" aria-labelledby="statement-title">
+        <h2 class="card__title" id="statement-title">Estado de rendimiento</h2>
+        <dl class="statement">
+          @for (line of statement(); track line.label) {
+            <div class="statement__row" [class.statement__row--total]="line.strong">
+              <dt>
+                <span class="statement__sign" aria-hidden="true">{{ line.sign }}</span>
+                <span>
+                  {{ line.label }}
+                  @if (line.note) {
+                    <span class="statement__note">{{ line.note }}</span>
+                  }
+                </span>
+              </dt>
+              <dd class="num" [class.negative]="line.sign === '=' && line.cents < 0">{{ lineAmount(line) }}</dd>
+            </div>
+          }
+        </dl>
+        <p class="card__lead">
+          @if (s.bufferCents > 0) {
+            El colchón cobrado en los precios ({{ formatMoney(s.bufferCents) }}) no es un costo: quedó guardado en
+            Reposición para cuando suba la tasa.
+          }
+          @if (s.lostShortageCents > 0) {
+            Los faltantes de caja perdidos ({{ formatMoney(s.lostShortageCents) }}) no se restan: los ingresos ya son
+            lo que se cobró de verdad, así que ya faltan ahí.
+          }
+        </p>
+      </section>
+
+      <div class="side">
+        <!-- Income by payment method. -->
+        <section class="card" aria-labelledby="income-title">
+          <h2 class="card__title" id="income-title">Ingresos por forma de cobro</h2>
+          @if (s.income.length > 0) {
+            @for (method of s.income; track method.paymentMethodId) {
+              <div class="fact">
+                <span>{{ method.name }} <span class="muted-inline">· {{ method.isTransfer ? 'banco' : 'efectivo' }}</span></span>
+                <span class="num">{{ formatMoney(method.amountCents) }}</span>
+              </div>
+            }
+            <div class="fact fact--total">
+              <span>Total</span>
+              <span class="num">{{ formatMoney(s.incomeCents) }}</span>
+            </div>
+          } @else {
+            <p class="muted">No hay cierres en este mes.</p>
+          }
+        </section>
+
+        <!-- Suggested taxes (D-62). -->
+        <section class="card" aria-labelledby="taxes-title">
+          <div class="card__head">
+            <h2 class="card__title" id="taxes-title">Impuestos sugeridos</h2>
+            <a class="link" routerLink="/configuracion/impuestos">Configurar</a>
+          </div>
+          @if (s.taxes.length > 0) {
+            @for (tax of s.taxes; track tax.taxId) {
+              <div class="fact">
+                <span>
+                  {{ tax.name }}
+                  <span class="muted-inline num">
+                    · {{ formatPercent(tax.rateBps) }} de {{ formatMoney(tax.baseCents) }}
+                    {{ tax.base === 'Sales' ? '(ventas)' : '(ganancia)' }}
+                  </span>
+                </span>
+                <span class="num">{{ formatMoney(tax.amountCents) }}</span>
+              </div>
+            }
+            <p class="card__lead">Es lo que convendría apartar. El reparto de los sobres no cambia por esto.</p>
+          } @else {
+            <p class="muted">No hay impuestos activos: no se sugiere apartar nada.</p>
+          }
+        </section>
+      </div>
+    </div>
+
+    <!-- Expenses by category. -->
+    <section class="table-card" aria-labelledby="expenses-title">
+      <div class="table-card__head">
+        <h2 class="section-title" id="expenses-title">Gastos por categoría</h2>
+        <a class="link" routerLink="/gastos">Ver gastos</a>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Categoría</th>
+            <th class="end">En CUP</th>
+            @if (hasUsdExpenses()) {
+              <th class="end">En USD</th>
+              <th class="end">USD en CUP</th>
+            }
+            <th class="end">Total CUP</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (expense of s.expenses; track expense.categoryId) {
+            <tr>
+              <td>{{ expense.categoryName }}</td>
+              <td class="end num">{{ formatMoney(expense.cupCents) }}</td>
+              @if (hasUsdExpenses()) {
+                <td class="end num">{{ expense.usdCents ? formatMoney(expense.usdCents, 'USD') : '—' }}</td>
+                <td class="end num">{{ expense.usdCents ? formatMoney(expense.usdAsCupCents) : '—' }}</td>
+              }
+              <td class="end num strong">{{ formatMoney(expense.totalCupCents) }}</td>
+            </tr>
+          } @empty {
+            <tr><td [attr.colspan]="hasUsdExpenses() ? 5 : 3" class="none">No hubo gastos en este mes.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <div class="columns-2">
+      <!-- Purchases. -->
+      <section class="card" aria-labelledby="purchases-title">
+        <div class="card__head">
+          <h2 class="card__title" id="purchases-title">Compras del mes</h2>
+          <a class="link" routerLink="/compras">Ver compras</a>
+        </div>
+        <p class="card__lead">
+          Mercadería y cargos (flete, descarga…). Lo pagado en USD, con la tasa de cada compra.
+        </p>
+        <div class="fact"><span>Compras</span><span class="num">{{ s.purchases.count }}</span></div>
+        <div class="fact"><span>Pagado en CUP</span><span class="num">{{ formatMoney(s.purchases.cupCents) }}</span></div>
+        <div class="fact">
+          <span>Pagado en USD</span>
+          <span class="num">
+            {{ formatMoney(s.purchases.usdCents, 'USD') }}
+            <span class="muted-inline">= {{ formatMoney(s.purchases.usdAsCupCents) }}</span>
+          </span>
+        </div>
+        <div class="fact fact--total">
+          <span>Total en CUP</span>
+          <span class="num">{{ formatMoney(s.purchases.totalCupCents) }}</span>
+        </div>
+      </section>
+
+      <!-- Inventory at cost. -->
+      <section class="card" aria-labelledby="inventory-title">
+        <h2 class="card__title" id="inventory-title">Mercadería a costo</h2>
+        <p class="card__lead">
+          Lo que había en cada lugar, a lo que costó (sin colchón): al empezar el mes y al terminarlo.
+        </p>
+        <table class="mini">
+          <thead>
+            <tr>
+              <th>Ubicación</th>
+              <th class="end">Al empezar</th>
+              <th class="end">Al terminar</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (location of s.inventory; track location.locationId) {
+              <tr>
+                <td>{{ location.locationName }}</td>
+                <td class="end num">{{ formatMoney(location.openingCents) }}</td>
+                <td class="end num">{{ formatMoney(location.closingCents) }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="3" class="none">No había mercadería.</td></tr>
+            }
+          </tbody>
+          @if (s.inventory.length > 1) {
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td class="end num">{{ formatMoney(s.openingInventoryCents) }}</td>
+                <td class="end num">{{ formatMoney(s.closingInventoryCents) }}</td>
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </section>
+    </div>
+  </div>
+} @else if (!loadError()) {
+  <p class="muted">Cargando…</p>
+}

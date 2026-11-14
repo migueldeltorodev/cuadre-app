@@ -4,6 +4,7 @@ import {
   PriceChangeResponse,
   ProfitFirstEvaluationResponse,
   ShoppingListItemResponse,
+  TaxBaseCode,
   UnitCode,
 } from './models';
 
@@ -241,4 +242,85 @@ export interface CostChangesReportResponse {
   from: string;
   to: string;
   items: ProductCostChangeResponse[];
+}
+
+// ---------- Accountant summary (D-63) ----------
+
+export interface IncomeByMethodResponse {
+  paymentMethodId: string;
+  name: string;
+  /** It landed in a bank box. */
+  isTransfer: boolean;
+  amountCents: number;
+}
+
+/** One expense category: each currency apart, and the USD ones also in CUP at the rate of their day. */
+export interface ConvertedExpenseTotalResponse {
+  categoryId: string;
+  categoryName: string;
+  cupCents: number;
+  usdCents: number;
+  usdAsCupCents: number;
+  /** USD with no rate on or before their day: not in totalCupCents until one is typed. */
+  usdWithoutRateCents: number;
+  totalCupCents: number;
+}
+
+export interface TaxSuggestionResponse {
+  taxId: string;
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+  baseCents: number;
+  amountCents: number;
+}
+
+/** Goods + charges of the confirmed purchases. USD at the rate of each purchase. */
+export interface PurchaseTotalsResponse {
+  count: number;
+  cupCents: number;
+  usdCents: number;
+  usdAsCupCents: number;
+  totalCupCents: number;
+}
+
+/** At FIFO cost, without colchón: the day before the 1st and the last day. */
+export interface LocationInventoryResponse {
+  locationId: string;
+  locationName: string;
+  openingCents: number;
+  closingCents: number;
+}
+
+/** The estado de rendimiento of a month (D-63). Money in CUP cents. */
+export interface AccountantSummaryResponse {
+  year: number;
+  month: number;
+  from: string;
+  to: string;
+  closedDays: number;
+  income: IncomeByMethodResponse[];
+  incomeCents: number;
+  /** Real FIFO cost, without the colchón. */
+  costOfSalesCents: number;
+  /** The colchón kept in Reposición: not a cost. */
+  bufferCents: number;
+  grossProfitCents: number;
+  expenses: ConvertedExpenseTotalResponse[];
+  expensesCents: number;
+  usdWithoutRateCents: number;
+  staffPayCents: number;
+  merchandiseLossCents: number;
+  countGainCents: number;
+  /** Informative: already missing from the income. */
+  lostShortageCents: number;
+  profitBeforeTaxesCents: number;
+  /** Only the active taxes: a suggestion, nothing is moved. */
+  taxes: TaxSuggestionResponse[];
+  taxesCents: number;
+  profitAfterTaxesCents: number;
+  purchases: PurchaseTotalsResponse;
+  inventory: LocationInventoryResponse[];
+  openingInventoryCents: number;
+  closingInventoryCents: number;
 }

@@ -33,5 +33,6 @@ public enum AuditSubjectCode
     ExchangeRate,
     Envelope,
     Employee,
-    ExpenseCategory
+    ExpenseCategory,
+    Tax
 }

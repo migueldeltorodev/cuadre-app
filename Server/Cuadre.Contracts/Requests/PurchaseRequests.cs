@@ -75,3 +75,10 @@ public class SetSalePriceRequest
     /// <summary>Set when accepting a suggestion after that purchase: the history records "Compra".</summary>
     public Guid? PurchaseId { get; init; }
 }
+
+/// <summary>D-61: take the notice's suggested price (in force from today) or keep the price as it is.</summary>
+public class ResolvePriceNoticeRequest
+{
+    public required PriceNoticeKindCode Kind { get; init; }
+    public required bool AcceptSuggested { get; init; }
+}

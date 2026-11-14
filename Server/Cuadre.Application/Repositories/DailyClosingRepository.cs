@@ -172,16 +172,16 @@ public class DailyClosingRepository : IDailyClosingRepository
                    COALESCE(d.out_milli, 0) AS out_milli,
                    COALESCE((SELECT h.price_cents FROM product_price_changes h
                              WHERE h.product_id = p.id AND h.effective_date <= @date
-                             ORDER BY h.effective_date DESC, h.created_at DESC
+                             -- rowid breaks a tie of two changes in the same millisecond: the later one wins.
+                             ORDER BY h.effective_date DESC, h.created_at DESC, h.rowid DESC
                              LIMIT 1), p.sale_price_cents) AS unit_price_cents,
                    p.shrinkage_tolerance_bps AS tolerance_bps,
-                   pc.last_cost_usd_micros, pc.last_cost_cup_micros
+                   p.exchange_buffer_cents
             FROM keys k
                 JOIN products p ON p.id = k.product_id
                 JOIN counters l ON l.id = k.location_id
                 LEFT JOIN opening o ON o.product_id = k.product_id AND o.location_id = k.location_id
                 LEFT JOIN day d ON d.product_id = k.product_id AND d.location_id = k.location_id
-                LEFT JOIN product_costs pc ON pc.product_id = k.product_id
             ORDER BY l.name, p.name
             """, new { date }, cancellationToken: cancellationToken));
         return lines.ToList();
@@ -252,11 +252,11 @@ public class DailyClosingRepository : IDailyClosingRepository
                 INSERT INTO daily_closing_lines (id, closing_id, line_no, product_id, location_id, stock_unit,
                     opening_milli, in_milli, out_milli, expected_milli, counted_milli, sold_milli,
                     unit_price_cents, sales_cents, tolerance_bps, tolerance_cents,
-                    unit_cost_usd_micros, unit_cost_cup_micros, cost_cents)
+                    unit_cost_usd_micros, unit_cost_cup_micros, cost_cents, buffer_cents)
                 VALUES (@Id, @ClosingId, @LineNo, @ProductId, @LocationId, @StockUnit,
                     @OpeningMilli, @InMilli, @OutMilli, @ExpectedMilli, @CountedMilli, @SoldMilli,
                     @UnitPriceCents, @SalesCents, @ToleranceBps, @ToleranceCents,
-                    @UnitCostUsdMicros, @UnitCostCupMicros, @CostCents)
+                    @UnitCostUsdMicros, @UnitCostCupMicros, @CostCents, @BufferCents)
                 """, new
             {
                 line.Id,
@@ -277,7 +277,8 @@ public class DailyClosingRepository : IDailyClosingRepository
                 line.ToleranceCents,
                 line.UnitCostUsdMicros,
                 line.UnitCostCupMicros,
-                line.CostCents
+                line.CostCents,
+                line.BufferCents
             }, transaction, cancellationToken: cancellationToken));
         }
 
@@ -364,7 +365,7 @@ public class DailyClosingRepository : IDailyClosingRepository
                    l.location_id, loc.name AS location_name, l.stock_unit,
                    l.opening_milli, l.in_milli, l.out_milli, l.expected_milli, l.counted_milli, l.sold_milli,
                    l.unit_price_cents, l.sales_cents, l.tolerance_bps, l.tolerance_cents,
-                   l.unit_cost_usd_micros, l.unit_cost_cup_micros, l.cost_cents
+                   l.unit_cost_usd_micros, l.unit_cost_cup_micros, l.cost_cents, l.buffer_cents
             FROM daily_closing_lines l
                 JOIN products p ON p.id = l.product_id
                 JOIN locations loc ON loc.id = l.location_id

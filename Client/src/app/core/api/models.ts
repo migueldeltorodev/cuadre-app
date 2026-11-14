@@ -182,19 +182,27 @@ export interface ProductResponse {
 
 /**
  * Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit.
- * D-52: the suggested price, the margin and the colchón alert use the LAST purchase's cost and rate;
- * the weighted average is what the stock on the shelf cost.
+ * D-52: the suggested price, the margin and the colchón alert use the LAST purchase's cost and rate.
+ * D-60: what leaves the shelf is costed FIFO; `currentCost...` is the batch being sold now.
  */
 export interface ProductCostResponse {
   avgCostUsdMicros: number;
   avgCostCupMicros: number;
   lastCostUsdMicros: number;
   lastCostCupMicros: number;
+  /** D-60: the batch being sold now (the oldest with stock; with an empty shelf, the newest). */
+  currentCostUsdMicros: number;
+  currentCostCupMicros: number;
   /** The last purchase's rate, CUP cents per USD. */
   lastRateCents: number;
+  /** D-61: the rate of the batch being sold, base of the suggested price and the colchón alert. */
+  currentRateCents: number;
   effectiveBufferCents: number;
   effectiveMarkupBps: number;
+  /** D-61: from the batch being sold. */
   suggestedPriceCents: number;
+  /** D-61: what the newest batch (bought, maybe still waiting) would need. */
+  newestSuggestedPriceCents: number;
   marginBps: number | null;
   todayRateCents: number | null;
   isBufferExceeded: boolean;
@@ -1074,7 +1082,10 @@ export interface DailyClosingLineResponse {
   salesCents: number;
   toleranceBps: number;
   toleranceCents: number;
+  /** A2 of the line: FIFO cost + the colchón. */
   costCents: number;
+  /** The colchón part of costCents (D-60); 0 on closings made before it. */
+  bufferCents: number;
 }
 
 export interface DailyClosingCollectionResponse {
@@ -1403,4 +1414,57 @@ export interface ConfirmRecurringExpenseRequest {
   amountCents?: number | null;
   cashBoxId?: string | null;
   notes?: string | null;
+}
+
+/** D-61: why a price needs a look. */
+export type PriceNoticeKind = 'BatchChanged' | 'NewBatchCostlier';
+
+/** D-61: a price to look at. The app never changes a price by itself. */
+export interface PriceNoticeResponse {
+  productId: string;
+  productCode: string;
+  productName: string;
+  kind: PriceNoticeKind;
+  salePriceCents: number | null;
+  suggestedPriceCents: number;
+  /** The batch the notice is about: CUP cost per stock unit, in millionths. */
+  batchCostCupMicros: number;
+  batchRateCents: number;
+  stockUnit: UnitCode;
+}
+
+export interface ResolvePriceNoticeRequest {
+  kind: PriceNoticeKind;
+  /** true = use the suggested price from today; false = keep the price. */
+  acceptSuggested: boolean;
+}
+
+// ---------- Taxes (D-62) ----------
+
+/** Sales = over what was collected (A1); Profit = over the profit before taxes (never below 0). */
+export type TaxBaseCode = 'Sales' | 'Profit';
+
+/** Only a suggestion of how much to set aside: Profit First splits the same with or without it. */
+export interface TaxResponse {
+  id: string;
+  name: string;
+  /** Basis points: 1000 = 10 %. */
+  rateBps: number;
+  base: TaxBaseCode;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaxRequest {
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+}
+
+export interface UpdateTaxRequest {
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+  isActive: boolean;
 }

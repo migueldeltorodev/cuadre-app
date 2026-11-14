@@ -32,6 +32,8 @@ public class StockOperationService : IStockOperationService
     private readonly ILocationRepository _locationRepository;
     private readonly IEnvelopeRepository _envelopeRepository;
     private readonly ICashBoxRepository _cashBoxRepository;
+    private readonly ICostingRepository _costingRepository;
+    private readonly IBusinessSettingsRepository _settingsRepository;
     private readonly IValidator<StockOperation> _validator;
     private readonly IValidator<VoidStockOperation> _voidValidator;
     private readonly IValidator<GetAllStockOperationsOptions> _optionsValidator;
@@ -41,6 +43,7 @@ public class StockOperationService : IStockOperationService
     public StockOperationService(IStockOperationRepository repository, IInventoryRepository inventoryRepository,
         IProductRepository productRepository, ILocationRepository locationRepository,
         IEnvelopeRepository envelopeRepository, ICashBoxRepository cashBoxRepository,
+        ICostingRepository costingRepository, IBusinessSettingsRepository settingsRepository,
         IValidator<StockOperation> validator, IValidator<VoidStockOperation> voidValidator,
         IValidator<GetAllStockOperationsOptions> optionsValidator, IClosedDayGuard closedDayGuard, TimeProvider clock)
     {
@@ -50,6 +53,8 @@ public class StockOperationService : IStockOperationService
         _locationRepository = locationRepository;
         _envelopeRepository = envelopeRepository;
         _cashBoxRepository = cashBoxRepository;
+        _costingRepository = costingRepository;
+        _settingsRepository = settingsRepository;
         _validator = validator;
         _voidValidator = voidValidator;
         _optionsValidator = optionsValidator;
@@ -193,8 +198,8 @@ public class StockOperationService : IStockOperationService
     }
 
     /// <summary>
-    /// Consumo de la casa (RN-11, D-13): an owner's withdrawal in kind. Its value at the LAST cost (D-54) leaves the
-    /// Dueño envelope and goes to Reposición, because those goods have to be bought again. No cash actually moves, so both
+    /// Consumo de la casa (RN-11, D-13): an owner's withdrawal in kind. Its value (FIFO + colchón, like A2: D-60)
+    /// leaves the Dueño envelope and goes to Reposición, because those goods have to be bought again. No cash actually moves, so both
     /// rows go to the same box: the main CUP cash box. Products never bought have no cost and move nothing.
     /// </summary>
     private async Task<Result<List<CashMovement>>> HouseConsumptionMovementsAsync(StockOperation operation,
@@ -267,8 +272,9 @@ public class StockOperationService : IStockOperationService
 
     /// <summary>
     /// Loads each product, converts what was typed into stock units (exact, and whole for countable units),
-    /// fills the count's expected/counted and snapshots the cost where a value is needed (D-54: the last cost for
-    /// house consumption, which funds Reposición; the average for losses and count differences, what they cost).
+    /// fills the count's expected/counted and snapshots the cost where a value is needed (D-60). What leaves takes
+    /// the oldest batches first, at what they cost: a loss is worth what it cost. House consumption adds the
+    /// colchón, like A2, because it funds Reposición. A count surplus enters at the newest batch's cost.
     /// Inactive products are allowed: their leftover stock still has to be moved, written off or counted.
     /// </summary>
     private async Task<Result> ResolveLinesAsync(StockOperation operation, CancellationToken cancellationToken)
@@ -284,6 +290,13 @@ public class StockOperationService : IStockOperationService
             ? await _inventoryRepository.GetBalancesAsync(operation.LocationId,
                 operation.Lines.Select(line => line.ProductId), operation.Date, cancellationToken)
             : new Dictionary<Guid, long>();
+
+        var settings = await _settingsRepository.GetAsync(cancellationToken)
+                       ?? throw new InvalidOperationException("The settings row is missing: the seeder did not run.");
+        var books = operation.Kind == StockOperationKind.Transfer
+            ? new Dictionary<Guid, FifoBook>()
+            : await _costingRepository.GetBooksAsync(operation.Lines.Select(line => line.ProductId).ToList(),
+                operation.Date, cancellationToken);
 
         var lineNo = 1;
         foreach (var line in operation.Lines)
@@ -328,9 +341,15 @@ public class StockOperationService : IStockOperationService
             // The value of what left (exit) or of the difference found (count), at the cost of that moment.
             if (operation.Kind != StockOperationKind.Transfer && line.QuantityMilli != 0)
             {
-                var cost = operation.ExitReason == ExitReason.HouseConsumption
-                    ? product.LastCost ?? product.AverageCost
-                    : product.AverageCost;
+                var book = books[line.ProductId];
+                var cost = operation.Kind == StockOperationKind.Count && line.QuantityMilli > 0
+                    ? book.NewestCost
+                    : book.Take(Math.Abs(line.QuantityMilli), operation.Date).UnitCost(book.NewestCost);
+                if (cost is not null && operation.ExitReason == ExitReason.HouseConsumption)
+                {
+                    cost = FifoCosting.WithBuffer(cost, product.ExchangeBufferCents ?? settings.ExchangeBufferCents);
+                }
+
                 line.UnitCostUsdMicros = cost?.UsdMicros;
                 line.UnitCostCupMicros = cost?.CupMicros;
             }

@@ -45,6 +45,28 @@ public interface IReportRepository
     /// <summary>Many products, with their code, name, unit and current price.</summary>
     Task<IReadOnlyList<PurchasePoint>> GetPurchasePointsAsync(GetCostChangesOptions options,
         CancellationToken cancellationToken = default);
+
+    // ---------- Accountant summary (D-63) ----------
+
+    /// <summary>What the closings collected with each payment method, the biggest first.</summary>
+    Task<IReadOnlyList<IncomeByMethod>> GetIncomeByMethodAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>A2 of the closings and the colchón inside it.</summary>
+    Task<CostOfSalesSplit> GetCostOfSalesSplitAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Every confirmed expense, with the rate of its day (or the last one before) for the USD ones.</summary>
+    Task<IReadOnlyList<ExpenseLine>> GetExpenseLinesAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The goods and the charges of every confirmed purchase, with the purchase's rate.</summary>
+    Task<IReadOnlyList<PurchaseAmountRow>> GetPurchaseAmountRowsAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The goods of each location at the end of <paramref name="date"/>, at FIFO cost (D-60).</summary>
+    Task<IReadOnlyList<LocationValue>> GetInventoryValueAsync(DateOnly date,
+        CancellationToken cancellationToken = default);
 }
 
 public class ReportRepository : IReportRepository
@@ -299,6 +321,113 @@ public class ReportRepository : IReportRepository
                 supplierId = options.SupplierId
             }, cancellationToken: cancellationToken));
         return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<IncomeByMethod>> GetIncomeByMethodAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<IncomeRow>(new CommandDefinition("""
+            SELECT m.id AS payment_method_id, m.name, MAX(cc.is_transfer) AS is_transfer,
+                   SUM(cc.amount_cents) AS amount_cents
+            FROM daily_closing_collections cc
+                JOIN daily_closings c ON c.id = cc.closing_id
+                JOIN payment_methods m ON m.id = cc.payment_method_id
+            WHERE c.status = 'Confirmed' AND c.date BETWEEN @from AND @to
+            GROUP BY m.id, m.name
+            HAVING SUM(cc.amount_cents) <> 0
+            ORDER BY SUM(cc.amount_cents) DESC, m.name
+            """, new { from, to }, cancellationToken: cancellationToken));
+        return rows
+            .Select(row => new IncomeByMethod(row.PaymentMethodId, row.Name, row.IsTransfer, row.AmountCents))
+            .ToList();
+    }
+
+    public async Task<CostOfSalesSplit> GetCostOfSalesSplitAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QuerySingleAsync<CostOfSalesSplit>(new CommandDefinition("""
+            SELECT (SELECT COALESCE(SUM(c.cost_of_sales_cents), 0)
+                    FROM daily_closings c
+                    WHERE c.status = 'Confirmed' AND c.date BETWEEN @from AND @to) AS cost_cents,
+                   (SELECT COALESCE(SUM(l.buffer_cents), 0)
+                    FROM daily_closing_lines l
+                        JOIN daily_closings c ON c.id = l.closing_id
+                    WHERE c.status = 'Confirmed' AND c.date BETWEEN @from AND @to) AS buffer_cents
+            """, new { from, to }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<ExpenseLine>> GetExpenseLinesAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<ExpenseLine>(new CommandDefinition("""
+            SELECT x.category_id, c.name AS category_name, x.date, b.currency, x.amount_cents,
+                   CASE WHEN b.currency = 'USD'
+                        THEN (SELECT r.cup_per_usd_cents FROM exchange_rates r
+                              WHERE r.date <= x.date ORDER BY r.date DESC LIMIT 1)
+                   END AS rate_cents
+            FROM expenses x
+                JOIN expense_categories c ON c.id = x.category_id
+                JOIN cash_boxes b ON b.id = x.cash_box_id
+            WHERE x.status = 'Confirmed' AND x.date BETWEEN @from AND @to
+            ORDER BY x.date, x.number
+            """, new { from, to }, cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<PurchaseAmountRow>> GetPurchaseAmountRowsAsync(DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<PurchaseAmountRow>(new CommandDefinition("""
+            SELECT pu.id AS purchase_id, pu.currency, pu.goods_total_cents AS amount_cents,
+                   pu.rate_cup_per_usd_cents AS rate_cents
+            FROM purchases pu
+            WHERE pu.status = 'Confirmed' AND pu.date BETWEEN @from AND @to
+            UNION ALL
+            SELECT pu.id, ch.currency, ch.amount_cents, pu.rate_cup_per_usd_cents
+            FROM purchase_charges ch
+                JOIN purchases pu ON pu.id = ch.purchase_id
+            WHERE pu.status = 'Confirmed' AND pu.date BETWEEN @from AND @to
+            """, new { from, to }, cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
+
+    public async Task<IReadOnlyList<LocationValue>> GetInventoryValueAsync(DateOnly date,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Same exclusions as the FIFO replay: a voided document never happened, its reversals neither.
+        var rows = (await connection.QueryAsync<InventoryRow>(new CommandDefinition("""
+            SELECT m.product_id, m.location_id, l.name AS location_name, SUM(m.quantity_milli) AS quantity_milli
+            FROM stock_movements m
+                JOIN locations l ON l.id = m.location_id
+                LEFT JOIN purchases p ON p.id = m.purchase_id
+                LEFT JOIN stock_operations o ON o.id = m.operation_id
+                LEFT JOIN daily_closings c ON c.id = m.closing_id
+            WHERE m.date <= @date
+              AND (p.id IS NULL OR p.status = 'Confirmed')
+              AND (o.id IS NULL OR o.status = 'Confirmed')
+              AND (c.id IS NULL OR c.status = 'Confirmed')
+            GROUP BY m.product_id, m.location_id, l.name
+            HAVING SUM(m.quantity_milli) <> 0
+            ORDER BY m.product_id, l.name
+            """, new { date }, cancellationToken: cancellationToken))).ToList();
+
+        var books = await FifoLedger.LoadAsync(connection, null, rows.Select(row => row.ProductId).ToList(), date,
+            cancellationToken);
+        return InventoryValuation.ByLocation(rows, books);
+    }
+
+    private class IncomeRow
+    {
+        public Guid PaymentMethodId { get; init; }
+        public string Name { get; init; } = "";
+        public bool IsTransfer { get; init; }
+        public long AmountCents { get; init; }
     }
 
     private class MonthClosingRow

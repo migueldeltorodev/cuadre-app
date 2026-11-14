@@ -69,6 +69,23 @@ public class Product
 
     public long? LastCostCupMicros { get; init; }
 
+    /// <summary>D-60: the FIFO batch being sold now (oldest with stock; else the newest). Null until the first purchase.</summary>
+    public long? CurrentCostUsdMicros { get; init; }
+
+    public long? CurrentCostCupMicros { get; init; }
+
+    /// <summary>The purchase line of the batch being sold now. Null with an empty shelf or a batch from a count.</summary>
+    public Guid? CurrentPurchaseLineId { get; init; }
+
+    /// <summary>The newest purchase line (its batch has the "last cost"). Null if never bought.</summary>
+    public Guid? LastPurchaseLineId { get; init; }
+
+    /// <summary>D-61: the batch the current price was decided for.</summary>
+    public Guid? PriceReviewedLineId { get; init; }
+
+    /// <summary>D-61: the newest batch whose "it will not fit in the price" warning was dismissed.</summary>
+    public Guid? CostlierSeenLineId { get; init; }
+
     public DateOnly? LastPurchaseDate { get; init; }
 
     public UnitCost? AverageCost =>
@@ -76,6 +93,9 @@ public class Product
 
     public UnitCost? LastCost =>
         LastCostUsdMicros is { } usd && LastCostCupMicros is { } cup ? new UnitCost(usd, cup) : null;
+
+    public UnitCost? CurrentCost =>
+        CurrentCostUsdMicros is { } usd && CurrentCostCupMicros is { } cup ? new UnitCost(usd, cup) : null;
 
     /// <summary>Suggested price, margin, colchón alert. Computed by the service; null without purchases.</summary>
     public ProductPricing? Pricing { get; set; }
@@ -114,3 +134,6 @@ public class GetAllProductsOptions
 
 /// <summary>Accepting a suggested price (RF-CMP-04) or a quick manual change from the product screen.</summary>
 public sealed record SetSalePrice(Guid ProductId, long SalePriceCents, Guid? PurchaseId);
+
+/// <summary>D-61: answer a price notice: take the suggested price (from today) or keep the price as it is.</summary>
+public sealed record ResolvePriceNotice(Guid ProductId, PriceNoticeKind Kind, bool AcceptSuggested);

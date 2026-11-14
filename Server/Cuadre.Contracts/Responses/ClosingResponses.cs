@@ -93,6 +93,9 @@ public class DailyClosingLineResponse
     public required int ToleranceBps { get; init; }
     public required long ToleranceCents { get; init; }
     public required long CostCents { get; init; }
+
+    /// <summary>The colchón part of CostCents (D-60): USD cost × colchón. Reposición keeps it.</summary>
+    public long BufferCents { get; init; }
 }
 
 public class DailyClosingCollectionResponse

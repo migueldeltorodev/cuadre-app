@@ -60,6 +60,7 @@ function linkFor(entry: AuditEventResponse): string[] | null {
     Envelope: () => ['/configuracion/profit-first'],
     Employee: () => ['/configuracion/personal'],
     ExpenseCategory: () => ['/configuracion/gastos'],
+    Tax: () => ['/configuracion/impuestos'],
   };
   return subjects[entry.subject]();
 }

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { ApiError, toApiError } from '../../core/api/api-error';
 import { EnvelopesApi } from '../../core/api/envelopes-api';
+import { ReportsApi } from '../../core/api/reports-api';
 import {
   CashMovementResponse,
   CurrencyCode,
@@ -68,6 +69,7 @@ interface EnvelopeCard {
 export default class SobresPage implements OnInit {
   private readonly api = inject(EnvelopesApi);
   private readonly dialog = inject(Dialog);
+  private readonly reportsApi = inject(ReportsApi);
 
   protected readonly formatShortDate = formatShortDate;
   protected readonly formatHundredths = formatHundredths;
@@ -79,6 +81,12 @@ export default class SobresPage implements OnInit {
   protected readonly overview = signal<EnvelopeOverviewResponse | null>(null);
   private readonly movements = signal<CashMovementResponse[]>([]);
   protected readonly loadError = signal<ApiError | null>(null);
+
+  /**
+   * D-62: what the active taxes suggest setting aside this month (from the accountant summary). Null when there
+   * are no active taxes or nothing to set aside: then the Impuestos card shows nothing extra.
+   */
+  protected readonly taxSuggestion = signal<number | null>(null);
 
   /** What the last saved operation left behind (and its negative-balance warnings, RF-PF-08). */
   protected readonly lastSaved = signal<EnvelopeOperationResponse | null>(null);
@@ -174,6 +182,12 @@ export default class SobresPage implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    // A hint only: if it fails, the page works the same without it.
+    this.reportsApi.accountant().subscribe({
+      next: (summary) =>
+        this.taxSuggestion.set(summary.taxes.length > 0 && summary.taxesCents > 0 ? summary.taxesCents : null),
+      error: () => this.taxSuggestion.set(null),
+    });
   }
 
   protected open(kind: EnvelopeDialogKind, envelopeId?: string): void {

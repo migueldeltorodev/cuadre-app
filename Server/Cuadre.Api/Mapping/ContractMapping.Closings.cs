@@ -202,7 +202,8 @@ public static partial class ContractMapping
                 SalesCents = line.SalesCents,
                 ToleranceBps = line.ToleranceBps,
                 ToleranceCents = line.ToleranceCents,
-                CostCents = line.CostCents
+                CostCents = line.CostCents,
+                BufferCents = line.BufferCents
             }).ToList(),
             Collections = closing.Collections.Select(collection => new DailyClosingCollectionResponse
             {

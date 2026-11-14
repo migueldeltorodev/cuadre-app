@@ -13,6 +13,10 @@ public interface IReportService
     /// <summary>RF-REP-05 and RF-REP-07. Without year/month: this month.</summary>
     Task<MonthlyReport> GetMonthlyAsync(int? year, int? month, CancellationToken cancellationToken = default);
 
+    /// <summary>D-63: the estado de rendimiento of a month for the accountant. Without year/month: this month.</summary>
+    Task<AccountantSummary> GetAccountantSummaryAsync(int? year, int? month,
+        CancellationToken cancellationToken = default);
+
     /// <summary>RF-REP-08.</summary>
     Task<LossReport> GetLossesAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken = default);
 
@@ -34,6 +38,7 @@ public class ReportService : IReportService
     private readonly IReportRepository _repository;
     private readonly IEvaluationService _evaluationService;
     private readonly IProductRepository _productRepository;
+    private readonly ITaxRepository _taxRepository;
     private readonly IValidator<GetMonthlyReportOptions> _monthlyValidator;
     private readonly IValidator<ReportPeriodOptions> _periodValidator;
     private readonly IValidator<GetProductRankingOptions> _rankingValidator;
@@ -42,7 +47,8 @@ public class ReportService : IReportService
     private readonly TimeProvider _clock;
 
     public ReportService(IReportRepository repository, IEvaluationService evaluationService,
-        IProductRepository productRepository, IValidator<GetMonthlyReportOptions> monthlyValidator,
+        IProductRepository productRepository, ITaxRepository taxRepository,
+        IValidator<GetMonthlyReportOptions> monthlyValidator,
         IValidator<ReportPeriodOptions> periodValidator, IValidator<GetProductRankingOptions> rankingValidator,
         IValidator<GetProductCostHistoryOptions> costHistoryValidator,
         IValidator<GetCostChangesOptions> costChangesValidator, TimeProvider clock)
@@ -50,6 +56,7 @@ public class ReportService : IReportService
         _repository = repository;
         _evaluationService = evaluationService;
         _productRepository = productRepository;
+        _taxRepository = taxRepository;
         _monthlyValidator = monthlyValidator;
         _periodValidator = periodValidator;
         _rankingValidator = rankingValidator;
@@ -61,19 +68,7 @@ public class ReportService : IReportService
     public async Task<MonthlyReport> GetMonthlyAsync(int? year, int? month,
         CancellationToken cancellationToken = default)
     {
-        var today = _clock.Today();
-        var options = new GetMonthlyReportOptions
-        {
-            Year = year ?? today.Year,
-            Month = month ?? today.Month,
-            Today = today
-        };
-        await _monthlyValidator.ValidateOrThrowAsync(options, cancellationToken);
-
-        // The current month runs up to today; a past one, to its last day.
-        var from = new DateOnly(options.Year, options.Month, 1);
-        var lastDay = from.AddMonths(1).AddDays(-1);
-        var to = lastDay < today ? lastDay : today;
+        var (options, from, to) = await MonthAsync(year, month, cancellationToken);
 
         var evaluation = await _evaluationService.GetAsync(from, to, cancellationToken);
         var (losses, _) = LossReport.Classify(
@@ -97,6 +92,39 @@ public class ReportService : IReportService
             losses.Sum(x => x.CostCents),
             await _repository.GetDaysAsync(from, to, cancellationToken),
             trend);
+    }
+
+    public async Task<AccountantSummary> GetAccountantSummaryAsync(int? year, int? month,
+        CancellationToken cancellationToken = default)
+    {
+        var (options, from, to) = await MonthAsync(year, month, cancellationToken);
+
+        var days = await _repository.GetDaysAsync(from, to, cancellationToken);
+        var (losses, countGain) = LossReport.Classify(
+            await _repository.GetStockLossRowsAsync(from, to, null, cancellationToken));
+        var discrepancies = await _repository.GetDiscrepancySummaryAsync(from, to, cancellationToken);
+
+        // The opening is how the month found the shelves: the end of the day before the 1st.
+        var inventory = LocationInventory.Join(
+            await _repository.GetInventoryValueAsync(from.AddDays(-1), cancellationToken),
+            await _repository.GetInventoryValueAsync(to, cancellationToken));
+
+        return AccountantSummary.Create(
+            options.Year,
+            options.Month,
+            from,
+            to,
+            days.Count,
+            await _repository.GetIncomeByMethodAsync(from, to, cancellationToken),
+            await _repository.GetCostOfSalesSplitAsync(from, to, cancellationToken),
+            ConvertedExpenseTotal.Summarize(await _repository.GetExpenseLinesAsync(from, to, cancellationToken)),
+            days.Sum(day => day.StaffPayCents),
+            losses.Sum(loss => loss.CostCents),
+            countGain,
+            discrepancies.LostCents,
+            await _taxRepository.GetAllAsync(cancellationToken),
+            PurchaseTotals.Summarize(await _repository.GetPurchaseAmountRowsAsync(from, to, cancellationToken)),
+            inventory);
     }
 
     public async Task<LossReport> GetLossesAsync(DateOnly? from, DateOnly? to,
@@ -189,6 +217,24 @@ public class ReportService : IReportService
 
         var points = await _repository.GetPurchasePointsAsync(options, cancellationToken);
         return new CostChangesReport(options.From, options.To, ProductCostChange.Summarize(points));
+    }
+
+    /// <summary>A month, validated. The current one runs up to today; a past one, to its last day.</summary>
+    private async Task<(GetMonthlyReportOptions Options, DateOnly From, DateOnly To)> MonthAsync(int? year,
+        int? month, CancellationToken cancellationToken)
+    {
+        var today = _clock.Today();
+        var options = new GetMonthlyReportOptions
+        {
+            Year = year ?? today.Year,
+            Month = month ?? today.Month,
+            Today = today
+        };
+        await _monthlyValidator.ValidateOrThrowAsync(options, cancellationToken);
+
+        var from = new DateOnly(options.Year, options.Month, 1);
+        var lastDay = from.AddMonths(1).AddDays(-1);
+        return (options, from, lastDay < today ? lastDay : today);
     }
 
     private ReportPeriodOptions ThisMonthByDefault(DateOnly? from, DateOnly? to)

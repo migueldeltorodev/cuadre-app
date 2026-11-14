@@ -13,6 +13,8 @@ public static class ProductEndpointExtensions
         app.MapGetProductPriceHistory();
         app.MapGetProductPurchases();
         app.MapSetProductSalePrice();
+        app.MapGetPriceNotices();
+        app.MapResolvePriceNotice();
         return app;
     }
 }

@@ -117,6 +117,7 @@ const NAV: NavGroup[] = [
         icon: 'chart',
         children: [
           { path: '/reportes/mensual', label: 'Cierre del mes' },
+          { path: '/reportes/contador', label: 'Para el contador' },
           { path: '/reportes/productos', label: 'Productos' },
           { path: '/reportes/perdidas', label: 'Pérdidas' },
           { path: '/reportes/costos', label: 'Costos y proveedores' },

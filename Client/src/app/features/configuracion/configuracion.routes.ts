@@ -45,6 +45,12 @@ export const CONFIGURACION_ROUTES: Routes = [
         loadComponent: () => import('./gastos/gastos-section'),
       },
       {
+        path: 'impuestos',
+        title: 'Impuestos · Configuración · Cuadre',
+        data: { crumb: 'Impuestos' },
+        loadComponent: () => import('./impuestos/impuestos-section'),
+      },
+      {
         path: 'respaldo',
         title: 'Respaldo · Configuración · Cuadre',
         data: { crumb: 'Respaldo' },

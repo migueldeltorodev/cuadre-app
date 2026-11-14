@@ -24,6 +24,7 @@ using Cuadre.Api.Endpoints.Settings;
 using Cuadre.Api.Endpoints.StaffPaySchemes;
 using Cuadre.Api.Endpoints.StockOperations;
 using Cuadre.Api.Endpoints.Suppliers;
+using Cuadre.Api.Endpoints.Taxes;
 using Cuadre.Api.Endpoints.Units;
 
 namespace Cuadre.Api.Endpoints;
@@ -61,6 +62,7 @@ public static class EndpointsExtensions
         v1.MapExpenseCategoryEndpoints();
         v1.MapExpenseEndpoints();
         v1.MapRecurringExpenseEndpoints();
+        v1.MapTaxEndpoints();
         v1.MapDashboardEndpoints();
         v1.MapReportEndpoints();
         v1.MapBackupEndpoints();

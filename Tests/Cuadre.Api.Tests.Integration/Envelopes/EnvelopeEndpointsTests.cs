@@ -291,10 +291,10 @@ public class EnvelopeEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
     }
 
     [Fact]
-    public async Task HouseConsumption_ShouldBeValuedAtTheLastCost()
+    public async Task HouseConsumption_ShouldBeValuedFirstInFirstOut()
     {
-        // D-54: 201.50 then 227.50 CUP/lb (62 and 70 USD the sack). Reposicion must be able to buy the 2 lb again
-        // at 227.50 -> 455, not at the average 214.50.
+        // D-60: 201.50 then 227.50 CUP/lb (62 and 70 USD the sack). The 2 lb come out of the first sack:
+        // 2 × 201.50 = 403 (no colchón by default).
         var (rice, supplier) = await Client.CreateRiceAsync(Ct);
         await Client.CreatePurchaseAsync(
             await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 6_200)), Ct);
@@ -306,8 +306,8 @@ public class EnvelopeEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
         await Client.ExitAsync(Clock.Today, storage.Id, ExitReasonCode.HouseConsumption, Ct, Pounds(rice.Id, 2));
 
         var overview = await Client.GetOverviewAsync(Ct);
-        overview.Balance(EnvelopeType.OwnerPay, cup.Id).Should().Be(-45_500);
-        overview.Balance(EnvelopeType.Replenishment, cup.Id).Should().Be(45_500);
+        overview.Balance(EnvelopeType.OwnerPay, cup.Id).Should().Be(-40_300);
+        overview.Balance(EnvelopeType.Replenishment, cup.Id).Should().Be(40_300);
     }
 
     [Fact]

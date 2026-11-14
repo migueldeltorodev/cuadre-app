@@ -44,6 +44,7 @@ public class DailyClosingService : IDailyClosingService
     private readonly IBusinessSettingsRepository _settingsRepository;
     private readonly IExchangeRateRepository _exchangeRateRepository;
     private readonly ICashDiscrepancyRepository _discrepancyRepository;
+    private readonly ICostingRepository _costingRepository;
     private readonly IValidator<DailyClosingInput> _validator;
     private readonly IValidator<ReopenDailyClosing> _reopenValidator;
     private readonly IValidator<GetAllDailyClosingsOptions> _optionsValidator;
@@ -52,7 +53,8 @@ public class DailyClosingService : IDailyClosingService
     public DailyClosingService(IDailyClosingRepository repository, IStaffRepository staffRepository,
         IEnvelopeRepository envelopeRepository, ICashBoxRepository cashBoxRepository,
         IBusinessSettingsRepository settingsRepository, IExchangeRateRepository exchangeRateRepository,
-        ICashDiscrepancyRepository discrepancyRepository, IValidator<DailyClosingInput> validator, IValidator<ReopenDailyClosing> reopenValidator,
+        ICashDiscrepancyRepository discrepancyRepository, ICostingRepository costingRepository,
+        IValidator<DailyClosingInput> validator, IValidator<ReopenDailyClosing> reopenValidator,
         IValidator<GetAllDailyClosingsOptions> optionsValidator, TimeProvider clock)
     {
         _repository = repository;
@@ -62,6 +64,7 @@ public class DailyClosingService : IDailyClosingService
         _settingsRepository = settingsRepository;
         _exchangeRateRepository = exchangeRateRepository;
         _discrepancyRepository = discrepancyRepository;
+        _costingRepository = costingRepository;
         _validator = validator;
         _reopenValidator = reopenValidator;
         _optionsValidator = optionsValidator;
@@ -270,6 +273,13 @@ public class DailyClosingService : IDailyClosingService
                 "Uno de los productos contados no estaba en el mostrador ese día."));
         }
 
+        // D-60: what sold leaves the oldest batches first. The books are replayed up to this day (what happened
+        // after it is not on the shelf yet) and move line by line, so two counters of a product share them.
+        var settings = await _settingsRepository.GetAsync(cancellationToken)
+                       ?? throw new InvalidOperationException("The settings row is missing: the seeder did not run.");
+        var books = await _costingRepository.GetBooksAsync(
+            draft.Lines.Select(line => line.ProductId).Distinct().ToList(), input.Date, cancellationToken);
+
         var closingId = Guid.NewGuid();
         var lines = new List<DailyClosingLine>();
         foreach (var counter in draft.Lines)
@@ -284,9 +294,11 @@ public class DailyClosingService : IDailyClosingService
                 return Result.Fail(new BusinessRuleError($"{counter.Name} se cuenta en unidades enteras."));
             }
 
-            var result = ClosingCalculator.Count(new CountInput(counter.OpeningMilli, counter.InMilli,
-                counter.OutMilli, count.CountedMilli, counter.UnitPriceCents, counter.ToleranceBps,
-                counter.LastCostCupMicros));
+            var counted = ClosingCalculator.Count(new CountInput(counter.OpeningMilli, counter.InMilli,
+                counter.OutMilli, count.CountedMilli, counter.UnitPriceCents, counter.ToleranceBps, null));
+            var cost = FifoCosting.Sale(books[counter.ProductId], counted.SoldMilli,
+                counter.ExchangeBufferCents ?? settings.ExchangeBufferCents, input.Date);
+            var result = counted with { CostCents = cost.CostCents };
 
             if (result.SoldMilli != 0 && counter.UnitPriceCents is null)
             {
@@ -315,9 +327,10 @@ public class DailyClosingService : IDailyClosingService
                 SalesCents = result.SalesCents,
                 ToleranceBps = counter.ToleranceBps,
                 ToleranceCents = result.ToleranceCents,
-                UnitCostUsdMicros = counter.LastCostUsdMicros,
-                UnitCostCupMicros = counter.LastCostCupMicros,
-                CostCents = result.CostCents
+                UnitCostUsdMicros = cost.UnitCost?.UsdMicros,
+                UnitCostCupMicros = cost.UnitCost?.CupMicros,
+                CostCents = result.CostCents,
+                BufferCents = cost.BufferCents
             });
         }
 

@@ -123,6 +123,15 @@
   color: var(--c-muted);
 }
 
+/* D-62: what the configured taxes suggest setting aside this month. A suggestion, never a movement. */
+.envelope__tax {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--c-warn-soft);
+  color: var(--c-warn-ink);
+  font-size: 13px;
+}
+
 .boxes {
   display: flex;
   flex-direction: column;

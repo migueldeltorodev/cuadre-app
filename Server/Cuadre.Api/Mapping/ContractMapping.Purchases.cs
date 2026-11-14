@@ -222,15 +222,38 @@ public static partial class ContractMapping
             AvgCostCupMicros = pricing.AvgCostCupMicros,
             LastCostUsdMicros = pricing.LastCostUsdMicros,
             LastCostCupMicros = pricing.LastCostCupMicros,
+            CurrentCostUsdMicros = pricing.CurrentCostUsdMicros,
+            CurrentCostCupMicros = pricing.CurrentCostCupMicros,
             LastRateCents = pricing.LastRateCents,
+            CurrentRateCents = pricing.CurrentRateCents,
             EffectiveBufferCents = pricing.EffectiveBufferCents,
             EffectiveMarkupBps = pricing.EffectiveMarkupBps,
             SuggestedPriceCents = pricing.SuggestedPriceCents,
+            NewestSuggestedPriceCents = pricing.NewestSuggestedPriceCents,
             MarginBps = pricing.MarginBps,
             TodayRateCents = pricing.TodayRateCents,
             IsBufferExceeded = pricing.IsBufferExceeded
         };
     }
+
+    public static PriceNoticesResponse MapToResponse(this IEnumerable<PriceNotice> notices) => new()
+    {
+        Items = notices.Select(notice => new PriceNoticeResponse
+        {
+            ProductId = notice.ProductId,
+            ProductCode = notice.ProductCode,
+            ProductName = notice.ProductName,
+            Kind = (PriceNoticeKindCode)notice.Kind,
+            SalePriceCents = notice.SalePriceCents,
+            SuggestedPriceCents = notice.SuggestedPriceCents,
+            BatchCostCupMicros = notice.BatchCostCupMicros,
+            BatchRateCents = notice.BatchRateCents,
+            StockUnit = notice.StockUnit.ToContract()
+        }).ToList()
+    };
+
+    public static ResolvePriceNotice MapToResolvePriceNotice(this ResolvePriceNoticeRequest request, Guid productId) =>
+        new(productId, (PriceNoticeKind)request.Kind, request.AcceptSuggested);
 
     public static SetSalePrice MapToSetSalePrice(this SetSalePriceRequest request, Guid productId)
     {

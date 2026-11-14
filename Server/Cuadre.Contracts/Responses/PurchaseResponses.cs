@@ -151,21 +151,55 @@ public class ProductCostResponse
 
     public required long LastCostCupMicros { get; init; }
 
-    /// <summary>The last purchase's rate, CUP cents per USD: the base of the colchón alert (RN-04).</summary>
+    /// <summary>D-60: the FIFO batch being sold now (the oldest with stock; with an empty shelf, the newest one).</summary>
+    public long CurrentCostUsdMicros { get; init; }
+
+    public long CurrentCostCupMicros { get; init; }
+
+    /// <summary>The last purchase's rate, CUP cents per USD.</summary>
     public required long LastRateCents { get; init; }
+
+    /// <summary>D-61: the rate of the batch being sold: the base of the suggested price and of the colchón alert.</summary>
+    public long CurrentRateCents { get; init; }
 
     /// <summary>The colchón and recargo actually used (the product's own or the business default).</summary>
     public required long EffectiveBufferCents { get; init; }
 
     public required int EffectiveMarkupBps { get; init; }
+    /// <summary>D-61: from the batch being sold.</summary>
     public required long SuggestedPriceCents { get; init; }
 
-    /// <summary>Over the sale price, against the last cost; null without a price.</summary>
+    /// <summary>D-61: what the newest batch (bought, maybe still waiting) would need.</summary>
+    public long NewestSuggestedPriceCents { get; init; }
+
+    /// <summary>Over the sale price, against the cost of the batch being sold; null without a price.</summary>
     public int? MarginBps { get; init; }
 
     /// <summary>Latest rate on or before today; null when none was ever loaded.</summary>
     public long? TodayRateCents { get; init; }
 
-    /// <summary>RN-04: today's rate went over purchase rate + colchón.</summary>
+    /// <summary>RN-04: today's rate went over the rate of the batch being sold + colchón.</summary>
     public required bool IsBufferExceeded { get; init; }
+}
+
+/// <summary>D-61: a price to look at. The app never changes a price by itself.</summary>
+public class PriceNoticeResponse
+{
+    public required Guid ProductId { get; init; }
+    public required string ProductCode { get; init; }
+    public required string ProductName { get; init; }
+    public required PriceNoticeKindCode Kind { get; init; }
+    public long? SalePriceCents { get; init; }
+    public required long SuggestedPriceCents { get; init; }
+
+    /// <summary>The batch the notice is about (on sale now, or the one waiting): CUP cost per stock unit.</summary>
+    public required long BatchCostCupMicros { get; init; }
+
+    public required long BatchRateCents { get; init; }
+    public required UnitCode StockUnit { get; init; }
+}
+
+public class PriceNoticesResponse
+{
+    public required IReadOnlyList<PriceNoticeResponse> Items { get; init; }
 }
