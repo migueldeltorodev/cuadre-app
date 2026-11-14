@@ -1,6 +1,6 @@
 # Requisitos funcionales: App de gestión para pequeño comercio
 
-> **Versión:** 1.7 · **Fecha:** 13/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
+> **Versión:** 1.9 · **Fecha:** 14/11/2026 · **Producto:** Cuadre · **Estado:** requisitos funcionales consolidados (sin stack ni diseño)
 > **Primer caso de uso:** el bodegón (ver `RESUMEN_PROFIT_FIRST_BODEGON.md`).
 > Este documento es la **memoria oficial** de los requisitos. Cualquier cambio se anota en el historial (sección 10).
 
@@ -79,15 +79,17 @@ Tasa de compra promedio = Costo CUP histórico / Costo USD promedio
 
 ### RN-03: Precio sugerido
 ```
-Precio sugerido = Costo USD × (Tasa de compra promedio + Colchón) × (1 + Recargo)
+Precio sugerido = Último costo USD × (Tasa de la última compra + Colchón) × (1 + Recargo)
 ```
+- Usa el **último costo puesto** (la última compra confirmada, con sus gastos) y no el promedio: el precio tiene que alcanzar para **reponer** la mercadería (D-52). El promedio (RN-01, RN-02) queda para valuar las pérdidas y las diferencias de conteo (D-54).
 - El precio es **estable**. Se recalcula **solo cuando entra una compra**, y el usuario decide si lo adopta.
 - **No** se recalcula cuando cambia la tasa del día.
 
 ### RN-04: Alerta de colchón superado
 ```
-Si Tasa del día > Tasa de compra promedio + Colchón  →  alerta de revisión de precio
+Si Tasa del día > Tasa de la última compra + Colchón  →  alerta de revisión de precio
 ```
+La misma tasa que usó el precio sugerido (D-52).
 
 ### RN-05: Venta por diferencia (por producto, en el mostrador)
 ```
@@ -113,11 +115,11 @@ Si la diferencia de caja, ya descontada la tolerancia, es negativa, se registra 
 - Si se recupera, la plata entra en la caja **el día que se recupera**, como ingreso por recuperación (separado de la venta), y se reparte como A3 de ese día.
 - Si la diferencia es positiva (**sobrante**), también se registra, con una nota.
 
-### RN-07: A2 a costo histórico
+### RN-07: A2 al costo de reposición
 ```
-A2 del día = Σ (Vendido × Costo CUP histórico)  +  costos subcontratados del día
+A2 del día = Σ (Vendido × Último costo CUP)  +  costos subcontratados del día
 ```
-**Decisión:** se usa el costo **histórico** (tasa de compra), no la tasa del día. El colchón del precio absorbe las subidas y bajadas del USD.
+**Decisión (D-54):** lo vendido se costea con el **último costo puesto** (la última compra, a su tasa), no con el promedio ni con la tasa del día. Así el sobre Reposición recibe lo que cuesta **volver a comprar** lo vendido, y A3 es la ganancia que se puede repartir sin achicar el negocio. El colchón del precio absorbe las subidas y bajadas del USD.
 
 ### RN-08: Pago al dependiente
 ```
@@ -147,7 +149,7 @@ A3          30,000  = 30,000 efectivo → sobres (de Operación sale el dependie
 ```
 
 ### RN-11: Consumo de la casa
-Lo que se saca del negocio para la casa es un **retiro del dueño en especie**, valuado a **costo histórico**:
+Lo que se saca del negocio para la casa es un **retiro del dueño en especie**, valuado al **último costo** (D-54):
 - Descuenta stock.
 - Se resta del sobre **Dueño** y se acredita al sobre **Reposición**, porque esa mercadería hay que reponerla.
 
@@ -188,14 +190,16 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | ID | Requisito | Prior. |
 |---|---|:-:|
 | RF-PRD-01 | Un producto es una **variedad o marca** distinta (arroz guyanés ≠ arroz brasileño). El mismo producto comprado a varios proveedores **es un solo producto**. | M |
-| RF-PRD-02 | Atributos: código interno, código de barras (opcional), nombre, marca, presentación, categoría y subcategoría, proveedor habitual, unidad de compra, unidad de stock y venta, factor de conversión, permite decimales, precio de venta, stock mínimo, tolerancia de merma (%), colchón propio (opcional), recargo propio (opcional), perecedero, activo y notas. | M |
-| RF-PRD-03 | Valores calculados, no editables: costo USD promedio, tasa de compra promedio, costo CUP histórico, precio sugerido, margen y stock por ubicación. | M |
+| RF-PRD-02 | Atributos: código interno, código de barras (opcional), nombre, marca, presentación, categoría y subcategoría, proveedor habitual, unidad de compra, unidad de stock y venta, factor de conversión, permite decimales, precio de venta, stock mínimo, tolerancia de merma (%), colchón propio (opcional), recargo propio (opcional), perecedero (con su vida útil opcional, RF-PRD-10), activo y notas. | M |
+| RF-PRD-03 | Valores calculados, no editables: costo USD promedio, tasa de compra promedio, costo CUP histórico, último costo puesto y su tasa, precio sugerido, margen (contra el último costo) y stock por ubicación. | M |
 | RF-PRD-04 | Categorías de dos niveles (categoría → subcategoría), creadas por el usuario. | M |
 | RF-PRD-05 | Historial de precios de venta y de costos, con fecha. | M |
 | RF-PRD-06 | Mostrar recargo y margen real juntos. | M |
 | RF-PRD-07 | Un producto con historial no se borra, se desactiva. | M |
 | RF-PRD-08 | Importar el catálogo desde Excel. | D |
 | RF-PRD-09 | **Lista de precios** en pantalla, agrupada por categoría, con formato para copiarla a mano al cartel del mostrador. Marca los precios que cambiaron desde la última vez que se copió. | M |
+| RF-PRD-10 | Un producto perecedero puede guardar su **vida útil** típica (cuánto tarda en vencerse), cargada en días, semanas o meses y guardada en días. Es un dato informativo; el vencimiento estimado por compra queda para la v2 (`REQUISITOS_V2.md`). | M |
+| RF-PRD-11 | Desde el formulario del producto se puede **crear una categoría o subcategoría** sin salir de él; queda elegida y no se pierde lo cargado. Lo mismo con el **proveedor** desde la compra. | M |
 
 ### 4.4 Proveedores (PRV)
 | ID | Requisito | Prior. |
@@ -400,6 +404,9 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | D-49 | El ranking de productos usa la **venta teórica** de los cierres (vendido × precio) y su costo histórico: la plata se cuenta por día, no por producto. Incluye los productos que en el período solo tuvieron pérdidas. | Es la única venta por producto que existe; así también aparecen los que más merma tienen. |
 | D-50 | Evolución de costos: **por producto**, cada compra con su costo puesto por unidad de stock (USD y CUP) y cada cambio del precio de venta; **por categoría o proveedor**, el primer y el último costo del período de cada producto y su variación. No se promedian productos distintos. La comparación entre proveedores usa el promedio ponderado por cantidad y nunca se filtra por proveedor. | Un promedio de libras con litros no significa nada. La variación en USD es la del proveedor; la de CUP suma la tasa. |
 | D-51 | El reporte mensual va del 1 al último día del mes (el mes en curso, hasta hoy) y reúne la evaluación Profit First, los gastos por categoría y moneda, las diferencias de caja, la merma a costo, cada día y los últimos 12 meses para el crecimiento mes contra mes (RF-REP-07). La evaluación Profit First suma también los gastos del período, por moneda. | Un solo lugar para cerrar el mes; las monedas nunca se suman entre sí. |
+| D-52 | El precio sugerido (RN-03), la alerta del colchón (RN-04) y el margen que se ve al poner el precio usan el **último costo puesto**: el de la última compra confirmada del producto, con su tasa. Sin compras confirmadas (por ejemplo, anuladas), se usa el promedio. El costo de lo vendido se cambió en D-54. | El precio mira hacia adelante: tiene que alcanzar para reponer. |
+| D-53 | La vida útil se carga en días, semanas o meses (un mes cuenta 30 días) y se guarda en días (1 a 3650). Solo la tiene un producto perecedero; es opcional. | Un solo número compara fácil; la unidad es comodidad de la pantalla. |
+| D-54 | El **A2 del cierre** (RN-07) y el **consumo de la casa** (RN-11) usan el **último costo puesto**: Reposición recibe lo que cuesta volver a comprar. El **promedio ponderado** queda para valuar las **pérdidas** (merma, vencidos, roturas) y las **diferencias de conteo**, y se muestra en la ficha del producto. Rige desde el próximo cierre: los cierres ya hechos no se recalculan. | Con el promedio, cuando un costo sube, la diferencia entre lo que costó y lo que cuesta reponer se reparte como ganancia y Reposición queda corta (ganancia por inflación). Con el último costo, A3 es más conservador pero se puede repartir sin achicar el negocio. Si un costo baja pasa al revés, pero en Cuba es lo menos común. Lo perdido vale lo que costó: por eso las pérdidas siguen al promedio. |
 
 ---
 
@@ -445,3 +452,5 @@ Formato: `RF-<MÓDULO>-<nº>`. Prioridad: **M** = obligatorio en v1 · **D** = d
 | 1.5 | 12/11/2026 | Etapa 6b: nuevas D-35 a D-39 (recuperar y dar por perdido un faltante, bloqueo de la reapertura con recuperaciones, días sin cerrar, posibles duplicados, evaluación por período). La D-33 queda completa. |
 | 1.6 | 13/11/2026 | Etapa 7 (gastos): nuevas D-40 a D-45 (de qué sobre sale un gasto, anulación, categorías de fábrica, gastos fijos y sus vencimientos, confirmar o saltar un vencimiento, gastos pagados del cajón). |
 | 1.7 | 13/11/2026 | Etapa 8 (tablero y reportes): nuevas D-46 a D-51 (comparación del mes, qué es pérdida de mercadería, faltante perdido, ranking por venta teórica, evolución de costos y comparación de proveedores, reporte mensual con tendencia de 12 meses). RF-REP-06 queda pendiente. |
+| 1.8 | 13/11/2026 | Pulido: nuevas D-52 (el precio sugerido y la alerta del colchón usan el último costo puesto; los reportes siguen con el promedio) y D-53 (vida útil). Nuevos RF-PRD-10 y RF-PRD-11. RN-03 y RN-04 actualizadas. Los deseables a futuro pasan a `REQUISITOS_V2.md`. |
+| 1.9 | 14/11/2026 | Nueva D-54: el A2 del cierre (RN-07) y el consumo de la casa (RN-11) pasan al último costo puesto; el promedio queda para las pérdidas y las diferencias de conteo. D-52 y RN-03 ajustadas. |
