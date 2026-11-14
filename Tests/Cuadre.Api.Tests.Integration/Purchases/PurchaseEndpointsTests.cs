@@ -80,7 +80,9 @@ public class PurchaseEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
         product.Cost.Should().NotBeNull();
         product.Cost!.AvgCostUsdMicros.Should().Be(620_000);
         product.Cost.AvgCostCupMicros.Should().Be(201_500_000);
-        product.Cost.AverageRateCents.Should().Be(Rate325);
+        product.Cost.LastCostUsdMicros.Should().Be(620_000);     // one purchase: last = average
+        product.Cost.LastCostCupMicros.Should().Be(201_500_000);
+        product.Cost.LastRateCents.Should().Be(Rate325);
         product.Cost.SuggestedPriceCents.Should().Be(20_200);    // 201.50 → 202
         product.Cost.MarginBps.Should().Be(1_940);               // (250 − 201.50) / 250
     }
@@ -124,6 +126,28 @@ public class PurchaseEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
 
         product!.StockMilli.Should().Be(200_000);
         product.Cost!.AvgCostUsdMicros.Should().Be(650_000);
+    }
+
+    [Fact]
+    public async Task Create_ShouldSuggestThePrice_FromTheLastCost_NotTheAverage()
+    {
+        // D-52: 0.60 then 0.70 USD/lb at 325. The average 0.65 (211.25 CUP) values the shelf;
+        // the price must pay for restocking at 0.70 (227.50 CUP) -> 228 with colchon 0, recargo 0, step 1.
+        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 6_000)), Ct);
+        var second = await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 7_000)), Ct);
+
+        var product = await Client.GetFromJsonAsync<ProductResponse>(Route(ApiEndpoints.Products.Get, rice.Id), Ct);
+
+        product!.Cost!.AvgCostCupMicros.Should().Be(211_250_000);
+        product.Cost.LastCostUsdMicros.Should().Be(700_000);
+        product.Cost.LastCostCupMicros.Should().Be(227_500_000);
+        product.Cost.LastRateCents.Should().Be(Rate325);
+        product.Cost.SuggestedPriceCents.Should().Be(22_800);
+        product.Cost.MarginBps.Should().Be(900);                 // (250 - 227.50) / 250, against the last cost
+        second.PriceSuggestions.Should().ContainSingle().Which.SuggestedPriceCents.Should().Be(22_800);
     }
 
     [Fact]
@@ -283,6 +307,8 @@ public class PurchaseEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
         var product = await Client.GetFromJsonAsync<ProductResponse>(Route(ApiEndpoints.Products.Get, rice.Id), Ct);
         product!.StockMilli.Should().Be(100_000);
         product.Cost!.AvgCostUsdMicros.Should().Be(600_000);
+        product.Cost.LastCostUsdMicros.Should().Be(600_000);     // the last cost goes back to the first purchase
+        product.Cost.SuggestedPriceCents.Should().Be(19_500);    // 0.60 x 325 = 195
     }
 
     [Fact]

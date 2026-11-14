@@ -35,7 +35,9 @@ public static class ProductFaker
         UnitCode purchaseUnit = UnitCode.Sack,
         UnitCode stockUnit = UnitCode.Pound,
         long conversionFactorMilli = 100_000,
-        long minStockMilli = 20_000) => new()
+        long minStockMilli = 20_000,
+        bool isPerishable = false,
+        int? shelfLifeDays = null) => new()
     {
         Code = code,
         Barcode = barcode,
@@ -51,7 +53,8 @@ public static class ProductFaker
         SalePriceCents = salePriceCents,
         MinStockMilli = minStockMilli,
         ShrinkageToleranceBps = 200,
-        IsPerishable = false
+        IsPerishable = isPerishable,
+        ShelfLifeDays = shelfLifeDays
     };
 
     /// <summary>The update request for a product as it is now, with the fields tests usually change.</summary>
@@ -80,6 +83,7 @@ public static class ProductFaker
         ExchangeBufferCents = product.ExchangeBufferCents,
         MarkupBps = product.MarkupBps,
         IsPerishable = product.IsPerishable,
+        ShelfLifeDays = product.ShelfLifeDays,
         Notes = product.Notes,
         IsActive = isActive ?? product.IsActive
     };

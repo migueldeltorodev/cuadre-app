@@ -182,6 +182,34 @@ public class ProductEndpointsTests(ApiFactory factory) : IntegrationTestBase(fac
         body!.Errors.Should().ContainSingle(e => e.PropertyName == "MinStockMilli");
     }
 
+    [Fact]
+    public async Task Create_ShouldKeepTheShelfLife_OfAPerishable()
+    {
+        var dairy = await Client.CreateCategoryAsync("Lacteos", Ct);
+        var request = ProductFaker.CreateRequest(dairy.Id, isPerishable: true, shelfLifeDays: 90);
+
+        var created = await Client.CreateProductAsync(request, Ct);
+
+        created.IsPerishable.Should().BeTrue();
+        created.ShelfLifeDays.Should().Be(90);
+    }
+
+    [Theory]
+    [InlineData(true, 0)]        // below one day
+    [InlineData(true, 3_651)]    // beyond 10 years
+    [InlineData(false, 30)]      // not perishable: no shelf life
+    public async Task Create_ShouldReturnBadRequest_WhenTheShelfLifeIsWrong(bool isPerishable, int shelfLifeDays)
+    {
+        var dairy = await Client.CreateCategoryAsync("Lacteos", Ct);
+        var request = ProductFaker.CreateRequest(dairy.Id, isPerishable: isPerishable, shelfLifeDays: shelfLifeDays);
+
+        var response = await Client.PostAsJsonAsync(ApiEndpoints.Products.Create, request, Ct);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadFromJsonAsync<ValidationFailureResponse>(Ct);
+        body!.Errors.Should().ContainSingle(e => e.PropertyName == "ShelfLifeDays");
+    }
+
     // ---------- Next code ----------
 
     [Fact]

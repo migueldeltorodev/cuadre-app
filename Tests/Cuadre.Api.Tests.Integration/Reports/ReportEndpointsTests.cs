@@ -154,7 +154,7 @@ public class ReportEndpointsTests(ApiFactory factory) : IntegrationTestBase(fact
         after.BufferExceededCount.Should().Be(1);
         var flagged = after.BufferExceeded.Should().ContainSingle().Subject;
         flagged.ProductId.Should().Be(rice.Id);
-        flagged.AverageRateCents.Should().Be(Rate325);
+        flagged.LastRateCents.Should().Be(Rate325);
         flagged.TodayRateCents.Should().Be(33_000);
     }
 

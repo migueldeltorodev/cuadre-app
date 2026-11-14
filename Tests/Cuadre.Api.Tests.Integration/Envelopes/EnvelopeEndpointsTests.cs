@@ -291,6 +291,26 @@ public class EnvelopeEndpointsTests(ApiFactory factory) : IntegrationTestBase(fa
     }
 
     [Fact]
+    public async Task HouseConsumption_ShouldBeValuedAtTheLastCost()
+    {
+        // D-54: 201.50 then 227.50 CUP/lb (62 and 70 USD the sack). Reposicion must be able to buy the 2 lb again
+        // at 227.50 -> 455, not at the average 214.50.
+        var (rice, supplier) = await Client.CreateRiceAsync(Ct);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 6_200)), Ct);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 7_000)), Ct);
+        var (storage, _) = await Client.GetSeededLocationsAsync(Ct);
+        var cup = await CashCupAsync();
+
+        await Client.ExitAsync(Clock.Today, storage.Id, ExitReasonCode.HouseConsumption, Ct, Pounds(rice.Id, 2));
+
+        var overview = await Client.GetOverviewAsync(Ct);
+        overview.Balance(EnvelopeType.OwnerPay, cup.Id).Should().Be(-45_500);
+        overview.Balance(EnvelopeType.Replenishment, cup.Id).Should().Be(45_500);
+    }
+
+    [Fact]
     public async Task ShrinkageExit_ShouldNotTouchTheEnvelopes()
     {
         var rice = await BuyRiceAsync();
