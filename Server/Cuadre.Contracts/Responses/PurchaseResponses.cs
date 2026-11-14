@@ -151,6 +151,11 @@ public class ProductCostResponse
 
     public required long LastCostCupMicros { get; init; }
 
+    /// <summary>D-60: the FIFO batch being sold now (the oldest with stock; with an empty shelf, the newest one).</summary>
+    public long CurrentCostUsdMicros { get; init; }
+
+    public long CurrentCostCupMicros { get; init; }
+
     /// <summary>The last purchase's rate, CUP cents per USD: the base of the colchón alert (RN-04).</summary>
     public required long LastRateCents { get; init; }
 

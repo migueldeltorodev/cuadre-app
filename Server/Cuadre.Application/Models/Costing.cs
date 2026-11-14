@@ -160,6 +160,8 @@ public sealed record ProductPricing(
     long AvgCostCupMicros,
     long LastCostUsdMicros,
     long LastCostCupMicros,
+    long CurrentCostUsdMicros,
+    long CurrentCostCupMicros,
     long LastRateCents,
     long EffectiveBufferCents,
     int EffectiveMarkupBps,
@@ -182,6 +184,7 @@ public static class ProductPricingRules
         }
 
         var last = product.LastCost ?? average;
+        var current = product.CurrentCost ?? last;
         var buffer = product.ExchangeBufferCents ?? settings.ExchangeBufferCents;
         var markup = product.MarkupBps ?? settings.DefaultMarkupBps;
         var lastRate = PriceCalculator.PurchaseRateCents(last);
@@ -191,6 +194,8 @@ public static class ProductPricingRules
             average.CupMicros,
             last.UsdMicros,
             last.CupMicros,
+            current.UsdMicros,
+            current.CupMicros,
             lastRate,
             buffer,
             markup,

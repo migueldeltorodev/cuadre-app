@@ -48,7 +48,8 @@ public class ProductRepository : IProductRepository
         min_stock_milli, shrinkage_tolerance_bps, exchange_buffer_cents, markup_bps,
         is_perishable, shelf_life_days, is_active, notes, created_at, updated_at,
         (SELECT COALESCE(SUM(m.quantity_milli), 0) FROM stock_movements m WHERE m.product_id = products.id) AS stock_milli,
-        avg_cost_usd_micros, avg_cost_cup_micros, last_cost_usd_micros, last_cost_cup_micros, last_purchase_date
+        avg_cost_usd_micros, avg_cost_cup_micros, last_cost_usd_micros, last_cost_cup_micros, last_purchase_date,
+        current_cost_usd_micros, current_cost_cup_micros, current_purchase_line_id
         """;
 
     // The cost cache's column names are unique on purpose, so the select list needs no table prefixes.

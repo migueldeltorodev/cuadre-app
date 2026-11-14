@@ -87,9 +87,16 @@ public class DailyClosingLine
     public long SalesCents { get; init; }
     public int ToleranceBps { get; init; }
     public long ToleranceCents { get; init; }
+    /// <summary>D-60: the FIFO cost per unit of what sold, at its purchase rates (blended when it took several batches).</summary>
     public long? UnitCostUsdMicros { get; init; }
+
     public long? UnitCostCupMicros { get; init; }
+
+    /// <summary>A2 of the line: real FIFO cost + <see cref="BufferCents"/>.</summary>
     public long CostCents { get; init; }
+
+    /// <summary>The colchón part of <see cref="CostCents"/>: USD cost × colchón (0 before D-60).</summary>
+    public long BufferCents { get; init; }
 
     // Read-only, filled by queries.
     public string ProductCode { get; init; } = "";
@@ -280,12 +287,10 @@ public class CounterLine
     public int ToleranceBps { get; init; }
 
     /// <summary>
-    /// D-54 (RN-07): what sold is costed at the LAST purchase's landed cost, so A2 (Reposición) is what it takes to
-    /// buy it again. Null = never bought.
+    /// The product's own colchón (null = the business default). D-60 (RN-07): what sold is costed FIFO, batch by
+    /// batch, and A2 adds USD cost × colchón, so Reposición keeps what the colchón charged in the price.
     /// </summary>
-    public long? LastCostUsdMicros { get; init; }
-
-    public long? LastCostCupMicros { get; init; }
+    public long? ExchangeBufferCents { get; init; }
 
     public long ExpectedMilli => OpeningMilli + InMilli - OutMilli;
     public bool AllowsDecimals => StockUnit.AllowsDecimals();

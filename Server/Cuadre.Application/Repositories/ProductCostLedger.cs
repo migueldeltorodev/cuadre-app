@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Data;
 using Cuadre.Application.Models;
 using Dapper;
@@ -13,6 +14,7 @@ namespace Cuadre.Application.Repositories;
 /// Outgoing rows may carry a cost (exits value the loss with it): the replay ignores it, outflows never move it.
 /// The LAST cost (D-52) is the latest entry of a confirmed purchase: positive count differences carry a cost too,
 /// but they are not purchases. Without one (all voided), it falls back to the average.
+/// The CURRENT cost (D-60) is the FIFO batch being sold now: the oldest one with stock, else the newest one.
 /// </summary>
 internal static class ProductCostLedger
 {
@@ -20,7 +22,8 @@ internal static class ProductCostLedger
         Guid productId, DateTime now, CancellationToken cancellationToken)
     {
         var movements = await connection.QueryAsync<CostMovementRow>(new CommandDefinition("""
-            SELECT m.quantity_milli, m.unit_cost_usd_micros, m.unit_cost_cup_micros, m.date, m.purchase_id
+            SELECT m.id, m.kind, m.quantity_milli, m.unit_cost_usd_micros, m.unit_cost_cup_micros, m.date,
+                   m.purchase_id, m.purchase_line_id
             FROM stock_movements m
                 LEFT JOIN purchases p ON p.id = m.purchase_id
                 LEFT JOIN stock_operations o ON o.id = m.operation_id
@@ -53,25 +56,44 @@ internal static class ProductCostLedger
         var lastUsd = lastPurchase?.UnitCostUsdMicros ?? cost.UsdMicros;
         var lastCup = lastPurchase?.UnitCostCupMicros ?? cost.CupMicros;
 
+        var book = FifoBook.Replay(rows.Select(row => new FifoMovement(row.Id,
+            DateOnly.ParseExact(row.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture),
+            Enum.Parse<StockMovementKind>(row.Kind), row.QuantityMilli, row.UnitCostUsdMicros, row.UnitCostCupMicros,
+            row.PurchaseLineId)));
+        var current = book.CurrentCost ?? new UnitCost(lastUsd, lastCup);
+        var currentLineId = book.CurrentLayer?.PurchaseLineId;
+
         await connection.ExecuteAsync(new CommandDefinition("""
             INSERT INTO product_costs (
                 product_id, avg_cost_usd_micros, avg_cost_cup_micros, last_cost_usd_micros, last_cost_cup_micros,
+                current_cost_usd_micros, current_cost_cup_micros, current_purchase_line_id,
                 last_purchase_date, recalculated_at)
-            VALUES (@productId, @usd, @cup, @lastUsd, @lastCup, @lastPurchaseDate, @now)
+            VALUES (@productId, @usd, @cup, @lastUsd, @lastCup, @currentUsd, @currentCup, @currentLineId,
+                    @lastPurchaseDate, @now)
             ON CONFLICT (product_id) DO UPDATE SET
                 avg_cost_usd_micros = excluded.avg_cost_usd_micros,
                 avg_cost_cup_micros = excluded.avg_cost_cup_micros,
                 last_cost_usd_micros = excluded.last_cost_usd_micros,
                 last_cost_cup_micros = excluded.last_cost_cup_micros,
+                current_cost_usd_micros = excluded.current_cost_usd_micros,
+                current_cost_cup_micros = excluded.current_cost_cup_micros,
+                current_purchase_line_id = excluded.current_purchase_line_id,
                 last_purchase_date = excluded.last_purchase_date,
                 recalculated_at = excluded.recalculated_at
-            """, new { productId, usd = cost.UsdMicros, cup = cost.CupMicros, lastUsd, lastCup, lastPurchaseDate, now },
+            """, new
+            {
+                productId, usd = cost.UsdMicros, cup = cost.CupMicros, lastUsd, lastCup,
+                currentUsd = current.UsdMicros, currentCup = current.CupMicros, currentLineId, lastPurchaseDate, now
+            },
             transaction, cancellationToken: cancellationToken));
     }
 
     /// <summary>The date stays a plain ISO string here: max() over text dates is correct and needs no handler.</summary>
     private sealed class CostMovementRow
     {
+        public Guid Id { get; init; }
+        public string Kind { get; init; } = "";
+        public Guid? PurchaseLineId { get; init; }
         public long QuantityMilli { get; init; }
         public long? UnitCostUsdMicros { get; init; }
         public long? UnitCostCupMicros { get; init; }

@@ -222,6 +222,8 @@ public static partial class ContractMapping
             AvgCostCupMicros = pricing.AvgCostCupMicros,
             LastCostUsdMicros = pricing.LastCostUsdMicros,
             LastCostCupMicros = pricing.LastCostCupMicros,
+            CurrentCostUsdMicros = pricing.CurrentCostUsdMicros,
+            CurrentCostCupMicros = pricing.CurrentCostCupMicros,
             LastRateCents = pricing.LastRateCents,
             EffectiveBufferCents = pricing.EffectiveBufferCents,
             EffectiveMarkupBps = pricing.EffectiveMarkupBps,

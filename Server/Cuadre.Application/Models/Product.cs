@@ -69,6 +69,14 @@ public class Product
 
     public long? LastCostCupMicros { get; init; }
 
+    /// <summary>D-60: the FIFO batch being sold now (oldest with stock; else the newest). Null until the first purchase.</summary>
+    public long? CurrentCostUsdMicros { get; init; }
+
+    public long? CurrentCostCupMicros { get; init; }
+
+    /// <summary>The purchase line of the batch being sold now. Null with an empty shelf or a batch from a count.</summary>
+    public Guid? CurrentPurchaseLineId { get; init; }
+
     public DateOnly? LastPurchaseDate { get; init; }
 
     public UnitCost? AverageCost =>
@@ -76,6 +84,9 @@ public class Product
 
     public UnitCost? LastCost =>
         LastCostUsdMicros is { } usd && LastCostCupMicros is { } cup ? new UnitCost(usd, cup) : null;
+
+    public UnitCost? CurrentCost =>
+        CurrentCostUsdMicros is { } usd && CurrentCostCupMicros is { } cup ? new UnitCost(usd, cup) : null;
 
     /// <summary>Suggested price, margin, colchón alert. Computed by the service; null without purchases.</summary>
     public ProductPricing? Pricing { get; set; }
