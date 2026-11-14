@@ -81,4 +81,19 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<DatabaseSeeder>();
         return services;
     }
+
+    /// <summary>
+    /// Backups (RF-DAT-01..06). Singletons: one gate for every copy and restore, one queue for the automatic ones.
+    /// Needs AddApplication (validators, clock) and AddDatabase (initializer, seeder).
+    /// TryAdd for the scheduler: the tests put a recorder in its place.
+    /// </summary>
+    public static IServiceCollection AddBackups(this IServiceCollection services, BackupPaths paths)
+    {
+        services.AddSingleton(paths);
+        services.AddSingleton<BackupStateStore>();
+        services.AddSingleton<IBackupService, BackupService>();
+        services.AddSingleton<BackupQueue>();
+        services.TryAddSingleton<IBackupScheduler>(provider => provider.GetRequiredService<BackupQueue>());
+        return services;
+    }
 }

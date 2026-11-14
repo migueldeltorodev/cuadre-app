@@ -19,5 +19,8 @@ public sealed class AppPaths
     public string DatabaseFile => Path.Combine(Root, "data", "cuadre.db");
     public string Logs => Path.Combine(Root, "logs");
     public string Backups => Path.Combine(Root, "backups");
+
+    /// <summary>D-56: the backup settings and history live next to the database, never inside it.</summary>
+    public string BackupStateFile => Path.Combine(Root, "backup.json");
     public string EdgeProfile => Path.Combine(Root, "edge-profile");
 }

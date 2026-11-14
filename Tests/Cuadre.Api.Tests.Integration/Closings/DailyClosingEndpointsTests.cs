@@ -144,6 +144,26 @@ public class DailyClosingEndpointsTests(ApiFactory factory) : IntegrationTestBas
     }
 
     [Fact]
+    public async Task Create_ShouldAskForABackup_OnlyWhenTheDayIsClosed()
+    {
+        // RF-DAT-01. A rejected closing (tomorrow has not ended yet) asks for nothing;
+        // a confirmed one asks for one backup, made in the background.
+        var (rice, counter) = await RiceAtTheCounterAsync(Clock.Today);
+        var draft = await Client.GetDraftAsync(Clock.Today, Ct);
+
+        var rejected = await Client.PostAsJsonAsync(ApiEndpoints.DailyClosings.Create,
+            Request(Clock.Today.AddDays(1), Counted(rice.Id, counter.Id, 0), draft.Collected("Efectivo", 2_500_000)),
+            Ct);
+        rejected.IsSuccessStatusCode.Should().BeFalse();
+        Factory.BackupRequests.Requests.Should().BeEmpty();
+
+        await Client.CloseAsync(Request(Clock.Today, Counted(rice.Id, counter.Id, 0),
+            draft.Collected("Efectivo", 2_500_000)), Ct);
+
+        Factory.BackupRequests.Requests.Should().Equal(Cuadre.Application.Models.BackupReason.Closing);
+    }
+
+    [Fact]
     public async Task Create_ShouldCostTheSales_AtTheLastPurchase_SoReposicionCanBuyItAgain()
     {
         // D-54: two sacks, at 40 USD (130 CUP/lb) and then 46 USD (149.50 CUP/lb). The average would be 139.75,

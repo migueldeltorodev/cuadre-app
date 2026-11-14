@@ -302,6 +302,21 @@ public static class ApiEndpoints
         public const string ProductCosts = $"{Base}/products/{{id:guid}}/costs";
     }
 
+    /// <summary>
+    /// RF-DAT-01..06. A backup is a file, not a row: no {id}. A restore names the folder and the file name.
+    /// "settings", "drives" and "restore" are literal segments.
+    /// </summary>
+    public static class Backups
+    {
+        private const string Base = $"{ApiBase}/backups";
+
+        public const string Status = Base;
+        public const string Create = Base;
+        public const string Settings = $"{Base}/settings";
+        public const string Drives = $"{Base}/drives";
+        public const string Restore = $"{Base}/restore";
+    }
+
     /// <summary>Who works the counter. Never deleted, only deactivated.</summary>
     public static class Employees
     {

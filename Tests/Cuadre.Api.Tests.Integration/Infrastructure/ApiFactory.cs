@@ -1,5 +1,6 @@
 using Cuadre.Api;
 using Cuadre.Application.Database;
+using Cuadre.Application.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -23,6 +24,19 @@ public sealed class ApiFactory : WebApplicationFactory<IApiMarker>, IAsyncLifeti
     /// <summary>The app's only clock. Tests move it to put "today" wherever they need.</summary>
     public TestClock Clock { get; } = new();
 
+    /// <summary>What the closings asked to back up (the real queue and its worker never run in tests).</summary>
+    public RecordingBackupScheduler BackupRequests { get; } = new();
+
+    /// <summary>App:DataDirectory: the local backups folder and backup.json live here.</summary>
+    public string DataDirectory => _directory;
+
+    public string BackupsDirectory => Path.Combine(_directory, "backups");
+
+    /// <summary>A folder that plays the pendrive (a real removable drive is not something a test can count on).</summary>
+    public string PendriveDirectory => Path.Combine(_directory, "pendrive");
+
+    private string BackupStateFile => Path.Combine(_directory, "backup.json");
+
     // Pooling=False: no connection survives the run, so the temp folder can be deleted at the end.
     private string ConnectionString => $"Data Source={Path.Combine(_directory, "cuadre-tests.db")};Pooling=False";
 
@@ -41,8 +55,24 @@ public sealed class ApiFactory : WebApplicationFactory<IApiMarker>, IAsyncLifeti
     public async Task ResetDatabaseAsync()
     {
         Clock.Now = TestClock.Default;
+        BackupRequests.Clear();
+        DeleteBackupFiles();
         await WipeAllRowsAsync();
         await Services.GetRequiredService<DatabaseSeeder>().SeedAsync();
+    }
+
+    /// <summary>The backups, the pendrive and backup.json (D-56: outside the database, so the wipe misses them).</summary>
+    private void DeleteBackupFiles()
+    {
+        foreach (var directory in new[] { BackupsDirectory, PendriveDirectory })
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        File.Delete(BackupStateFile);
     }
 
     /// <summary>
@@ -89,9 +119,14 @@ public sealed class ApiFactory : WebApplicationFactory<IApiMarker>, IAsyncLifeti
         builder.UseSetting("Database:ConnectionString", ConnectionString);
         builder.UseSetting("App:DataDirectory", _directory);   // logs, backups... also go to the temp folder
         builder.UseSetting("Desktop:LaunchWindow", "false");   // never open Edge from a test
+        builder.UseSetting("Backup:OnExit", "false");          // no backup when the test host stops
 
-        // Registered after AddApplication's TryAddSingleton(TimeProvider.System), so this one wins.
-        builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Clock));
+        // Registered after AddApplication's TryAddSingleton(...), so these win.
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<TimeProvider>(Clock);
+            services.AddSingleton<IBackupScheduler>(BackupRequests);
+        });
     }
 
     public override async ValueTask DisposeAsync()

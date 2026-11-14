@@ -20,9 +20,20 @@
 @let dues = alerts.dueExpenses() ?? [];
 @let d = dashboard();
 @let negatives = negativeEnvelopes();
+@let backup = backupAlert();
 @if ((days?.count ?? 0) > 0 || (shortages?.count ?? 0) > 0 || dues.length > 0 || negatives.length > 0
-  || (d?.lowStockCount ?? 0) > 0 || (d?.bufferExceededCount ?? 0) > 0) {
+  || (d?.lowStockCount ?? 0) > 0 || (d?.bufferExceededCount ?? 0) > 0 || backup) {
   <section class="todo" aria-label="Pendientes">
+    @if (backup) {
+      <!-- RF-DAT-06: first, because losing the data is the one thing nothing else fixes. -->
+      <a class="todo__item" [class.todo__item--bad]="backup.tone === 'bad'" routerLink="/configuracion/respaldo">
+        <span class="todo__count" aria-hidden="true">{{ backup.tone === 'bad' ? '!' : '↥' }}</span>
+        <span>
+          <strong>{{ backup.title }}</strong>
+          <span class="todo__sub">{{ backup.detail }}</span>
+        </span>
+      </a>
+    }
     @if (days && days.count > 0) {
       <a class="todo__item" [routerLink]="['/cierre']" [queryParams]="{ fecha: days.days[0] }">
         <span class="todo__count num">{{ days.count }}</span>

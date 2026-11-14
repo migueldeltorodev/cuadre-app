@@ -1,0 +1,107 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.state,
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.alert--ok {
+  background: var(--c-ok-soft);
+  color: var(--c-ok-ink);
+}
+
+/* Last backups: two facts side by side, stacked when narrow. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.fact dt {
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.fact dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Pendrives plugged in right now. */
+.drives {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.drives__label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--c-ink-2);
+}
+
+.drives__none {
+  font-size: 13.5px;
+  color: var(--c-muted);
+}
+
+.field--wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .field--wide {
+    grid-column: auto;
+  }
+}
+
+/* The in-row confirmation: the whole width under the backup it is about. */
+.restore {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--c-bad);
+  border-radius: var(--r-md);
+  background: var(--c-bad-soft);
+}
+
+.restore__title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--c-bad-ink);
+}
+
+.restore__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--c-ink-2);
+}
+
+.btn--danger {
+  border-color: transparent;
+  background: var(--c-bad);
+  color: #ffffff;
+}
+
+.empty {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: 14px;
+}
