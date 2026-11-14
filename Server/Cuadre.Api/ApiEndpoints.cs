@@ -290,6 +290,16 @@ public static class ApiEndpoints
         public const string Skip = $"{Base}/{{id:guid}}/skip";
     }
 
+    /// <summary>D-62: the taxes to suggest setting aside. No DELETE: deactivated.</summary>
+    public static class Taxes
+    {
+        private const string Base = $"{ApiBase}/taxes";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
     /// <summary>RF-REP-01: the home screen.</summary>
     public static class Dashboard
     {
@@ -302,6 +312,9 @@ public static class ApiEndpoints
         private const string Base = $"{ApiBase}/reports";
 
         public const string Monthly = $"{Base}/monthly";
+
+        /// <summary>D-63: the estado de rendimiento of a month, for the accountant.</summary>
+        public const string Accountant = $"{Base}/accountant";
         public const string Losses = $"{Base}/losses";
         public const string ProductRanking = $"{Base}/product-ranking";
         public const string CostChanges = $"{Base}/cost-changes";

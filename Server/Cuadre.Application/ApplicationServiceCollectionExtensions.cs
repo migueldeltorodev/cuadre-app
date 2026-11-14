@@ -63,6 +63,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IAuditRepository, AuditRepository>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<ICostingRepository, CostingRepository>();
+        services.AddScoped<ITaxRepository, TaxRepository>();
+        services.AddScoped<ITaxService, TaxService>();
 
         // RF-CIE-10: every service that dates something asks it before writing.
         services.AddScoped<IClosedDayGuard, ClosedDayGuard>();

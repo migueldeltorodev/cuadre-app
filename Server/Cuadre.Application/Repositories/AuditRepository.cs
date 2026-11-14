@@ -235,6 +235,7 @@ public class AuditRepository : IAuditRepository
         ConfigSubject.Envelope => AuditSubject.Envelope,
         ConfigSubject.Employee => AuditSubject.Employee,
         ConfigSubject.ExpenseCategory => AuditSubject.ExpenseCategory,
+        ConfigSubject.Tax => AuditSubject.Tax,
         _ => throw new ArgumentOutOfRangeException(nameof(subject), subject, null)
     };
 
@@ -247,6 +248,7 @@ public class AuditRepository : IAuditRepository
         ConfigSubject.Envelope => $"Sobre «{name}»",
         ConfigSubject.Employee => $"Empleado «{name}»",
         ConfigSubject.ExpenseCategory => $"Categoría de gasto «{name}»",
+        ConfigSubject.Tax => $"Impuesto «{name}»",
         _ => name
     };
 

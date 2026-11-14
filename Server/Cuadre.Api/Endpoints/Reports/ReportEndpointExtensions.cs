@@ -6,6 +6,7 @@ public static class ReportEndpointExtensions
     public static IEndpointRouteBuilder MapReportEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGetMonthlyReport();
+        app.MapGetAccountantSummary();
         app.MapGetLossReport();
         app.MapGetProductRanking();
         app.MapGetProductCostHistory();

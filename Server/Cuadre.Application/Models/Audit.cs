@@ -14,7 +14,8 @@ public enum ConfigSubject
     ExchangeRate,
     Envelope,
     Employee,
-    ExpenseCategory
+    ExpenseCategory,
+    Tax
 }
 
 /// <summary>One field: before and after, already written for people ("20 %", "Sí").</summary>
@@ -125,7 +126,8 @@ public enum AuditSubject
     ExchangeRate,
     Envelope,
     Employee,
-    ExpenseCategory
+    ExpenseCategory,
+    Tax
 }
 
 /// <summary>One line of the log. Title is ready to show ("Compra #12", "Cierre del 2026-11-10").</summary>
