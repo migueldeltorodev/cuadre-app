@@ -182,14 +182,17 @@ export interface ProductResponse {
 
 /**
  * Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit.
- * D-52: the suggested price, the margin and the colchón alert use the LAST purchase's cost and rate;
- * the weighted average is what the stock on the shelf cost.
+ * D-52: the suggested price, the margin and the colchón alert use the LAST purchase's cost and rate.
+ * D-60: what leaves the shelf is costed FIFO; `currentCost...` is the batch being sold now.
  */
 export interface ProductCostResponse {
   avgCostUsdMicros: number;
   avgCostCupMicros: number;
   lastCostUsdMicros: number;
   lastCostCupMicros: number;
+  /** D-60: the batch being sold now (the oldest with stock; with an empty shelf, the newest). */
+  currentCostUsdMicros: number;
+  currentCostCupMicros: number;
   /** The last purchase's rate, CUP cents per USD. */
   lastRateCents: number;
   effectiveBufferCents: number;
@@ -1074,7 +1077,10 @@ export interface DailyClosingLineResponse {
   salesCents: number;
   toleranceBps: number;
   toleranceCents: number;
+  /** A2 of the line: FIFO cost + the colchón. */
   costCents: number;
+  /** The colchón part of costCents (D-60); 0 on closings made before it. */
+  bufferCents: number;
 }
 
 export interface DailyClosingCollectionResponse {

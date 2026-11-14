@@ -47,7 +47,13 @@ interface Instruction {
       <div class="stat">
         <span class="stat__label">Costo de lo vendido (A2)</span>
         <span class="stat__value num">{{ formatCup(c.costOfSalesCents) }}</span>
-        <span class="stat__sub">va a Reposición para volver a comprar</span>
+        <span class="stat__sub num">
+          @if (bufferCents() !== 0) {
+            incluye colchón {{ formatCup(bufferCents()) }} · va a Reposición
+          } @else {
+            va a Reposición para volver a comprar
+          }
+        </span>
       </div>
       <div class="stat" [class.stat--bad]="c.realIncomeCents < 0">
         <span class="stat__label">Ingreso real (A3)</span>
@@ -160,6 +166,11 @@ export class ClosingSummary {
   protected readonly formatPercent = formatPercent;
   protected readonly differenceText = differenceText;
   protected readonly swatches = ENVELOPE_SWATCHES;
+
+  /** D-60: the colchón inside A2 (what sold, in USD, × colchón). Reposición keeps it for when the rate goes up. */
+  protected readonly bufferCents = computed(() =>
+    this.closing().lines.reduce((sum, line) => sum + line.bufferCents, 0),
+  );
 
   protected readonly hasDebt = computed(() => {
     const c = this.closing();

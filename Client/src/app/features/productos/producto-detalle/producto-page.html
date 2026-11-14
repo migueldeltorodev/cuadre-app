@@ -103,7 +103,11 @@
           </p>
           <div class="costs num">
             <div class="fact">
-              <span>Último costo</span>
+              <span>Tanda que se está vendiendo</span>
+              <span>{{ formatMicros(cost.currentCostCupMicros) }} CUP · {{ formatMicros(cost.currentCostUsdMicros) }} USD</span>
+            </div>
+            <div class="fact">
+              <span>Última compra</span>
               <span>{{ formatMicros(cost.lastCostCupMicros) }} CUP · {{ formatMicros(cost.lastCostUsdMicros) }} USD</span>
             </div>
             <div class="fact">
@@ -111,8 +115,9 @@
               <span>{{ formatMicros(cost.avgCostCupMicros) }} CUP · {{ formatMicros(cost.avgCostUsdMicros) }} USD</span>
             </div>
             <p class="formula__note">
-              El precio, el margen, el colchón y lo que va a Reposición en cada cierre usan el último costo: lo que
-              cuesta reponer. El promedio es lo que costó la mercadería que tenés hoy: con él se valúan las pérdidas.
+              Lo que se vende sale primero de la tanda más vieja: cada compra es una tanda, con su costo y su tasa.
+              En el cierre, a ese costo se le suma el colchón y todo va a Reposición. Las pérdidas valen lo que costó
+              su tanda, sin colchón.
             </p>
           </div>
           @if (bufferStatus(); as b) {
