@@ -44,13 +44,15 @@ public class EnvelopeService : IEnvelopeService
     private readonly IValidator<GetEnvelopeLedgerOptions> _ledgerValidator;
     private readonly IClosedDayGuard _closedDayGuard;
     private readonly IDailyClosingRepository _closingRepository;
+    private readonly IAuditService _audit;
     private readonly TimeProvider _clock;
 
     public EnvelopeService(IEnvelopeRepository repository, ICashBoxRepository cashBoxRepository,
         IValidator<Envelope> validator, IValidator<AllocationPlan> planValidator,
         IValidator<GetEnvelopeLedgerOptions> ledgerValidator, IDailyClosingRepository closingRepository,
-        IClosedDayGuard closedDayGuard, TimeProvider clock)
+        IClosedDayGuard closedDayGuard, IAuditService audit, TimeProvider clock)
     {
+        _audit = audit;
         _repository = repository;
         _cashBoxRepository = cashBoxRepository;
         _validator = validator;
@@ -133,6 +135,9 @@ public class EnvelopeService : IEnvelopeService
 
         updated.UpdatedAt = _clock.UtcNow();
         await _repository.UpdateAsync(updated, cancellationToken);
+        await _audit.RecordAsync(ConfigSubject.Envelope, updated.Id, updated.Name, new ChangeList()
+            .Text("Nombre", envelope.Name, updated.Name)
+            .Active(envelope.IsActive, updated.IsActive), cancellationToken);
         return Result.Ok(updated);
     }
 
