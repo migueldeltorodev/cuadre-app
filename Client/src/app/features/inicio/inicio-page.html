@@ -1,0 +1,256 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">{{ greeting() }}</h1>
+    <p class="page-subtitle">{{ todayLabel() || 'Cargando el día…' }}</p>
+  </div>
+  @if (closedToday()) {
+    <a class="btn" [routerLink]="['/cierre', dashboard()!.lastClosing!.closingId]">Ver el cierre de hoy</a>
+  } @else {
+    <a class="btn btn--primary" routerLink="/cierre">Hacer el cierre de hoy</a>
+  }
+</header>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+<!-- What the closing (and the rest) still asks for. -->
+@let days = alerts.pendingDays();
+@let shortages = alerts.pendingShortages();
+@let dues = alerts.dueExpenses() ?? [];
+@let d = dashboard();
+@let negatives = negativeEnvelopes();
+@let backup = backupAlert();
+@let notices = priceNoticeCount();
+@if ((days?.count ?? 0) > 0 || (shortages?.count ?? 0) > 0 || dues.length > 0 || negatives.length > 0
+  || (d?.lowStockCount ?? 0) > 0 || (d?.bufferExceededCount ?? 0) > 0 || notices > 0 || backup) {
+  <section class="todo" aria-label="Pendientes">
+    @if (backup) {
+      <!-- RF-DAT-06: first, because losing the data is the one thing nothing else fixes. -->
+      <a class="todo__item" [class.todo__item--bad]="backup.tone === 'bad'" routerLink="/configuracion/respaldo">
+        <span class="todo__count" aria-hidden="true">{{ backup.tone === 'bad' ? '!' : '↥' }}</span>
+        <span>
+          <strong>{{ backup.title }}</strong>
+          <span class="todo__sub">{{ backup.detail }}</span>
+        </span>
+      </a>
+    }
+    @if (days && days.count > 0) {
+      <a class="todo__item" [routerLink]="['/cierre']" [queryParams]="{ fecha: days.days[0] }">
+        <span class="todo__count num">{{ days.count }}</span>
+        <span>
+          <strong>{{ days.count === 1 ? 'Día sin cerrar' : 'Días sin cerrar' }}</strong>
+          <span class="todo__sub">Desde el {{ formatShortDate(days.days[0]) }}. Cerralos en orden: empezá por ese.</span>
+        </span>
+      </a>
+    }
+    @if (shortages && shortages.count > 0) {
+      <a class="todo__item" routerLink="/cierre/faltantes">
+        <span class="todo__count num">{{ shortages.count }}</span>
+        <span>
+          <strong>{{ shortages.count === 1 ? 'Faltante por reclamar' : 'Faltantes por reclamar' }}</strong>
+          <span class="todo__sub">Suman {{ formatMoney(shortages.pendingCents) }}.</span>
+        </span>
+      </a>
+    }
+    @if (dues.length > 0) {
+      <a class="todo__item" routerLink="/gastos">
+        <span class="todo__count num">{{ dues.length }}</span>
+        <span>
+          <strong>{{ dues.length === 1 ? 'Gasto fijo por pagar' : 'Gastos fijos por pagar' }}</strong>
+          <span class="todo__sub">
+            {{ dues[0].recurring.name }} vencía el {{ formatShortDate(dues[0].dueDate) }}. Pagalo o saltalo si esta vez no se pagó.
+          </span>
+        </span>
+      </a>
+    }
+    @if (negatives.length > 0) {
+      <a class="todo__item todo__item--bad" routerLink="/sobres">
+        <span class="todo__count num">{{ negatives.length }}</span>
+        <span>
+          <strong>{{ negatives.length === 1 ? 'Sobre en negativo' : 'Sobres en negativo' }}</strong>
+          <span class="todo__sub">{{ negatives[0].name }} gastó más de lo que tenía. Movele plata desde otro sobre.</span>
+        </span>
+      </a>
+    }
+    @if (d && d.lowStockCount > 0) {
+      <a class="todo__item" routerLink="/inventario/lista-de-compras">
+        <span class="todo__count num">{{ d.lowStockCount }}</span>
+        <span>
+          <strong>{{ d.lowStockCount === 1 ? 'Producto con poco stock' : 'Productos con poco stock' }}</strong>
+          <span class="todo__sub">Están por debajo del mínimo. Mirá la lista de compras.</span>
+        </span>
+      </a>
+    }
+    @if (d && d.bufferExceededCount > 0) {
+      <a class="todo__item" routerLink="/productos/lista-de-precios">
+        <span class="todo__count num">{{ d.bufferExceededCount }}</span>
+        <span>
+          <strong>{{ d.bufferExceededCount === 1 ? 'Precio para revisar' : 'Precios para revisar' }}</strong>
+          <span class="todo__sub">La tasa de hoy pasó el colchón con el que se compraron.</span>
+        </span>
+      </a>
+    }
+    @if (notices > 0) {
+      <a class="todo__item" routerLink="/productos/lista-de-precios">
+        <span class="todo__count num">{{ notices }}</span>
+        <span>
+          <strong>{{ notices === 1 ? 'Precio por tanda para revisar' : 'Precios por tanda para revisar' }}</strong>
+          <span class="todo__sub">Entró una tanda nueva a la venta, o la próxima no entra en el precio de hoy.</span>
+        </span>
+      </a>
+    }
+  </section>
+}
+
+@if (d) {
+  <!-- The day and the month. -->
+  <section class="kpis" aria-label="Números del mes">
+    <div class="kpi">
+      <div class="kpi__label">Último cierre</div>
+      @if (d.lastClosing; as last) {
+        @let diff = differenceLabel(last.differenceCents);
+        <div class="kpi__value num">{{ formatMoney(last.collectedCents) }}</div>
+        <div class="kpi__note">
+          <a class="link" [routerLink]="['/cierre', last.closingId]">{{ lastClosingWhen() }}</a>
+          · <span class="pill" [class]="'pill--' + diff.tone">{{ diff.text }}</span>
+        </div>
+      } @else {
+        <div class="kpi__value kpi__value--muted">Todavía no hay</div>
+        <div class="kpi__note">Los números aparecen con el primer cierre.</div>
+      }
+    </div>
+
+    <div class="kpi">
+      <div class="kpi__label">Cobrado en el mes <span class="kpi__code">A1</span></div>
+      <div class="kpi__value num">{{ formatMoney(d.month.collectedCents) }}</div>
+      <div class="kpi__note">
+        {{ d.month.closedDays === 1 ? '1 día cerrado' : d.month.closedDays + ' días cerrados' }}
+        @if (collectedGrowth(); as g) {
+          · <span class="trend" [class]="'trend--' + g.tone">{{ g.text }}</span> que {{ previousSpan() }}
+        }
+      </div>
+    </div>
+
+    <div class="kpi kpi--accent">
+      <div class="kpi__label">Ingreso real del mes <span class="kpi__code">A3</span></div>
+      <div class="kpi__value num" [class.negative]="d.month.realIncomeCents < 0">{{ formatMoney(d.month.realIncomeCents) }}</div>
+      <div class="kpi__note">
+        Lo que queda después de reponer la mercadería
+        @if (realIncomeGrowth(); as g) {
+          · <span class="trend" [class]="'trend--' + g.tone">{{ g.text }}</span>
+        }
+      </div>
+    </div>
+
+    <div class="kpi">
+      <div class="kpi__label">Gastos del mes</div>
+      <div class="kpi__value num">{{ expensesLabel(d.month.expenses) }}</div>
+      <div class="kpi__note">
+        Personal: {{ formatMoney(d.month.staffPayCents) }} ·
+        <a class="link" routerLink="/gastos">Ver gastos</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- The last 30 closings. -->
+  <section class="card chart">
+    <div class="card__head">
+      <div>
+        <h2 class="card__title">Últimos 30 días</h2>
+        <p class="card__lead">Lo cobrado de cada cierre: la parte que repone la mercadería y la que queda.</p>
+      </div>
+      <a class="link" routerLink="/reportes">Ver el mes completo</a>
+    </div>
+    @if (columns().length > 0) {
+      <app-stacked-columns [columns]="columns()" caption="Cierres de los últimos 30 días" />
+    } @else {
+      <p class="muted">Todavía no hay cierres en los últimos 30 días.</p>
+    }
+  </section>
+
+  <div class="split">
+    <!-- Envelopes. -->
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title">Sobres</h2>
+        <a class="link" routerLink="/sobres">Ver saldos</a>
+      </div>
+      @if (envelopes().length > 0) {
+        <ul class="list">
+          @for (env of envelopes(); track env.id) {
+            <li class="list__row">
+              <span class="list__name">
+                <span class="swatch" [style.background]="swatches[env.role]"></span>
+                <a class="link-plain" [routerLink]="['/sobres', env.id]">{{ env.name }}</a>
+              </span>
+              <span class="num list__value" [class.negative]="env.negative">
+                @for (total of env.totals; track total.currency; let last = $last) {
+                  {{ formatBalance(total.cents, total.currency) }}@if (!last) { · }
+                } @empty {
+                  {{ formatMoney(0) }}
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted">Cargando los sobres…</p>
+      }
+    </section>
+
+    <!-- What needs a look. -->
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title">Para revisar</h2>
+      </div>
+      @if (d.lowStock.length === 0 && d.bufferExceeded.length === 0) {
+        <p class="muted">Nada por ahora: el stock está sobre los mínimos y los precios dentro del colchón.</p>
+      }
+      @if (d.lowStock.length > 0) {
+        <h3 class="list__title">Poco stock</h3>
+        <ul class="list">
+          @for (item of d.lowStock; track item.productId) {
+            <li class="list__row">
+              <a class="link-plain" [routerLink]="['/productos', item.productId]">{{ item.name }}</a>
+              <span class="num list__value">
+                {{ formatQuantityWithUnit(item.stockMilli, item.stockUnit) }}
+                <span class="muted-inline">de {{ formatQuantityWithUnit(item.minStockMilli, item.stockUnit) }}</span>
+              </span>
+            </li>
+          }
+        </ul>
+        @if (d.lowStockCount > d.lowStock.length) {
+          <a class="link more" routerLink="/inventario/lista-de-compras">Y {{ d.lowStockCount - d.lowStock.length }} más</a>
+        }
+      }
+      @if (d.bufferExceeded.length > 0) {
+        <h3 class="list__title">Precios para revisar</h3>
+        <ul class="list">
+          @for (item of d.bufferExceeded; track item.productId) {
+            <li class="list__row">
+              <a class="link-plain" [routerLink]="['/productos', item.productId]">{{ item.name }}</a>
+              <span class="num list__value">
+                {{ item.salePriceCents !== null ? formatMoney(item.salePriceCents) : 'Sin precio' }}
+                <span class="muted-inline">→ {{ formatMoney(item.suggestedPriceCents) }}</span>
+              </span>
+            </li>
+          }
+        </ul>
+        @if (d.bufferExceededCount > d.bufferExceeded.length) {
+          <a class="link more" routerLink="/productos/lista-de-precios">Y {{ d.bufferExceededCount - d.bufferExceeded.length }} más</a>
+        }
+      }
+    </section>
+  </div>
+} @else if (!loadError()) {
+  <p class="muted">Cargando…</p>
+}
+
+<footer class="foot">
+  @if (version(); as v) {
+    Cuadre {{ v }}
+  } @else {
+    <span class="negative">Sin conexión con el servidor</span>
+  }
+</footer>

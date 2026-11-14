@@ -11,6 +11,7 @@ import {
   EmployeeResponse,
 } from '../../core/api/models';
 import { ExchangeRateDialog, ExchangeRateDialogData } from '../../core/exchange-rate/exchange-rate-dialog';
+import { ClosingAlertsStore } from '../../core/state/closing-alerts-store';
 import { ExchangeRateStore } from '../../core/state/exchange-rate-store';
 import { formatDayMonth, formatShortDate } from '../../shared/format/date';
 import { formatMoney, formatPercent, parseHundredths } from '../../shared/format/money';
@@ -59,6 +60,13 @@ export default class CierrePage implements OnInit {
   private readonly dialog = inject(Dialog);
   private readonly router = inject(Router);
   private readonly rate = inject(ExchangeRateStore);
+  protected readonly alerts = inject(ClosingAlertsStore);
+
+  /** RF-CIE-09: the days over and not closed, except the one on screen. */
+  protected readonly otherPendingDays = computed(() => {
+    const date = this.draft()?.date;
+    return (this.alerts.pendingDays()?.days ?? []).filter((day) => day !== date);
+  });
 
   protected readonly steps = STEPS;
   protected readonly formatShortDate = formatShortDate;

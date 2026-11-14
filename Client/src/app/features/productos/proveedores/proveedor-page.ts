@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/api/api-error';
@@ -8,6 +8,7 @@ import { PurchasesApi } from '../../../core/api/purchases-api';
 import { formatShortDate } from '../../../shared/format/date';
 import { formatMicros, formatMoney } from '../../../shared/format/money';
 import { perUnit } from '../../../shared/format/quantity';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * One supplier (RF-PRV-02): what we buy from them and at what landed cost the last time,
@@ -17,12 +18,6 @@ import { perUnit } from '../../../shared/format/quantity';
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <nav class="crumbs" aria-label="Ruta">
-      <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span>
-      <a routerLink="/productos/proveedores">Proveedores</a> <span aria-hidden="true">/</span>
-      {{ supplier()?.name ?? '…' }}
-    </nav>
-
     @if (loadError(); as e) {
       <p class="alert alert--bad" role="alert">{{ e.status === 404 ? 'Ese proveedor no existe.' : e.message }}</p>
     }
@@ -114,8 +109,6 @@ import { perUnit } from '../../../shared/format/quantity';
   `,
   styles: `
     :host { display: flex; flex-direction: column; gap: 20px; }
-    .crumbs { font-size: 13.5px; color: var(--c-muted); }
-    .crumbs a { text-decoration: none; }
     .head { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; }
     .table-card { background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--r-lg); overflow-x: auto; }
     .table-card__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; padding: 22px 24px 8px; }
@@ -147,6 +140,15 @@ export default class ProveedorPage implements OnInit {
   protected readonly perUnit = perUnit;
 
   protected readonly supplier = signal<SupplierResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const supplier = this.supplier();
+    if (supplier) {
+      this.crumbs.set(supplier.name);
+    }
+  });
   protected readonly products = signal<SupplierProductResponse[]>([]);
   protected readonly purchases = signal<PurchaseSummaryResponse[]>([]);
   protected readonly purchaseTotal = signal(0);

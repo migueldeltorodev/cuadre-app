@@ -84,6 +84,13 @@ export function cashMovementLink(movement: CashMovementResponse): string[] | nul
   if (movement.closingId) {
     return ['/cierre', movement.closingId];
   }
+  if (movement.expenseId) {
+    return ['/gastos', movement.expenseId];
+  }
+  if (movement.recoveryClosingId) {
+    // A recovered shortage: its closing shows the shortage and links to it.
+    return ['/cierre', movement.recoveryClosingId];
+  }
   return null;
 }
 

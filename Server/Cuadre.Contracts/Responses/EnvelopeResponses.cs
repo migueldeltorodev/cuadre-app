@@ -114,6 +114,16 @@ public class CashMovementResponse
     public int? StockOperationNumber { get; init; }
     public Guid? ClosingId { get; init; }
     public DateOnly? ClosingDate { get; init; }
+
+    /// <summary>A shortage recovery, and the closing where that shortage came out.</summary>
+    public Guid? RecoveryId { get; init; }
+
+    public Guid? RecoveryClosingId { get; init; }
+
+    /// <summary>A gasto (slice 7).</summary>
+    public Guid? ExpenseId { get; init; }
+
+    public int? ExpenseNumber { get; init; }
     public required bool IsVoided { get; init; }
     public required DateTime CreatedAt { get; init; }
 }

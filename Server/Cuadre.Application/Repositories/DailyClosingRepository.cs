@@ -13,6 +13,16 @@ public interface IDailyClosingRepository
     /// <summary>The confirmed closing of that day, if any.</summary>
     Task<Guid?> GetConfirmedIdAsync(DateOnly date, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// RF-CIE-11: the latest confirmed closing of ANOTHER day with exactly the same cash, transfers and theoretical
+    /// sales. Only asked when there were sales.
+    /// </summary>
+    Task<DateOnly?> FindDuplicateAsync(DateOnly date, long cashCents, long transferCents, long theoreticalSalesCents,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>The first day with anything in the ledgers (stock or cash): no closing is expected before it.</summary>
+    Task<DateOnly?> GetFirstActivityDateAsync(CancellationToken cancellationToken = default);
+
     /// <summary>What Reposición owes the other envelopes at the end of <paramref name="asOf"/> (RF-PF-09).</summary>
     Task<long> GetInternalDebtAsync(DateOnly asOf, CancellationToken cancellationToken = default);
 
@@ -89,6 +99,35 @@ public class DailyClosingRepository : IDailyClosingRepository
         return text is null ? null : Guid.Parse(text);
     }
 
+    public async Task<DateOnly?> FindDuplicateAsync(DateOnly date, long cashCents, long transferCents,
+        long theoreticalSalesCents, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var text = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("""
+            SELECT date FROM daily_closings
+            WHERE status = 'Confirmed' AND date <> @date
+              AND cash_collected_cents = @cashCents
+              AND transfer_collected_cents = @transferCents
+              AND theoretical_sales_cents = @theoreticalSalesCents
+            ORDER BY date DESC
+            LIMIT 1
+            """, new { date, cashCents, transferCents, theoreticalSalesCents },
+            cancellationToken: cancellationToken));
+        return text is null ? null : DateOnly.ParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    public async Task<DateOnly?> GetFirstActivityDateAsync(CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        var text = await connection.ExecuteScalarAsync<string?>(new CommandDefinition("""
+            SELECT MIN(date) FROM (
+                SELECT MIN(date) AS date FROM stock_movements
+                UNION ALL
+                SELECT MIN(date) FROM cash_movements)
+            """, cancellationToken: cancellationToken));
+        return text is null ? null : DateOnly.ParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
     public async Task<long> GetInternalDebtAsync(DateOnly asOf, CancellationToken cancellationToken = default)
     {
         using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
@@ -133,16 +172,16 @@ public class DailyClosingRepository : IDailyClosingRepository
                    COALESCE(d.out_milli, 0) AS out_milli,
                    COALESCE((SELECT h.price_cents FROM product_price_changes h
                              WHERE h.product_id = p.id AND h.effective_date <= @date
-                             ORDER BY h.effective_date DESC, h.created_at DESC
+                             -- rowid breaks a tie of two changes in the same millisecond: the later one wins.
+                             ORDER BY h.effective_date DESC, h.created_at DESC, h.rowid DESC
                              LIMIT 1), p.sale_price_cents) AS unit_price_cents,
                    p.shrinkage_tolerance_bps AS tolerance_bps,
-                   pc.avg_cost_usd_micros, pc.avg_cost_cup_micros
+                   p.exchange_buffer_cents
             FROM keys k
                 JOIN products p ON p.id = k.product_id
                 JOIN counters l ON l.id = k.location_id
                 LEFT JOIN opening o ON o.product_id = k.product_id AND o.location_id = k.location_id
                 LEFT JOIN day d ON d.product_id = k.product_id AND d.location_id = k.location_id
-                LEFT JOIN product_costs pc ON pc.product_id = k.product_id
             ORDER BY l.name, p.name
             """, new { date }, cancellationToken: cancellationToken));
         return lines.ToList();
@@ -213,11 +252,11 @@ public class DailyClosingRepository : IDailyClosingRepository
                 INSERT INTO daily_closing_lines (id, closing_id, line_no, product_id, location_id, stock_unit,
                     opening_milli, in_milli, out_milli, expected_milli, counted_milli, sold_milli,
                     unit_price_cents, sales_cents, tolerance_bps, tolerance_cents,
-                    unit_cost_usd_micros, unit_cost_cup_micros, cost_cents)
+                    unit_cost_usd_micros, unit_cost_cup_micros, cost_cents, buffer_cents)
                 VALUES (@Id, @ClosingId, @LineNo, @ProductId, @LocationId, @StockUnit,
                     @OpeningMilli, @InMilli, @OutMilli, @ExpectedMilli, @CountedMilli, @SoldMilli,
                     @UnitPriceCents, @SalesCents, @ToleranceBps, @ToleranceCents,
-                    @UnitCostUsdMicros, @UnitCostCupMicros, @CostCents)
+                    @UnitCostUsdMicros, @UnitCostCupMicros, @CostCents, @BufferCents)
                 """, new
             {
                 line.Id,
@@ -238,7 +277,8 @@ public class DailyClosingRepository : IDailyClosingRepository
                 line.ToleranceCents,
                 line.UnitCostUsdMicros,
                 line.UnitCostCupMicros,
-                line.CostCents
+                line.CostCents,
+                line.BufferCents
             }, transaction, cancellationToken: cancellationToken));
         }
 
@@ -325,7 +365,7 @@ public class DailyClosingRepository : IDailyClosingRepository
                    l.location_id, loc.name AS location_name, l.stock_unit,
                    l.opening_milli, l.in_milli, l.out_milli, l.expected_milli, l.counted_milli, l.sold_milli,
                    l.unit_price_cents, l.sales_cents, l.tolerance_bps, l.tolerance_cents,
-                   l.unit_cost_usd_micros, l.unit_cost_cup_micros, l.cost_cents
+                   l.unit_cost_usd_micros, l.unit_cost_cup_micros, l.cost_cents, l.buffer_cents
             FROM daily_closing_lines l
                 JOIN products p ON p.id = l.product_id
                 JOIN locations loc ON loc.id = l.location_id
@@ -353,9 +393,12 @@ public class DailyClosingRepository : IDailyClosingRepository
             """, new { id }, cancellationToken: cancellationToken)));
 
         closing.Discrepancy = await connection.QuerySingleOrDefaultAsync<CashDiscrepancy>(new CommandDefinition("""
-            SELECT id, closing_id, date, kind, amount_cents, employee_id, note, status, created_at, updated_at
-            FROM cash_discrepancies
-            WHERE closing_id = @id
+            SELECT d.id, d.closing_id, d.date, d.kind, d.amount_cents, d.employee_id, d.note, d.status,
+                   d.resolution_note, d.resolved_at, d.created_at, d.updated_at, d.date AS closing_date,
+                   COALESCE((SELECT SUM(r.amount_cents) FROM cash_discrepancy_recoveries r
+                             WHERE r.discrepancy_id = d.id AND r.status = 'Confirmed'), 0) AS recovered_cents
+            FROM cash_discrepancies d
+            WHERE d.closing_id = @id
             """, new { id }, cancellationToken: cancellationToken));
 
         return closing;

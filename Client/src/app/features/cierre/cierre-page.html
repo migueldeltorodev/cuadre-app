@@ -57,6 +57,20 @@
           <p class="alert alert--warn">Este día el negocio normalmente no abre. Si abrió, cerralo igual.</p>
         }
 
+        @if (otherPendingDays().length > 0) {
+          <div class="alert alert--warn pending">
+            <span>
+              {{ alerts.pendingDaysCount() === 1 ? 'Hay 1 día sin cerrar' : 'Hay ' + alerts.pendingDaysCount() + ' días sin cerrar' }}.
+              Conviene cerrarlos en orden: una vez cerrado un día, los anteriores ya no se pueden cerrar.
+            </span>
+            <span class="pending__days">
+              @for (day of otherPendingDays(); track day) {
+                <button class="pending__day num" type="button" (click)="setDate(day)">{{ formatShortDate(day) }}</button>
+              }
+            </span>
+          </div>
+        }
+
         <div class="rate">
           @if (d.isExchangeRateMissing) {
             <p class="alert alert--warn">
@@ -274,6 +288,13 @@
         </div>
       }
       @if (preview(); as p) {
+        @if (p.possibleDuplicateOf) {
+          <div class="alert alert--warn" role="status">
+            <strong>¿Es el mismo día cargado dos veces?</strong>
+            El {{ formatShortDate(p.possibleDuplicateOf) }} se cerró con exactamente el mismo efectivo, las mismas
+            transferencias y la misma venta. Revisá antes de confirmar.
+          </div>
+        }
         <app-closing-summary [closing]="p" />
 
         <section class="card step">

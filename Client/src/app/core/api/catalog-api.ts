@@ -11,9 +11,11 @@ import {
   PriceChangeResponse,
   PriceListCopyResponse,
   PriceListResponse,
+  PriceNoticeResponse,
   ProductPurchaseResponse,
   ProductQuery,
   ProductResponse,
+  ResolvePriceNoticeRequest,
   SetSalePriceRequest,
   SupplierProductResponse,
   SupplierResponse,
@@ -122,6 +124,16 @@ export class ProductsApi {
   /** Only the price: accepting a suggestion (with purchaseId) or a quick manual change. */
   setSalePrice(id: string, request: SetSalePriceRequest): Observable<ProductResponse> {
     return this.http.put<ProductResponse>(`/api/products/${id}/sale-price`, request);
+  }
+
+  /** D-61: prices to look at (a new batch on sale, or the next one will not fit in the price). */
+  priceNotices(): Observable<ItemsResponse<PriceNoticeResponse>> {
+    return this.http.get<ItemsResponse<PriceNoticeResponse>>('/api/products/price-notices');
+  }
+
+  /** D-61: take the suggested price (from today) or keep the price. */
+  resolvePriceNotice(id: string, request: ResolvePriceNoticeRequest): Observable<ProductResponse> {
+    return this.http.post<ProductResponse>(`/api/products/${id}/price-notice`, request);
   }
 }
 

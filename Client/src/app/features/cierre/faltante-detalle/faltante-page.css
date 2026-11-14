@@ -1,0 +1,90 @@
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tag {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  font-size: 13px;
+  color: var(--c-ink-2);
+}
+
+.tag--link {
+  color: var(--c-link);
+  text-decoration: none;
+}
+
+.tag--link:hover {
+  text-decoration: underline;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.figure {
+  padding: 18px 20px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+}
+
+.figure--warn {
+  background: var(--c-warn-soft);
+  border-color: #efd9a8;
+}
+
+.figure__label {
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.figure__value {
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Final and irreversible: red only on the border and the last button. */
+.form-card--danger {
+  border-color: var(--c-bad);
+}
+
+.void-row td {
+  background: var(--c-bg);
+}
+
+.void {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.void__field {
+  flex: 1 1 280px;
+}
+
+.opt {
+  font-weight: 400;
+  color: var(--c-muted);
+}

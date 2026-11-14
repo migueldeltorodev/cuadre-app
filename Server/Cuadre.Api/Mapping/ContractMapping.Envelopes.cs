@@ -163,6 +163,10 @@ public static partial class ContractMapping
             StockOperationNumber = movement.StockOperationNumber,
             ClosingId = movement.ClosingId,
             ClosingDate = movement.ClosingDate,
+            RecoveryId = movement.RecoveryId,
+            RecoveryClosingId = movement.RecoveryClosingId,
+            ExpenseId = movement.ExpenseId,
+            ExpenseNumber = movement.ExpenseNumber,
             IsVoided = movement.IsVoided,
             CreatedAt = movement.CreatedAt
         };
@@ -391,6 +395,10 @@ public static partial class ContractMapping
         CashMovementKind.Allocation => CashMovementType.Allocation,
         CashMovementKind.StaffPay => CashMovementType.StaffPay,
         CashMovementKind.ClosingVoid => CashMovementType.ClosingVoid,
+        CashMovementKind.ShortageRecovery => CashMovementType.ShortageRecovery,
+        CashMovementKind.ShortageRecoveryVoid => CashMovementType.ShortageRecoveryVoid,
+        CashMovementKind.Expense => CashMovementType.Expense,
+        CashMovementKind.ExpenseVoid => CashMovementType.ExpenseVoid,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
     };
 }

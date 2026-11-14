@@ -66,8 +66,10 @@ public static class PurchaseCalculator
 /// <summary>A stock movement as the cost replay sees it.</summary>
 public sealed record CostMovement(long QuantityMilli, long? UnitCostUsdMicros, long? UnitCostCupMicros);
 
-/// <summary>Average cost per stock unit: USD (RN-01) and historical CUP (RN-02).</summary>
-public sealed record AverageCost(long UsdMicros, long CupMicros);
+/// <summary>
+/// A cost per stock unit in USD and CUP: the weighted average (RN-01, RN-02) or the last purchase's landed cost (D-52).
+/// </summary>
+public sealed record UnitCost(long UsdMicros, long CupMicros);
 
 public static class CostCalculator
 {
@@ -79,7 +81,7 @@ public static class CostCalculator
     /// Replaying from scratch makes voiding exact: drop the voided rows and replay; nothing to "un-average".
     /// Null when no costed entry exists.
     /// </summary>
-    public static AverageCost? Replay(IEnumerable<CostMovement> movements)
+    public static UnitCost? Replay(IEnumerable<CostMovement> movements)
     {
         decimal stock = 0;
         decimal? usd = null;
@@ -107,21 +109,22 @@ public static class CostCalculator
 
         return usd is null || cup is null
             ? null
-            : new AverageCost(Units.RoundToLong(usd.Value), Units.RoundToLong(cup.Value));
+            : new UnitCost(Units.RoundToLong(usd.Value), Units.RoundToLong(cup.Value));
     }
 }
 
 public static class PriceCalculator
 {
-    /// <summary>RN-02: average purchase rate = historical CUP cost / USD cost, in CUP cents per USD.</summary>
-    public static long AverageRateCents(AverageCost cost) =>
+    /// <summary>The purchase rate of a cost = CUP cost / USD cost, in CUP cents per USD (RN-02 for the average).</summary>
+    public static long PurchaseRateCents(UnitCost cost) =>
         Units.RoundToLong(cost.CupMicros * 100m / cost.UsdMicros);
 
     /// <summary>
     /// RN-03: Cost USD × (purchase rate + colchón) × (1 + recargo) = (cost CUP + cost USD × colchón) × (1 + recargo),
     /// rounded UP to the business rounding step (264.12 with a step of 5 → 265): rounding down would eat margin.
+    /// The cost given is the LAST one (D-52): the price must pay for restocking.
     /// </summary>
-    public static long SuggestedPriceCents(AverageCost cost, long bufferCents, int markupBps, long roundingStepCents)
+    public static long SuggestedPriceCents(UnitCost cost, long bufferCents, int markupBps, long roundingStepCents)
     {
         var baseCents = cost.CupMicros / 10_000m + cost.UsdMicros * (decimal)bufferCents / Units.MicrosPerUnit;
         // 4 decimals first: a division artifact like 26500.0000000001 must not jump to the next step.
@@ -130,8 +133,8 @@ public static class PriceCalculator
         return (long)(decimal.Ceiling(priced / step) * step);
     }
 
-    /// <summary>(price − historical CUP cost) / price, in basis points. Null when there is no price.</summary>
-    public static int? MarginBps(long? salePriceCents, AverageCost cost)
+    /// <summary>(price − CUP cost) / price, in basis points. Null when there is no price.</summary>
+    public static int? MarginBps(long? salePriceCents, UnitCost cost)
     {
         if (salePriceCents is not > 0)
         {
@@ -143,18 +146,29 @@ public static class PriceCalculator
     }
 
     /// <summary>RN-04: today's rate above purchase rate + colchón → the price needs a look.</summary>
-    public static bool IsBufferExceeded(long? todayRateCents, long averageRateCents, long bufferCents) =>
-        todayRateCents is { } today && today > averageRateCents + bufferCents;
+    public static bool IsBufferExceeded(long? todayRateCents, long purchaseRateCents, long bufferCents) =>
+        todayRateCents is { } today && today > purchaseRateCents + bufferCents;
 }
 
-/// <summary>Everything the screens show about a product's cost and price. Computed, never stored.</summary>
+/// <summary>
+/// Everything the screens show about a product's cost and price. Computed, never stored.
+/// D-61: the suggested price, the margin and the colchón alert use the cost of the BATCH BEING SOLD (D-60) and its
+/// rate: that is what the price on the sign pays for now. The newest batch's suggested price is kept beside it to warn
+/// early when the next batch will not fit in today's price. The average is shown for reference.
+/// </summary>
 public sealed record ProductPricing(
     long AvgCostUsdMicros,
     long AvgCostCupMicros,
-    long AverageRateCents,
+    long LastCostUsdMicros,
+    long LastCostCupMicros,
+    long CurrentCostUsdMicros,
+    long CurrentCostCupMicros,
+    long LastRateCents,
+    long CurrentRateCents,
     long EffectiveBufferCents,
     int EffectiveMarkupBps,
     long SuggestedPriceCents,
+    long NewestSuggestedPriceCents,
     int? MarginBps,
     long? TodayRateCents,
     bool IsBufferExceeded);
@@ -167,24 +181,85 @@ public static class ProductPricingRules
     /// </summary>
     public static ProductPricing? Build(Product product, BusinessSettings settings, long? todayRateCents)
     {
-        if (product.AverageCost is not { } cost)
+        if (product.AverageCost is not { } average)
         {
             return null;
         }
 
+        var last = product.LastCost ?? average;
+        var current = product.CurrentCost ?? last;
         var buffer = product.ExchangeBufferCents ?? settings.ExchangeBufferCents;
         var markup = product.MarkupBps ?? settings.DefaultMarkupBps;
-        var averageRate = PriceCalculator.AverageRateCents(cost);
+        var currentRate = PriceCalculator.PurchaseRateCents(current);
 
         return new ProductPricing(
-            cost.UsdMicros,
-            cost.CupMicros,
-            averageRate,
+            average.UsdMicros,
+            average.CupMicros,
+            last.UsdMicros,
+            last.CupMicros,
+            current.UsdMicros,
+            current.CupMicros,
+            PriceCalculator.PurchaseRateCents(last),
+            currentRate,
             buffer,
             markup,
-            PriceCalculator.SuggestedPriceCents(cost, buffer, markup, settings.PriceRoundingStepCents),
-            PriceCalculator.MarginBps(product.SalePriceCents, cost),
+            PriceCalculator.SuggestedPriceCents(current, buffer, markup, settings.PriceRoundingStepCents),
+            PriceCalculator.SuggestedPriceCents(last, buffer, markup, settings.PriceRoundingStepCents),
+            PriceCalculator.MarginBps(product.SalePriceCents, current),
             todayRateCents,
-            PriceCalculator.IsBufferExceeded(todayRateCents, averageRate, buffer));
+            PriceCalculator.IsBufferExceeded(todayRateCents, currentRate, buffer));
+    }
+}
+
+public enum PriceNoticeKind
+{
+    /// <summary>A new batch went on sale (the previous one ran out) and its suggested price is not the price.</summary>
+    BatchChanged,
+
+    /// <summary>A batch bought but not on sale yet will not fit in today's price: raising it early saves Reposición.</summary>
+    NewBatchCostlier
+}
+
+/// <summary>A price to look at (D-61). The app never changes a price by itself: the sign would go out of step.</summary>
+public sealed record PriceNotice(
+    Guid ProductId,
+    string ProductCode,
+    string ProductName,
+    PriceNoticeKind Kind,
+    long? SalePriceCents,
+    long SuggestedPriceCents,
+    long BatchCostCupMicros,
+    long BatchRateCents,
+    MeasureUnit StockUnit);
+
+public static class PriceNotices
+{
+    /// <summary>
+    /// The notices of one product. BatchChanged: the batch being sold came from a purchase, the price was not decided
+    /// for it yet, and it does not match its suggested price. NewBatchCostlier: the newest purchase is still waiting
+    /// behind the batch being sold, it was not dismissed, and its suggested price is above the price.
+    /// With an empty shelf there is nothing on sale: no notice.
+    /// </summary>
+    public static IEnumerable<PriceNotice> For(Product product, ProductPricing pricing)
+    {
+        if (product.CurrentPurchaseLineId is not { } current)
+        {
+            yield break;
+        }
+
+        if (current != product.PriceReviewedLineId && pricing.SuggestedPriceCents != product.SalePriceCents)
+        {
+            yield return new PriceNotice(product.Id, product.Code, product.Name, PriceNoticeKind.BatchChanged,
+                product.SalePriceCents, pricing.SuggestedPriceCents, pricing.CurrentCostCupMicros,
+                pricing.CurrentRateCents, product.StockUnit);
+        }
+
+        if (product.LastPurchaseLineId is { } newest && newest != current && newest != product.CostlierSeenLineId
+            && product.SalePriceCents is { } price && pricing.NewestSuggestedPriceCents > price)
+        {
+            yield return new PriceNotice(product.Id, product.Code, product.Name, PriceNoticeKind.NewBatchCostlier,
+                product.SalePriceCents, pricing.NewestSuggestedPriceCents, pricing.LastCostCupMicros,
+                pricing.LastRateCents, product.StockUnit);
+        }
     }
 }

@@ -4,15 +4,6 @@
   gap: 20px;
 }
 
-.crumbs {
-  font-size: 13.5px;
-  color: var(--c-muted);
-}
-
-.crumbs a {
-  text-decoration: none;
-}
-
 /* Form on the left, the prices it moves on the right (stacks on narrow windows). */
 .layout {
   display: flex;
@@ -60,68 +51,114 @@
   font-weight: 500;
 }
 
-/* ---- Lines table ---- */
+/* ---- Lines: stacked by default, a table-like row when the card is wide (container query) ---- */
 
-.table-card {
+.lines-card {
+  container-type: inline-size;
   background: var(--c-surface);
   border: 1px solid var(--c-line);
   border-radius: var(--r-lg);
-  overflow-x: auto;
 }
 
-.table {
-  width: 100%;
-  min-width: 720px;
-  border-collapse: collapse;
-}
-
-.table th {
-  text-align: left;
-  font-weight: 500;
-  font-size: 12.5px;
-  color: var(--c-muted);
-  padding: 14px 10px;
-}
-
-.table td {
-  padding: 12px 10px;
+.line {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 16px 20px;
   border-top: 1px solid var(--c-line-soft);
-  vertical-align: top;
 }
 
-.table th:first-child,
-.table td:first-child {
-  padding-left: 20px;
+/* Hidden while stacked: then the first line touches the card's own border. */
+.line--head {
+  display: none;
 }
 
-.table th:last-child,
-.table td:last-child {
-  padding-right: 20px;
+.line--head + .line {
+  border-top: 0;
+}
+
+.line__product,
+.line__problem {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.line__qty,
+.line__cost {
+  min-width: 0;
+}
+
+.line__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--c-ink-2);
+}
+
+.line__subtotal {
+  align-self: center;
+}
+
+.line__remove {
+  align-self: center;
+  justify-self: end;
+}
+
+.line-add {
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--c-line-soft);
+}
+
+@container (min-width: 720px) {
+  .line {
+    /* The product takes all the room left: names and codes are long. */
+    grid-template-columns: minmax(240px, 1fr) 170px 170px 110px 76px;
+    gap: 12px;
+  }
+
+  .line--head {
+    display: grid;
+    padding-block: 14px 10px;
+    border-top: 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--c-muted);
+  }
+
+  .line--head + .line {
+    border-top: 1px solid var(--c-line-soft);
+  }
+
+  .line__product,
+  .line__problem {
+    grid-column: auto;
+  }
+
+  .line__problem {
+    grid-column: 1 / -1;
+    margin-top: -4px;
+  }
+
+  .line__label {
+    display: none;
+  }
+
+  .line__subtotal {
+    align-self: start;
+    padding-top: 12px;
+    text-align: right;
+  }
+
+  .line__remove {
+    align-self: start;
+    padding-top: 4px;
+  }
 }
 
 .end {
-  text-align: right !important;
-}
-
-.table td.end.strong {
-  padding-top: 24px;
-}
-
-.cell-product {
-  width: 38%;
-}
-
-.cell-qty {
-  width: 22%;
-}
-
-.cell-cost {
-  width: 22%;
-}
-
-.problem-row td {
-  border-top: 0;
-  padding-top: 0;
+  text-align: right;
 }
 
 .factor {

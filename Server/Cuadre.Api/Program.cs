@@ -7,6 +7,7 @@ using Cuadre.Api.Mapping;
 using Cuadre.Api.OpenApi;
 using Cuadre.Application;
 using Cuadre.Application.Database;
+using Cuadre.Application.Services;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,6 +57,13 @@ var connectionString = config["Database:ConnectionString"] is { Length: > 0 } co
 builder.Services.AddApplication();
 builder.Services.AddDatabase(connectionString);
 
+// Backups (RF-DAT-01..06): the copies in %LOCALAPPDATA%\Cuadre\backups, their state next to the database (D-56),
+// a worker for the automatic ones and enough shutdown time for the copy made when the window closes.
+builder.Services.AddBackups(new BackupPaths(paths.Backups, paths.BackupStateFile));
+builder.Services.AddOptions<BackupOptions>().Bind(config.GetSection(BackupOptions.SectionName));
+builder.Services.AddHostedService<BackupWorker>();
+builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromMinutes(2));
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
@@ -77,6 +85,8 @@ app.MapFallback($"{ApiEndpoints.ApiBase}/{{**path}}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
 // Schema first (DbUp migrations), then factory defaults (idempotent). Both BEFORE serving requests.
+// D-57: a new version that migrates the database first leaves a copy of it as it was.
+await app.Services.GetRequiredService<IBackupService>().CreateBeforeUpdateIfNeededAsync();
 await app.Services.GetRequiredService<DbInitializer>().InitializeAsync();
 await app.Services.GetRequiredService<DatabaseSeeder>().SeedAsync();
 

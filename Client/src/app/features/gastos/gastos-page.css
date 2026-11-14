@@ -1,0 +1,49 @@
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.page-subtitle {
+  margin: 6px 0 0;
+}
+
+/* Recurring expenses already due: amber, like the other pending things. */
+.due {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-color: #efd9a8;
+  background: var(--c-warn-soft);
+}
+
+.due .row {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ask {
+  font-size: 14px;
+  color: var(--c-ink-2);
+}
+
+.totals {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 18px;
+}
+
+.totals__label {
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.alert a {
+  color: inherit;
+  font-weight: 600;
+}
+
+.dismiss {
+  margin-top: 6px;
+}

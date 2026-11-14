@@ -25,10 +25,23 @@ public interface IProductService
 
     /// <summary>Accepts a suggested price after a purchase (reason Purchase) or a quick manual change.</summary>
     Task<Result<Product>> SetSalePriceAsync(SetSalePrice request, CancellationToken cancellationToken = default);
+
+    /// <summary>D-61: prices to look at, because a new batch went on sale or the next one will not fit.</summary>
+    Task<IReadOnlyList<PriceNotice>> GetPriceNoticesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// D-61: take the notice's suggested price (in force from today, like any price change) or keep the price.
+    /// Either way the notice goes away until the next batch. A notice that no longer applies is a no-op.
+    /// </summary>
+    Task<Result<Product>> ResolvePriceNoticeAsync(ResolvePriceNotice request,
+        CancellationToken cancellationToken = default);
 }
 
 public class ProductService : IProductService
 {
+    /// <summary>Every product in one page: the notices look at the whole catalog (a few hundred rows).</summary>
+    private const int AllProducts = 100_000;
+
     private readonly IProductRepository _repository;
     private readonly ICategoryRepository _categoryRepository;
     private readonly ISupplierRepository _supplierRepository;
@@ -206,6 +219,57 @@ public class ProductService : IProductService
         }
 
         return await GetByIdAsync(existing.Id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PriceNotice>> GetPriceNoticesAsync(CancellationToken cancellationToken = default)
+    {
+        var products = (await _repository.GetAllAsync(
+            new GetAllProductsOptions { Page = 1, PageSize = AllProducts }, cancellationToken)).ToList();
+        await AttachPricingAsync(products, cancellationToken);
+
+        return products
+            .Where(product => product.Pricing is not null)
+            .SelectMany(product => PriceNotices.For(product, product.Pricing!))
+            .OrderBy(notice => notice.Kind)
+            .ThenBy(notice => notice.ProductName, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<Result<Product>> ResolvePriceNoticeAsync(ResolvePriceNotice request,
+        CancellationToken cancellationToken = default)
+    {
+        var found = await GetByIdAsync(request.ProductId, cancellationToken);
+        if (found.IsFailed)
+        {
+            return found;
+        }
+
+        var product = found.Value;
+        var notice = product.Pricing is { } pricing
+            ? PriceNotices.For(product, pricing).FirstOrDefault(n => n.Kind == request.Kind)
+            : null;
+        if (notice is null)
+        {
+            return found;
+        }
+
+        if (request.AcceptSuggested && notice.SuggestedPriceCents != product.SalePriceCents)
+        {
+            var now = _clock.UtcNow();
+            await _repository.UpdateSalePriceAsync(product.Id, notice.SuggestedPriceCents, now,
+                NewPriceChange(product.Id, notice.SuggestedPriceCents, product.SalePriceCents, now), cancellationToken);
+        }
+
+        if (request.Kind == PriceNoticeKind.BatchChanged)
+        {
+            await _repository.MarkPriceReviewedAsync(product.Id, product.CurrentPurchaseLineId, cancellationToken);
+        }
+        else
+        {
+            await _repository.MarkCostlierSeenAsync(product.Id, product.LastPurchaseLineId, cancellationToken);
+        }
+
+        return await GetByIdAsync(product.Id, cancellationToken);
     }
 
     /// <summary>One settings read and one rate read for the whole page, then pure math per product.</summary>

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { ApiError, toApiError } from '../../../core/api/api-error';
@@ -19,7 +19,8 @@ import {
   perUnit,
   unitName,
 } from '../../../shared/format/quantity';
-import { CategoryIndex, isLowStock, productState } from '../catalog-labels';
+import { CategoryIndex, isLowStock, productState, shelfLifeText } from '../catalog-labels';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /** What the colchón says about today's rate (RN-04), ready to print. */
 interface BufferStatus {
@@ -52,10 +53,20 @@ export default class ProductoPage implements OnInit {
   protected readonly formatMoney = formatMoney;
   protected readonly formatPercent = formatPercent;
   protected readonly formatShortDate = formatShortDate;
+  protected readonly shelfLifeText = shelfLifeText;
   protected readonly formatQuantityWithUnit = formatQuantityWithUnit;
   protected readonly perUnit = perUnit;
 
   protected readonly product = signal<ProductResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const product = this.product();
+    if (product) {
+      this.crumbs.set(product.name);
+    }
+  });
   protected readonly history = signal<PriceChangeResponse[]>([]);
   protected readonly purchases = signal<ProductPurchaseResponse[]>([]);
   protected readonly categories = signal(new CategoryIndex([]));
@@ -93,8 +104,8 @@ export default class ProductoPage implements OnInit {
   );
 
   /**
-   * The actual recargo of the CURRENT price over the CUP cost. Display only: the server owns the
-   * suggested price; this just tells you what you are charging today.
+   * The actual recargo of the CURRENT price over the cost of the batch on sale (D-61, the same base as the margin).
+   * Display only: the server owns the suggested price; this just tells you what you are charging today.
    */
   protected readonly actualMarkupBps = computed(() => {
     const product = this.product();
@@ -102,7 +113,7 @@ export default class ProductoPage implements OnInit {
     if (!product?.salePriceCents || !cost) {
       return null;
     }
-    const costCents = cost.avgCostCupMicros / 10_000;
+    const costCents = cost.currentCostCupMicros / 10_000;
     return Math.round(((product.salePriceCents - costCents) / costCents) * 10_000);
   });
 
@@ -111,8 +122,9 @@ export default class ProductoPage implements OnInit {
     if (!cost) {
       return null;
     }
-    const limit = cost.averageRateCents + cost.effectiveBufferCents;
-    const limitText = `${formatHundredths(cost.averageRateCents)} + ${formatHundredths(cost.effectiveBufferCents)} = ${formatHundredths(limit)}`;
+    // RN-04 (D-61): the rate the batch on sale was bought at, plus the colchón.
+    const limit = cost.currentRateCents + cost.effectiveBufferCents;
+    const limitText = `${formatHundredths(cost.currentRateCents)} +${formatHundredths(cost.effectiveBufferCents)} = ${formatHundredths(limit)}`;
     if (cost.todayRateCents === null) {
       return {
         tone: 'muted',
@@ -165,6 +177,12 @@ export default class ProductoPage implements OnInit {
     }
     const settings = this.settings();
     return settings ? `${formatPercent(settings.defaultMarkupBps)} (el del negocio)` : '—';
+  });
+
+  /** D-61: what the newest batch (already bought, waiting behind the one on sale) will need, when it is more. */
+  protected readonly newestNeeds = computed(() => {
+    const cost = this.product()?.cost;
+    return cost && cost.newestSuggestedPriceCents > cost.suggestedPriceCents ? cost.newestSuggestedPriceCents : null;
   });
 
   protected readonly bufferText = computed(() => {

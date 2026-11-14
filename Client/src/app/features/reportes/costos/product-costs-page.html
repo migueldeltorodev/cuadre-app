@@ -1,0 +1,158 @@
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (history(); as h) {
+  <header class="head">
+    <div>
+      <h1 class="page-title">{{ h.name }}</h1>
+      <p class="page-subtitle">
+        <span class="num">{{ h.code }}</span> ·
+        Precio de venta: {{ h.salePriceCents !== null ? formatMoney(h.salePriceCents) + ' ' + perUnit(h.stockUnit) : 'sin precio' }}
+        · <a class="link" [routerLink]="['/productos', h.productId]">Ver la ficha</a>
+      </p>
+    </div>
+    @if (h.suppliers.length > 1) {
+      <label class="field supplier">
+        <span class="field__label">Proveedor</span>
+        <select class="input" [value]="supplierId()" (change)="supplierId.set($any($event.target).value)">
+          <option value="">Todos</option>
+          @for (s of h.suppliers; track s.supplierId) {
+            <option [value]="s.supplierId">{{ s.supplierName }}</option>
+          }
+        </select>
+      </label>
+    }
+  </header>
+
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    <section class="card">
+      <div class="card__head">
+        <div>
+          <h2 class="card__title">Costo y precio en el tiempo</h2>
+          <p class="card__lead">
+            Cada punto es una compra: lo que costó puesta en el negocio, en CUP {{ perUnit(h.stockUnit) }}. La distancia
+            hasta el precio es el margen.
+          </p>
+        </div>
+      </div>
+      @if (costs().length > 0 || prices().length > 0) {
+        <app-cost-price-chart [costs]="costs()" [prices]="prices()" />
+      } @else {
+        <p class="muted">Este producto todavía no tiene compras ni precio.</p>
+      }
+    </section>
+
+    @if (h.suppliers.length > 0) {
+      <section class="table-card">
+        <div class="table-card__head">
+          <h2 class="section-title">Comparación entre proveedores</h2>
+          <p class="muted">Promedio ponderado por cantidad, en USD {{ perUnit(h.stockUnit) }}. El más barato primero.</p>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th class="end">Compras</th>
+              <th class="end">Promedio</th>
+              <th class="end">Más barato</th>
+              <th class="end">Más caro</th>
+              <th class="end">Último</th>
+              <th class="end">Cantidad comprada</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of h.suppliers; track s.supplierId) {
+              <tr>
+                <td>
+                  <span class="strong">{{ s.supplierName }}</span>
+                  @if (s.supplierId === cheapestId()) {
+                    <span class="pill pill--ok tag">Más barato</span>
+                  }
+                </td>
+                <td class="end num">{{ s.purchaseCount }}</td>
+                <td class="end num strong">
+                  {{ formatMicros(s.averageUnitCostUsdMicros) }} USD
+                  <div class="sub">{{ formatMicros(s.averageUnitCostCupMicros) }} CUP</div>
+                </td>
+                <td class="end num">{{ formatMicros(s.minUnitCostUsdMicros) }}</td>
+                <td class="end num">{{ formatMicros(s.maxUnitCostUsdMicros) }}</td>
+                <td class="end num">
+                  {{ formatMicros(s.lastUnitCostUsdMicros) }}
+                  <div class="sub">{{ formatShortDate(s.lastDate) }}</div>
+                </td>
+                <td class="end num">{{ formatQuantityWithUnit(s.totalQuantityMilli, h.stockUnit) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <div class="columns-2">
+      <section class="table-card">
+        <div class="table-card__head">
+          <h2 class="section-title">Compras</h2>
+        </div>
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Proveedor</th>
+              <th class="end">Cantidad</th>
+              <th class="end">Costo puesto</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of purchasesNewestFirst(); track p.purchaseId) {
+              <tr>
+                <td>
+                  <a class="name" [routerLink]="['/compras', p.purchaseId]">{{ formatShortDate(p.date) }}</a>
+                  <div class="sub num">#{{ p.purchaseNumber }}</div>
+                </td>
+                <td>{{ p.supplierName }}</td>
+                <td class="end num">{{ formatQuantityWithUnit(p.stockQuantityMilli, h.stockUnit) }}</td>
+                <td class="end num">
+                  {{ formatMicros(p.unitCostCupMicros) }} CUP
+                  <div class="sub">{{ formatMicros(p.unitCostUsdMicros) }} USD · tasa {{ formatHundredths(p.rateCupPerUsdCents) }}</div>
+                </td>
+              </tr>
+            } @empty {
+              <tr><td class="none" colspan="4">Sin compras.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-card">
+        <div class="table-card__head">
+          <h2 class="section-title">Cambios de precio</h2>
+        </div>
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Desde</th>
+              <th class="end">Antes</th>
+              <th class="end">Precio</th>
+              <th>Por</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of priceChangesNewestFirst(); track c.id) {
+              <tr>
+                <td>{{ formatShortDate(c.effectiveDate) }}</td>
+                <td class="end num muted-inline">{{ c.previousPriceCents !== null ? formatMoney(c.previousPriceCents) : '—' }}</td>
+                <td class="end num strong">{{ formatMoney(c.priceCents) }}</td>
+                <td>{{ c.reason === 'Purchase' ? 'Una compra' : 'A mano' }}</td>
+              </tr>
+            } @empty {
+              <tr><td class="none" colspan="4">Nunca tuvo precio.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+} @else if (!loadError()) {
+  <p class="muted">Cargando…</p>
+}

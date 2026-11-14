@@ -47,6 +47,24 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IStaffService, StaffService>();
         services.AddScoped<IDailyClosingRepository, DailyClosingRepository>();
         services.AddScoped<IDailyClosingService, DailyClosingService>();
+        services.AddScoped<ICashDiscrepancyRepository, CashDiscrepancyRepository>();
+        services.AddScoped<ICashDiscrepancyService, CashDiscrepancyService>();
+        services.AddScoped<IEvaluationRepository, EvaluationRepository>();
+        services.AddScoped<IEvaluationService, EvaluationService>();
+        services.AddScoped<IExpenseCategoryRepository, ExpenseCategoryRepository>();
+        services.AddScoped<IExpenseCategoryService, ExpenseCategoryService>();
+        services.AddScoped<IExpenseRepository, ExpenseRepository>();
+        services.AddScoped<IExpenseService, ExpenseService>();
+        services.AddScoped<IRecurringExpenseRepository, RecurringExpenseRepository>();
+        services.AddScoped<IRecurringExpenseService, RecurringExpenseService>();
+        services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IAuditRepository, AuditRepository>();
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<ICostingRepository, CostingRepository>();
+        services.AddScoped<ITaxRepository, TaxRepository>();
+        services.AddScoped<ITaxService, TaxService>();
 
         // RF-CIE-10: every service that dates something asks it before writing.
         services.AddScoped<IClosedDayGuard, ClosedDayGuard>();
@@ -66,6 +84,21 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<IDbConnectionFactory>(_ => new SqliteConnectionFactory(connectionString));
         services.AddSingleton(_ => new DbInitializer(connectionString));
         services.AddSingleton<DatabaseSeeder>();
+        return services;
+    }
+
+    /// <summary>
+    /// Backups (RF-DAT-01..06). Singletons: one gate for every copy and restore, one queue for the automatic ones.
+    /// Needs AddApplication (validators, clock) and AddDatabase (initializer, seeder).
+    /// TryAdd for the scheduler: the tests put a recorder in its place.
+    /// </summary>
+    public static IServiceCollection AddBackups(this IServiceCollection services, BackupPaths paths)
+    {
+        services.AddSingleton(paths);
+        services.AddSingleton<BackupStateStore>();
+        services.AddSingleton<IBackupService, BackupService>();
+        services.AddSingleton<BackupQueue>();
+        services.TryAddSingleton<IBackupScheduler>(provider => provider.GetRequiredService<BackupQueue>());
         return services;
     }
 }

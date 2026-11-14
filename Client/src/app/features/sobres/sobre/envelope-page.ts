@@ -1,5 +1,5 @@
 import { Dialog } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiError, toApiError } from '../../../core/api/api-error';
 import { EnvelopesApi } from '../../../core/api/envelopes-api';
@@ -27,6 +27,7 @@ import {
   EnvelopeOperationDialog,
   EnvelopeOperationDialogData,
 } from '../envelope-operation-dialog';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * The ledger of ONE envelope (RF-PF-07): every cash movement that touched it, oldest first, with the running
@@ -62,6 +63,15 @@ export default class EnvelopePage implements OnInit {
 
   protected readonly row = computed(() => this.overview()?.envelopes.find((r) => r.envelope.id === this.id()) ?? null);
   protected readonly envelope = computed(() => this.ledger()?.envelope ?? this.row()?.envelope ?? null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const envelope = this.envelope();
+    if (envelope) {
+      this.crumbs.set(envelope.name);
+    }
+  });
   protected readonly swatch = computed(() => {
     const envelope = this.envelope();
     return envelope ? ENVELOPE_SWATCHES[envelope.role] : 'transparent';

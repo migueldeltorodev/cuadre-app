@@ -1,0 +1,147 @@
+/* Kind filter: the same pills as the period presets. */
+.kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kind {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-ink-2);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.kind:hover {
+  color: var(--c-ink);
+  border-color: var(--c-line-strong);
+}
+
+.kind--on {
+  background: var(--c-ink);
+  border-color: var(--c-ink);
+  color: #ffffff;
+}
+
+.kind:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+/* One card per day. */
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-block: 18px 8px;
+}
+
+.day__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--c-line-soft);
+}
+
+.entry__time {
+  flex: none;
+  width: 48px;
+  padding-top: 4px;
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.entry__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.entry__title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.entry__reason {
+  margin: 0;
+  font-size: 14px;
+  color: var(--c-ink-2);
+}
+
+/* Field: before → after. */
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 13.5px;
+}
+
+.change dt {
+  min-width: 180px;
+  color: var(--c-muted);
+}
+
+.change dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+}
+
+.change__before {
+  color: var(--c-muted);
+  text-decoration: line-through;
+}
+
+.change__arrow {
+  color: var(--c-muted);
+}
+
+.change__after {
+  font-weight: 500;
+}
+
+@media (max-width: 520px) {
+  .entry {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .change dt {
+    min-width: 0;
+  }
+}

@@ -1,4 +1,5 @@
 using Cuadre.Api.Mapping;
+using Cuadre.Application.Models;
 using Cuadre.Application.Services;
 using Cuadre.Contracts.Requests;
 using Cuadre.Contracts.Responses;
@@ -14,9 +15,16 @@ public static class CreateDailyClosingEndpoint
         app.MapPost(ApiEndpoints.DailyClosings.Create, async (
                 CreateDailyClosingRequest request,
                 IDailyClosingService dailyClosingService,
+                IBackupScheduler backupScheduler,
                 CancellationToken token) =>
             {
                 var result = await dailyClosingService.CreateAsync(request.MapToDailyClosingInput(), token);
+                if (result.IsSuccess)
+                {
+                    // RF-DAT-01: the day is closed, so it is backed up. In the background: the closing never waits for it.
+                    backupScheduler.Request(BackupReason.Closing);
+                }
+
                 return result.ToCreatedAtRouteResult(
                     x => x.MapToResponse(),
                     GetDailyClosingEndpoint.Name,

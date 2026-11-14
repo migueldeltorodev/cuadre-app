@@ -5,15 +5,6 @@
   max-width: 880px;
 }
 
-.crumbs {
-  font-size: 13.5px;
-  color: var(--c-muted);
-}
-
-.crumbs a {
-  text-decoration: none;
-}
-
 .opt {
   font-weight: 400;
   color: var(--c-muted);
@@ -49,4 +40,18 @@
   width: 18px;
   height: 18px;
   accent-color: var(--c-accent);
+}
+
+.shelf-life {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.shelf-life__amount {
+  width: 120px;
+}
+
+.shelf-life__unit {
+  width: 160px;
 }

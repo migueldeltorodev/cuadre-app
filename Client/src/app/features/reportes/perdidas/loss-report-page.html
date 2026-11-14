@@ -1,0 +1,138 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Pérdidas</h1>
+    <p class="page-subtitle">
+      La mercadería que se perdió, a lo que costó, y los faltantes de caja que se dieron por perdidos.
+    </p>
+  </div>
+</header>
+
+@if (report(); as r) {
+  <app-period-filter [from]="r.from" [to]="r.to" [today]="today()" (periodChange)="load($event)" />
+}
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (report(); as r) {
+  <div class="results" [class.results--loading]="loading()" aria-live="polite">
+    <section class="kpis" aria-label="Totales del período">
+      <div class="kpi" [class.kpi--bad]="r.totalCents > 0">
+        <div class="kpi__label">Perdido en total</div>
+        <div class="kpi__value num" [class.negative]="r.totalCents > 0">{{ formatMoney(r.totalCents) }}</div>
+        <div class="kpi__note">Del {{ formatShortDate(r.from) }} al {{ formatShortDate(r.to) }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi__label">Mercadería, a costo</div>
+        <div class="kpi__value num">{{ formatMoney(r.merchandiseCents) }}</div>
+        <div class="kpi__note">{{ r.merchandise.length === 1 ? '1 registro' : r.merchandise.length + ' registros' }}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi__label">Faltantes perdidos</div>
+        <div class="kpi__value num">{{ formatMoney(r.lostShortageCents) }}</div>
+        <div class="kpi__note">Lo que no volvió, después de las recuperaciones</div>
+      </div>
+      @if (r.countGainCents > 0) {
+        <div class="kpi">
+          <div class="kpi__label">Sobró en los conteos</div>
+          <div class="kpi__value num">{{ formatMoney(r.countGainCents) }}</div>
+          <div class="kpi__note">Solo para saberlo: no descuenta las pérdidas</div>
+        </div>
+      }
+    </section>
+
+    @if (kinds().length > 0) {
+      <section class="card">
+        <h2 class="card__title">Por motivo</h2>
+        <ul class="kinds">
+          @for (k of kinds(); track k.kind) {
+            <li class="kinds__row">
+              <span>{{ lossLabels[k.kind] }}</span>
+              <span class="kinds__track" aria-hidden="true">
+                <span class="kinds__fill" [style.width.%]="k.share"></span>
+              </span>
+              <span class="num end">{{ formatMoney(k.costCents) }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="table-card">
+      <div class="table-card__head">
+        <h2 class="section-title">Mercadería</h2>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Producto</th>
+            <th>Motivo</th>
+            <th class="end">Cantidad</th>
+            <th class="end">Costo unitario</th>
+            <th class="end">Costo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (loss of r.merchandise; track loss.operationId + loss.productId) {
+            <tr>
+              <td>
+                <a class="name" [routerLink]="['/inventario/operaciones', loss.operationId]">{{ formatShortDate(loss.date) }}</a>
+                <div class="sub num">#{{ loss.operationNumber }}</div>
+              </td>
+              <td>
+                <a class="name" [routerLink]="['/productos', loss.productId]">{{ loss.productName }}</a>
+                <div class="sub num">{{ loss.productCode }}</div>
+              </td>
+              <td>{{ lossLabels[loss.kind] }}</td>
+              <td class="end num">{{ formatQuantityWithUnit(loss.quantityMilli, loss.stockUnit) }}</td>
+              <td class="end num muted-inline">
+                @if (loss.unitCostCupMicros !== null) {
+                  {{ formatMicros(loss.unitCostCupMicros) }} CUP {{ perUnit(loss.stockUnit) }}
+                } @else {
+                  Sin costo
+                }
+              </td>
+              <td class="end num negative">{{ formatMoney(loss.costCents) }}</td>
+            </tr>
+          } @empty {
+            <tr><td class="none" colspan="6">No se perdió mercadería en el período.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <section class="table-card">
+      <div class="table-card__head">
+        <h2 class="section-title">Faltantes dados por perdidos</h2>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Día del faltante</th>
+            <th>Dependiente</th>
+            <th class="end">Faltó</th>
+            <th class="end">Se recuperó</th>
+            <th class="end">Perdido</th>
+            <th>Nota</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of r.shortages; track s.discrepancyId) {
+            <tr>
+              <td><a class="name" [routerLink]="['/cierre/faltantes', s.discrepancyId]">{{ formatShortDate(s.date) }}</a></td>
+              <td>{{ s.employeeName ?? '—' }}</td>
+              <td class="end num">{{ formatMoney(s.amountCents) }}</td>
+              <td class="end num muted-inline">{{ formatMoney(s.recoveredCents) }}</td>
+              <td class="end num negative">{{ formatMoney(s.lostCents) }}</td>
+              <td><span class="products" [title]="s.note ?? ''">{{ s.note ?? '—' }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td class="none" colspan="6">Ningún faltante del período se dio por perdido.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  </div>
+}

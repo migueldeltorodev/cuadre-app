@@ -30,6 +30,9 @@ public interface IDailyClosingService
     /// day, so the day is open again exactly as it was before closing.
     /// </summary>
     Task<Result<DailyClosing>> ReopenAsync(ReopenDailyClosing request, CancellationToken cancellationToken = default);
+
+    /// <summary>RF-CIE-09: business days already over that are still not closed.</summary>
+    Task<PendingClosingDays> GetPendingDaysAsync(CancellationToken cancellationToken = default);
 }
 
 public class DailyClosingService : IDailyClosingService
@@ -40,6 +43,8 @@ public class DailyClosingService : IDailyClosingService
     private readonly ICashBoxRepository _cashBoxRepository;
     private readonly IBusinessSettingsRepository _settingsRepository;
     private readonly IExchangeRateRepository _exchangeRateRepository;
+    private readonly ICashDiscrepancyRepository _discrepancyRepository;
+    private readonly ICostingRepository _costingRepository;
     private readonly IValidator<DailyClosingInput> _validator;
     private readonly IValidator<ReopenDailyClosing> _reopenValidator;
     private readonly IValidator<GetAllDailyClosingsOptions> _optionsValidator;
@@ -48,6 +53,7 @@ public class DailyClosingService : IDailyClosingService
     public DailyClosingService(IDailyClosingRepository repository, IStaffRepository staffRepository,
         IEnvelopeRepository envelopeRepository, ICashBoxRepository cashBoxRepository,
         IBusinessSettingsRepository settingsRepository, IExchangeRateRepository exchangeRateRepository,
+        ICashDiscrepancyRepository discrepancyRepository, ICostingRepository costingRepository,
         IValidator<DailyClosingInput> validator, IValidator<ReopenDailyClosing> reopenValidator,
         IValidator<GetAllDailyClosingsOptions> optionsValidator, TimeProvider clock)
     {
@@ -57,6 +63,8 @@ public class DailyClosingService : IDailyClosingService
         _cashBoxRepository = cashBoxRepository;
         _settingsRepository = settingsRepository;
         _exchangeRateRepository = exchangeRateRepository;
+        _discrepancyRepository = discrepancyRepository;
+        _costingRepository = costingRepository;
         _validator = validator;
         _reopenValidator = reopenValidator;
         _optionsValidator = optionsValidator;
@@ -130,8 +138,10 @@ public class DailyClosingService : IDailyClosingService
         }
 
         await _repository.CreateAsync(closing, stockMovements, cashMovements, closing.CreatedAt, cancellationToken);
-        return Result.Ok(await _repository.GetByIdAsync(closing.Id, cancellationToken)
-                         ?? throw new InvalidOperationException("The closing was not found right after saving it."));
+        var saved = await _repository.GetByIdAsync(closing.Id, cancellationToken)
+                    ?? throw new InvalidOperationException("The closing was not found right after saving it.");
+        saved.PossibleDuplicateOf = closing.PossibleDuplicateOf;
+        return Result.Ok(saved);
     }
 
     public async Task<Result<DailyClosing>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -174,6 +184,13 @@ public class DailyClosingService : IDailyClosingService
             return Result.Fail(new BusinessRuleError(
                 $"Solo se puede reabrir el último día cerrado (el {ClosedDayGuard.Format(lastClosed!.Value)}). " +
                 "Reabrí primero los días posteriores."));
+        }
+
+        // A recovery came in on a later day and already moved money (D-36): undo it first.
+        if (await _discrepancyRepository.HasRecoveriesAsync(closing.Id, cancellationToken))
+        {
+            return Result.Fail(new BusinessRuleError(
+                "El faltante de este cierre ya tiene recuperaciones: anulalas antes de reabrirlo."));
         }
 
         var now = _clock.UtcNow();
@@ -219,6 +236,19 @@ public class DailyClosingService : IDailyClosingService
         return Result.Ok(await _repository.GetByIdAsync(closing.Id, cancellationToken) ?? closing);
     }
 
+    public async Task<PendingClosingDays> GetPendingDaysAsync(CancellationToken cancellationToken = default)
+    {
+        var settings = await _settingsRepository.GetAsync(cancellationToken)
+                       ?? throw new InvalidOperationException("The settings row is missing: the seeder did not run.");
+        var lastClosed = await _repository.GetLastClosedDateAsync(cancellationToken);
+        var firstActivity = lastClosed is null
+            ? await _repository.GetFirstActivityDateAsync(cancellationToken)
+            : null;
+
+        var days = ClosingCalendar.PendingDays(lastClosed, firstActivity, _clock.Today(), settings.ClosedDays);
+        return new PendingClosingDays(lastClosed, days.Count, days.Take(ClosingCalendar.MaxListed).ToList());
+    }
+
     /// <summary>
     /// The whole closing, from what the user typed plus what the ledgers say. Every rule that needs data lives here;
     /// the validator only checks the shape. The note is checked by Create only (the preview tells if it is needed).
@@ -243,6 +273,13 @@ public class DailyClosingService : IDailyClosingService
                 "Uno de los productos contados no estaba en el mostrador ese día."));
         }
 
+        // D-60: what sold leaves the oldest batches first. The books are replayed up to this day (what happened
+        // after it is not on the shelf yet) and move line by line, so two counters of a product share them.
+        var settings = await _settingsRepository.GetAsync(cancellationToken)
+                       ?? throw new InvalidOperationException("The settings row is missing: the seeder did not run.");
+        var books = await _costingRepository.GetBooksAsync(
+            draft.Lines.Select(line => line.ProductId).Distinct().ToList(), input.Date, cancellationToken);
+
         var closingId = Guid.NewGuid();
         var lines = new List<DailyClosingLine>();
         foreach (var counter in draft.Lines)
@@ -257,9 +294,11 @@ public class DailyClosingService : IDailyClosingService
                 return Result.Fail(new BusinessRuleError($"{counter.Name} se cuenta en unidades enteras."));
             }
 
-            var result = ClosingCalculator.Count(new CountInput(counter.OpeningMilli, counter.InMilli,
-                counter.OutMilli, count.CountedMilli, counter.UnitPriceCents, counter.ToleranceBps,
-                counter.AvgCostCupMicros));
+            var counted = ClosingCalculator.Count(new CountInput(counter.OpeningMilli, counter.InMilli,
+                counter.OutMilli, count.CountedMilli, counter.UnitPriceCents, counter.ToleranceBps, null));
+            var cost = FifoCosting.Sale(books[counter.ProductId], counted.SoldMilli,
+                counter.ExchangeBufferCents ?? settings.ExchangeBufferCents, input.Date);
+            var result = counted with { CostCents = cost.CostCents };
 
             if (result.SoldMilli != 0 && counter.UnitPriceCents is null)
             {
@@ -288,9 +327,10 @@ public class DailyClosingService : IDailyClosingService
                 SalesCents = result.SalesCents,
                 ToleranceBps = counter.ToleranceBps,
                 ToleranceCents = result.ToleranceCents,
-                UnitCostUsdMicros = counter.AvgCostUsdMicros,
-                UnitCostCupMicros = counter.AvgCostCupMicros,
-                CostCents = result.CostCents
+                UnitCostUsdMicros = cost.UnitCost?.UsdMicros,
+                UnitCostCupMicros = cost.UnitCost?.CupMicros,
+                CostCents = result.CostCents,
+                BufferCents = cost.BufferCents
             });
         }
 
@@ -474,6 +514,14 @@ public class DailyClosingService : IDailyClosingService
             Collections = collections,
             Allocations = allocations
         };
+
+        // RF-CIE-11: a warning only. Days without sales would all look alike.
+        if (totals.TheoreticalSalesCents > 0 || totals.CollectedCents > 0)
+        {
+            closing.PossibleDuplicateOf = await _repository.FindDuplicateAsync(input.Date,
+                totals.CashCollectedCents, totals.TransferCollectedCents, totals.TheoreticalSalesCents,
+                cancellationToken);
+        }
 
         if (totals.AdjustedDifferenceCents != 0)
         {

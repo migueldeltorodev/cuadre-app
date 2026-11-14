@@ -6,6 +6,7 @@ import { PriceListEntryResponse, PriceListResponse } from '../../../core/api/mod
 import { formatTimestampDay } from '../../../shared/format/date';
 import { formatHundredths } from '../../../shared/format/money';
 import { UNIT_LABELS } from '../../../shared/format/quantity';
+import { PriceNotices } from './price-notices';
 
 /**
  * The price list to copy BY HAND to the shop sign (RF-PRD-09; there is no printer).
@@ -13,7 +14,7 @@ import { UNIT_LABELS } from '../../../shared/format/quantity';
  * "Ya la copié" snapshots the current prices, so the next visit only flags new changes.
  */
 @Component({
-  imports: [RouterLink],
+  imports: [RouterLink, PriceNotices],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lista-precios-page.html',
   styleUrl: './lista-precios-page.css',
@@ -57,6 +58,12 @@ export default class ListaPreciosPage implements OnInit {
         this.loadError.set(toApiError(err));
       },
     });
+  }
+
+  /** A notice was accepted: its new price shows up flagged, ready to copy to the sign. */
+  protected onPriceChanged(): void {
+    this.justMarked.set(false);
+    this.load();
   }
 
   private load(): void {

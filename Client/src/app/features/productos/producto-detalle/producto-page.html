@@ -1,7 +1,3 @@
-<nav class="crumbs" aria-label="Ruta">
-  <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span> {{ product()?.name ?? '…' }}
-</nav>
-
 @if (loadError(); as e) {
   <p class="alert alert--bad" role="alert">
     {{ e.status === 404 ? 'Ese producto no existe.' : e.message }}
@@ -67,9 +63,7 @@
         @if (suggestion(); as suggested) {
           <div class="suggestion" role="status">
             <div class="suggestion__title num">Precio sugerido: {{ formatHundredths(suggested) }}</div>
-            @if (p.lastPurchaseDate) {
-              <div class="suggestion__sub">Con el costo de la compra del {{ formatShortDate(p.lastPurchaseDate) }}.</div>
-            }
+            <div class="suggestion__sub">Con el costo de la tanda que se está vendiendo.</div>
             <div class="suggestion__actions">
               <button class="btn btn--primary btn--small" type="button" [disabled]="savingPrice()"
                 (click)="useSuggestion(suggested)">Usar {{ formatHundredths(suggested) }}</button>
@@ -90,9 +84,9 @@
         @if (p.cost; as cost) {
           <div class="formula__title">Cómo se calcula el sugerido</div>
           <div class="formula__parts num">
-            <div><div class="formula__label">Costo</div><div class="formula__value">{{ formatMicros(cost.avgCostUsdMicros) }} USD</div></div>
+            <div><div class="formula__label">Tanda en venta</div><div class="formula__value">{{ formatMicros(cost.currentCostUsdMicros) }} USD</div></div>
             <span class="op">×</span>
-            <div><div class="formula__label">( Tasa de compra</div><div class="formula__value">{{ formatHundredths(cost.averageRateCents) }}</div></div>
+            <div><div class="formula__label">( Tasa de esa tanda</div><div class="formula__value">{{ formatHundredths(cost.currentRateCents) }}</div></div>
             <span class="op">+</span>
             <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ formatHundredths(cost.effectiveBufferCents) }}</div></div>
             <span class="op">×</span>
@@ -101,9 +95,36 @@
             <div><div class="formula__label">Sugerido</div><div class="formula__value formula__value--accent">{{ formatHundredths(cost.suggestedPriceCents) }}</div></div>
           </div>
           <p class="formula__note">
-            Costo en CUP: {{ formatMicros(cost.avgCostCupMicros) }} {{ perUnit(p.stockUnit) }}, a la tasa de cada compra.
-            Se redondea hacia arriba al paso del negocio.
+            Se calcula con el costo puesto de la tanda que se está vendiendo ({{ formatMicros(cost.currentCostCupMicros) }} CUP
+            {{ perUnit(p.stockUnit) }}): el precio tiene que alcanzar para reponer lo que sale. Se redondea hacia arriba
+            al paso del negocio. La app nunca cambia el precio sola: cuando entra otra tanda a la venta, te avisa.
           </p>
+          @if (newestNeeds(); as needed) {
+            <p class="buffer buffer--warn num">
+              <strong>La próxima tanda ya está comprada.</strong> Va a necesitar {{ formatHundredths(needed) }}.
+              Si subís antes, Reposición no se queda corta.
+              <a routerLink="/productos/lista-de-precios">Ver los avisos</a>
+            </p>
+          }
+          <div class="costs num">
+            <div class="fact">
+              <span>Tanda que se está vendiendo</span>
+              <span>{{ formatMicros(cost.currentCostCupMicros) }} CUP · {{ formatMicros(cost.currentCostUsdMicros) }} USD</span>
+            </div>
+            <div class="fact">
+              <span>Última compra</span>
+              <span>{{ formatMicros(cost.lastCostCupMicros) }} CUP · {{ formatMicros(cost.lastCostUsdMicros) }} USD</span>
+            </div>
+            <div class="fact">
+              <span>Promedio en stock</span>
+              <span>{{ formatMicros(cost.avgCostCupMicros) }} CUP · {{ formatMicros(cost.avgCostUsdMicros) }} USD</span>
+            </div>
+            <p class="formula__note">
+              Lo que se vende sale primero de la tanda más vieja: cada compra es una tanda, con su costo y su tasa.
+              En el cierre, a ese costo se le suma el colchón y todo va a Reposición. Las pérdidas valen lo que costó
+              su tanda, sin colchón.
+            </p>
+          </div>
           @if (bufferStatus(); as b) {
             <p class="buffer" [class]="'buffer buffer--' + b.tone"><strong>{{ b.title }}</strong> {{ b.text }}</p>
           }
@@ -137,7 +158,10 @@
       <div class="fact"><span>Mínimo</span><span class="num">{{ formatQuantityWithUnit(p.minStockMilli, p.stockUnit) }}</span></div>
       <div class="fact"><span>Merma aceptada</span><span class="num">{{ formatPercent(p.shrinkageToleranceBps) }}</span></div>
       <div class="fact"><span>Se compra en</span><span>{{ purchaseText() }}</span></div>
-      <div class="fact"><span>Perecedero</span><span>{{ p.isPerishable ? 'Sí' : 'No' }}</span></div>
+      <div class="fact">
+        <span>Perecedero</span>
+        <span>{{ p.isPerishable ? (p.shelfLifeDays ? 'Sí, dura ' + shelfLifeText(p.shelfLifeDays) : 'Sí') : 'No' }}</span>
+      </div>
       <div class="fact"><span>Proveedor habitual</span><span>{{ supplier()?.name ?? '—' }}</span></div>
       @if (p.barcode) {
         <div class="fact"><span>Código de barras</span><span class="num">{{ p.barcode }}</span></div>

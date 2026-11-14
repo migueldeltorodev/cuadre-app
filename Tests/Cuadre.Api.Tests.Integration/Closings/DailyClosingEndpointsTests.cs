@@ -144,6 +144,90 @@ public class DailyClosingEndpointsTests(ApiFactory factory) : IntegrationTestBas
     }
 
     [Fact]
+    public async Task Create_ShouldAskForABackup_OnlyWhenTheDayIsClosed()
+    {
+        // RF-DAT-01. A rejected closing (tomorrow has not ended yet) asks for nothing;
+        // a confirmed one asks for one backup, made in the background.
+        var (rice, counter) = await RiceAtTheCounterAsync(Clock.Today);
+        var draft = await Client.GetDraftAsync(Clock.Today, Ct);
+
+        var rejected = await Client.PostAsJsonAsync(ApiEndpoints.DailyClosings.Create,
+            Request(Clock.Today.AddDays(1), Counted(rice.Id, counter.Id, 0), draft.Collected("Efectivo", 2_500_000)),
+            Ct);
+        rejected.IsSuccessStatusCode.Should().BeFalse();
+        Factory.BackupRequests.Requests.Should().BeEmpty();
+
+        await Client.CloseAsync(Request(Clock.Today, Counted(rice.Id, counter.Id, 0),
+            draft.Collected("Efectivo", 2_500_000)), Ct);
+
+        Factory.BackupRequests.Requests.Should().Equal(Cuadre.Application.Models.BackupReason.Closing);
+    }
+
+    [Fact]
+    public async Task Create_ShouldCostTheSales_FirstInFirstOut()
+    {
+        // D-60: two sacks, at 40 USD (130 CUP/lb) and then 46 USD (149.50 CUP/lb). 150 lb sold take the whole
+        // first sack and half of the second: 100 × 130 + 50 × 149.50 = 13,000 + 7,475 = 20,475.
+        var (rice, supplier) = await Client.CreateRiceAsync(Ct, PricePerLb);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 4_000)), Ct);
+        await Client.CreatePurchaseAsync(
+            await Client.UsdPurchaseRequestAsync(supplier.Id, Clock.Today, Ct, Sacks(rice.Id, 1, 4_600)), Ct);
+        var (storage, counter) = await Client.GetSeededLocationsAsync(Ct);
+        await Client.TransferAsync(Clock.Today, storage.Id, counter.Id, Ct, SacksOf(rice.Id, 2));
+        var draft = await Client.GetDraftAsync(Clock.Today, Ct);
+
+        var closing = await Client.CloseAsync(Request(Clock.Today, Counted(rice.Id, counter.Id, 50),
+            draft.Collected("Efectivo", 3_750_000)), Ct);
+
+        closing.CostOfSalesCents.Should().Be(2_047_500);
+        closing.RealIncomeCents.Should().Be(1_702_500);
+        var line = closing.Lines.Should().ContainSingle().Subject;
+        line.CostCents.Should().Be(2_047_500);
+        line.BufferCents.Should().Be(0);
+        closing.Allocation(EnvelopeType.Replenishment).AmountCents.Should().Be(2_047_500);
+
+        // What is left is the second sack: the next closing goes on from there.
+        var after = await Client.GetFromJsonAsync<ProductResponse>(Route(ApiEndpoints.Products.Get, rice.Id), Ct);
+        after!.StockMilli.Should().Be(50_000);
+        after.Cost!.CurrentCostCupMicros.Should().Be(149_500_000);
+    }
+
+    [Fact]
+    public async Task Create_ShouldAddTheColchon_ToA2_SoReposicionKeepsIt()
+    {
+        // D-60: 100 lb at 0.40 USD (130 CUP/lb) with a colchón of 20 CUP per USD: 40 USD × 20 = 800 more in A2.
+        await SetBufferAsync(2_000);
+        var (rice, counter) = await RiceAtTheCounterAsync(Clock.Today);
+        var draft = await Client.GetDraftAsync(Clock.Today, Ct);
+
+        var closing = await Client.CloseAsync(Request(Clock.Today, Counted(rice.Id, counter.Id, 0),
+            draft.Collected("Efectivo", 2_500_000)), Ct);
+
+        var line = closing.Lines.Should().ContainSingle().Subject;
+        line.BufferCents.Should().Be(80_000);
+        line.CostCents.Should().Be(1_380_000);
+        closing.CostOfSalesCents.Should().Be(1_380_000);
+        closing.Allocation(EnvelopeType.Replenishment).AmountCents.Should().Be(1_380_000);
+    }
+
+    private async Task SetBufferAsync(long bufferCents)
+    {
+        var s = (await Client.GetFromJsonAsync<BusinessSettingsResponse>(ApiEndpoints.Settings.Get, Ct))!;
+        var response = await Client.PutAsJsonAsync(ApiEndpoints.Settings.Update, new UpdateBusinessSettingsRequest
+        {
+            Name = s.Name,
+            Address = s.Address,
+            ClosedDays = s.ClosedDays,
+            CashDifferenceThresholdCents = s.CashDifferenceThresholdCents,
+            ExchangeBufferCents = bufferCents,
+            DefaultMarkupBps = s.DefaultMarkupBps,
+            PriceRoundingStepCents = s.PriceRoundingStepCents
+        }, Ct);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Create_ShouldCreateDebt_ThenRepayIt_WhenTheTransfersGoBeyondA2()
     {
         var yesterday = Clock.Today.AddDays(-1);

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiError, toApiError } from '../../../core/api/api-error';
@@ -12,6 +12,7 @@ import {
   formatBalance,
   formatSignedMoney,
 } from '../envelope-format';
+import { Breadcrumbs } from '../../../core/layout/breadcrumbs';
 
 /**
  * One opening, move, withdrawal or tax payment. Never edited. Voiding asks for a reason and writes the
@@ -37,6 +38,15 @@ export default class EnvelopeOperationPage implements OnInit {
   protected readonly kindLabel = envelopeOperationKindLabel;
 
   protected readonly operation = signal<EnvelopeOperationResponse | null>(null);
+
+  /** The trail names this page once it is loaded (the shell draws it). */
+  private readonly crumbs = inject(Breadcrumbs);
+  protected readonly nameInTrail = effect(() => {
+    const operation = this.operation();
+    if (operation) {
+      this.crumbs.set(`#${operation.number}`);
+    }
+  });
   protected readonly loadError = signal<ApiError | null>(null);
 
   protected readonly voiding = signal(false);

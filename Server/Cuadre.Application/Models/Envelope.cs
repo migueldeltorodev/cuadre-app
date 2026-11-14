@@ -120,6 +120,16 @@ public class CashMovementEntry
     /// <summary>The day of the closing behind the row (closings have no number: the date is the name).</summary>
     public DateOnly? ClosingDate { get; init; }
 
+    /// <summary>A shortage recovery, and the closing where that shortage came out.</summary>
+    public Guid? RecoveryId { get; init; }
+
+    public Guid? RecoveryClosingId { get; init; }
+
+    /// <summary>A gasto (slice 7).</summary>
+    public Guid? ExpenseId { get; init; }
+
+    public int? ExpenseNumber { get; init; }
+
     /// <summary>Its document was voided later (the row and its reversal both stay).</summary>
     public bool IsVoided { get; init; }
 

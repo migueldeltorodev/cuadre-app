@@ -98,6 +98,12 @@ public static class ApiEndpoints
 
         /// <summary>Only the price: accepting a suggestion must not resend the whole product.</summary>
         public const string SalePrice = $"{Base}/{{id:guid}}/sale-price";
+
+        /// <summary>D-61: prices to look at (a new batch on sale, or the next one will not fit).</summary>
+        public const string PriceNotices = $"{Base}/price-notices";
+
+        /// <summary>D-61: take the suggested price or keep the price.</summary>
+        public const string ResolvePriceNotice = $"{Base}/{{id:guid}}/price-notice";
     }
 
     /// <summary>The fixed list of measure units (read-only, defined in code).</summary>
@@ -214,6 +220,126 @@ public static class ApiEndpoints
         public const string GetAll = Base;
         public const string Get = $"{Base}/{{id:guid}}";
         public const string Reopen = $"{Base}/{{id:guid}}/reopen";
+
+        /// <summary>RF-CIE-09: business days already over and not closed.</summary>
+        public const string Pending = $"{Base}/pending";
+    }
+
+    /// <summary>Shortages and surpluses of the closings (RF-CIE-12/13). Created only by a closing.</summary>
+    public static class CashDiscrepancies
+    {
+        private const string Base = $"{ApiBase}/cash-discrepancies";
+
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string PendingSummary = $"{Base}/pending-summary";
+        public const string Recover = $"{Base}/{{id:guid}}/recoveries";
+        public const string WriteOff = $"{Base}/{{id:guid}}/write-off";
+    }
+
+    /// <summary>A recovery is never edited: voided, with reversals dated today.</summary>
+    public static class ShortageRecoveries
+    {
+        private const string Base = $"{ApiBase}/shortage-recoveries";
+
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>RF-PF-10.</summary>
+    public static class ProfitFirst
+    {
+        private const string Base = $"{ApiBase}/profit-first";
+
+        public const string Evaluation = $"{Base}/evaluation";
+    }
+
+    /// <summary>RF-GAS-03. No DELETE: expenses point to them, so they are deactivated.</summary>
+    public static class ExpenseCategories
+    {
+        private const string Base = $"{ApiBase}/expense-categories";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>RF-GAS-02/04. Like purchases: no PUT, no DELETE; voided with a reason.</summary>
+    public static class Expenses
+    {
+        private const string Base = $"{ApiBase}/expenses";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Get = $"{Base}/{{id:guid}}";
+        public const string Void = $"{Base}/{{id:guid}}/void";
+    }
+
+    /// <summary>
+    /// RF-GAS-01: the templates and their occurrences. "due" is a literal segment, so it never collides with
+    /// {id:guid}. Confirming creates an expense; skipping moves no money.
+    /// </summary>
+    public static class RecurringExpenses
+    {
+        private const string Base = $"{ApiBase}/recurring-expenses";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+        public const string Due = $"{Base}/due";
+        public const string Confirm = $"{Base}/{{id:guid}}/confirm";
+        public const string Skip = $"{Base}/{{id:guid}}/skip";
+    }
+
+    /// <summary>D-62: the taxes to suggest setting aside. No DELETE: deactivated.</summary>
+    public static class Taxes
+    {
+        private const string Base = $"{ApiBase}/taxes";
+
+        public const string Create = Base;
+        public const string GetAll = Base;
+        public const string Update = $"{Base}/{{id:guid}}";
+    }
+
+    /// <summary>RF-REP-01: the home screen.</summary>
+    public static class Dashboard
+    {
+        public const string Get = $"{ApiBase}/dashboard";
+    }
+
+    /// <summary>RF-REP-02..05, 07, 08. Read-only.</summary>
+    public static class Reports
+    {
+        private const string Base = $"{ApiBase}/reports";
+
+        public const string Monthly = $"{Base}/monthly";
+
+        /// <summary>D-63: the estado de rendimiento of a month, for the accountant.</summary>
+        public const string Accountant = $"{Base}/accountant";
+        public const string Losses = $"{Base}/losses";
+        public const string ProductRanking = $"{Base}/product-ranking";
+        public const string CostChanges = $"{Base}/cost-changes";
+        public const string ProductCosts = $"{Base}/products/{{id:guid}}/costs";
+    }
+
+    /// <summary>
+    /// RF-DAT-01..06. A backup is a file, not a row: no {id}. A restore names the folder and the file name.
+    /// "settings", "drives" and "restore" are literal segments.
+    /// </summary>
+    public static class Backups
+    {
+        private const string Base = $"{ApiBase}/backups";
+
+        public const string Status = Base;
+        public const string Create = Base;
+        public const string Settings = $"{Base}/settings";
+        public const string Drives = $"{Base}/drives";
+        public const string Restore = $"{Base}/restore";
+    }
+
+    /// <summary>RF-DAT-08: the audit log. Read-only: it is written by the actions themselves.</summary>
+    public static class Audit
+    {
+        public const string GetAll = $"{ApiBase}/audit";
     }
 
     /// <summary>Who works the counter. Never deleted, only deactivated.</summary>

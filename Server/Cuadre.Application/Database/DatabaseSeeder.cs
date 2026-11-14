@@ -1,5 +1,6 @@
 using Cuadre.Application.Common;
 using Cuadre.Application.Models;
+using Cuadre.Application.Repositories;
 using Dapper;
 
 namespace Cuadre.Application.Database;
@@ -13,13 +14,27 @@ namespace Cuadre.Application.Database;
 ///  - envelopes and the first allocation plan (slice 5) the same way. Then every cash movement still without an
 ///    envelope (the purchases recorded before slice 5) is assigned to Reposición, so the envelopes of each box
 ///    always add up to the box;
-///  - the staff pay scheme (slice 6): 1,000 CUP per day + 1% of A1 (D-12), "since always", if there is none.
+///  - the staff pay scheme (slice 6): 1,000 CUP per day + 1% of A1 (D-12), "since always", if there is none;
+///  - the expense categories (slice 7) the same way as the cash boxes;
+///  - the cost cache of products cached before D-60 (FIFO) is replayed once, to learn the batch being sold.
 /// Kept out of the migrations so the integration tests can wipe every table and re-seed.
 /// </summary>
 public sealed class DatabaseSeeder
 {
     /// <summary>The first allocation plan applies "since always" (the UI shows it as "desde el principio").</summary>
     public static readonly DateOnly InitialPlanDate = new(2000, 1, 1);
+
+    /// <summary>The usual expenses of a small Cuban business; the owner renames, adds or deactivates them.</summary>
+    public static readonly string[] DefaultExpenseCategories =
+    [
+        "Gestor y contador",
+        "Transporte",
+        "Servicios (luz, agua, teléfono)",
+        "Alquiler",
+        "Mantenimiento y reparaciones",
+        "Envases y materiales",
+        "Otros"
+    ];
 
     private readonly IDbConnectionFactory _dbConnectionFactory;
     private readonly TimeProvider _clock;
@@ -112,11 +127,46 @@ public sealed class DatabaseSeeder
             """, new { id = Guid.NewGuid(), effectiveFrom = InitialPlanDate, now }, transaction,
             cancellationToken: cancellationToken));
 
+        // Expense categories (RF-GAS-03): never deleted either, so "none" means first run of slice 7.
+        var hasExpenseCategories = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            "SELECT EXISTS(SELECT 1 FROM expense_categories)", transaction: transaction,
+            cancellationToken: cancellationToken));
+
+        if (!hasExpenseCategories)
+        {
+            foreach (var name in DefaultExpenseCategories)
+            {
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    INSERT INTO expense_categories (id, name, is_active, created_at, updated_at)
+                    VALUES (@id, @name, 1, @now, @now)
+                    """, new { id = Guid.NewGuid(), name, now }, transaction, cancellationToken: cancellationToken));
+            }
+        }
+
         await connection.ExecuteAsync(new CommandDefinition("""
             UPDATE cash_movements
             SET envelope_id = (SELECT id FROM envelopes WHERE role = 'Replenishment')
             WHERE envelope_id IS NULL
             """, transaction: transaction, cancellationToken: cancellationToken));
+
+        // D-60/D-61: the cost cache learned the FIFO batch being sold and the newest purchase line. Products cached
+        // before get them by a replay (one whose purchases were all voided has no line: it is replayed again, cheaply).
+        var uncached = await connection.QueryAsync<Guid>(new CommandDefinition(
+            "SELECT product_id FROM product_costs WHERE current_cost_usd_micros IS NULL OR last_purchase_line_id IS NULL",
+            transaction: transaction, cancellationToken: cancellationToken));
+        var replayed = uncached.ToList();
+        await StockLedger.RecalculateCostsAsync(connection, transaction, replayed, now, cancellationToken);
+
+        // Prices already in force were decided for the batch on sale: no "new batch" notice for them on this start.
+        foreach (var productId in replayed)
+        {
+            await connection.ExecuteAsync(new CommandDefinition("""
+                UPDATE products
+                SET price_reviewed_line_id =
+                    (SELECT current_purchase_line_id FROM product_costs WHERE product_id = @productId)
+                WHERE id = @productId AND price_reviewed_line_id IS NULL
+                """, new { productId }, transaction, cancellationToken: cancellationToken));
+        }
 
         transaction.Commit();
         return;

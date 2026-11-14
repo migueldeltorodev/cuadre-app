@@ -27,11 +27,13 @@ public class ExchangeRateService : IExchangeRateService
     private readonly IExchangeRateRepository _repository;
     private readonly IValidator<ExchangeRate> _validator;
     private readonly IValidator<GetAllExchangeRatesOptions> _optionsValidator;
+    private readonly IAuditService _audit;
     private readonly TimeProvider _clock;
 
     public ExchangeRateService(IExchangeRateRepository repository, IValidator<ExchangeRate> validator,
-        IValidator<GetAllExchangeRatesOptions> optionsValidator, TimeProvider clock)
+        IValidator<GetAllExchangeRatesOptions> optionsValidator, IAuditService audit, TimeProvider clock)
     {
+        _audit = audit;
         _repository = repository;
         _validator = validator;
         _optionsValidator = optionsValidator;
@@ -51,7 +53,15 @@ public class ExchangeRateService : IExchangeRateService
             return Result.Fail(new BusinessRuleError("No se puede cargar la tasa de un día que todavía no llegó."));
         }
 
+        var previous = await _repository.GetByDateAsync(date, cancellationToken);
         await _repository.UpsertAsync(rate, cancellationToken);
+
+        // RF-DAT-08: loading the day's rate is normal work; CORRECTING one already loaded is what gets logged.
+        if (previous is not null)
+        {
+            await _audit.RecordAsync(ConfigSubject.ExchangeRate, null, AuditFormat.Date(date),
+                new ChangeList().Money("CUP por 1 USD", previous.CupPerUsdCents, cupPerUsdCents), cancellationToken);
+        }
 
         // Re-read: on a correction the stored created_at is the original one.
         var stored = await _repository.GetByDateAsync(date, cancellationToken);

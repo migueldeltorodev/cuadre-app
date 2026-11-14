@@ -31,11 +31,14 @@ public class StaffService : IStaffService
     private readonly IClosedDayGuard _closedDayGuard;
     private readonly IValidator<Employee> _employeeValidator;
     private readonly IValidator<StaffPayScheme> _schemeValidator;
+    private readonly IAuditService _audit;
     private readonly TimeProvider _clock;
 
     public StaffService(IStaffRepository repository, IClosedDayGuard closedDayGuard,
-        IValidator<Employee> employeeValidator, IValidator<StaffPayScheme> schemeValidator, TimeProvider clock)
+        IValidator<Employee> employeeValidator, IValidator<StaffPayScheme> schemeValidator, IAuditService audit,
+        TimeProvider clock)
     {
+        _audit = audit;
         _repository = repository;
         _closedDayGuard = closedDayGuard;
         _employeeValidator = employeeValidator;
@@ -74,6 +77,8 @@ public class StaffService : IStaffService
             return Result.Fail(NotFoundError.For<Employee>(changes.Id));
         }
 
+        var log = new ChangeList().Text("Nombre", employee.Name, changes.Name)
+            .Active(employee.IsActive, changes.IsActive);
         employee.Name = changes.Name;
         employee.IsActive = changes.IsActive;
         await _employeeValidator.ValidateOrThrowAsync(employee, cancellationToken);
@@ -86,6 +91,7 @@ public class StaffService : IStaffService
 
         employee.UpdatedAt = _clock.UtcNow();
         await _repository.UpdateEmployeeAsync(employee, cancellationToken);
+        await _audit.RecordAsync(ConfigSubject.Employee, employee.Id, employee.Name, log, cancellationToken);
         return Result.Ok(employee);
     }
 

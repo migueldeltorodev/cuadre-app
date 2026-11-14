@@ -1,0 +1,104 @@
+<header class="head">
+  <div>
+    <h1 class="page-title">Faltantes y sobrantes</h1>
+    <p class="page-subtitle">
+      Lo que no cuadró en la caja al cerrar. Un faltante se reclama: se recupera (todo o en partes) o se da por perdido.
+    </p>
+  </div>
+</header>
+
+@if (alerts.pendingShortages(); as summary) {
+  @if (summary.count > 0) {
+    <section class="card summary" aria-live="polite">
+      <div>
+        <div class="summary__label">Por reclamar</div>
+        <div class="summary__value num">{{ formatMoney(summary.pendingCents) }}</div>
+      </div>
+      <div class="summary__note">
+        {{ summary.count === 1 ? '1 faltante pendiente' : summary.count + ' faltantes pendientes' }}
+      </div>
+    </section>
+  }
+}
+
+<div class="head">
+  <div class="segmented" role="tablist" aria-label="Qué ver">
+    @for (v of views; track v.value) {
+      <button class="segmented__btn" type="button" role="tab" [attr.aria-selected]="view() === v.value"
+        [class.segmented__btn--on]="view() === v.value" (click)="setView(v.value)">
+        {{ v.label }}
+      </button>
+    }
+  </div>
+  <div class="filters">
+    <label class="field">
+      <span class="field__label">Desde</span>
+      <input class="input num" type="date" [value]="from()" (change)="setFrom($any($event.target).value)" />
+    </label>
+    <label class="field">
+      <span class="field__label">Hasta</span>
+      <input class="input num" type="date" [value]="to()" (change)="setTo($any($event.target).value)" />
+    </label>
+    @if (hasDates()) {
+      <button class="btn btn--ghost btn--small" type="button" (click)="clearDates()">Limpiar fechas</button>
+    }
+  </div>
+</div>
+
+@if (loadError(); as e) {
+  <p class="alert alert--bad" role="alert">{{ e.message }}</p>
+}
+
+@if (result(); as r) {
+  @if (r.total === 0 && view() === 'pending' && !hasDates()) {
+    <section class="card empty">
+      <h2 class="card__title">No hay faltantes por reclamar</h2>
+      <p class="card__lead">Cuando un cierre dé faltante, va a aparecer acá hasta que se recupere o se dé por perdido.</p>
+    </section>
+  } @else {
+    <section class="table-card">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Tipo</th>
+            <th class="end">Monto</th>
+            <th class="end">Recuperado</th>
+            <th class="end">Queda</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of r.items; track d.id) {
+            @let state = stateLabel(d.status);
+            <tr>
+              <td>
+                <a class="name" [routerLink]="['/cierre/faltantes', d.id]">{{ formatShortDate(d.date) }}</a>
+                @if (d.employeeName) {
+                  <div class="sub">Trabajó {{ d.employeeName }}</div>
+                }
+              </td>
+              <td>{{ d.kind === 'Shortage' ? 'Faltante' : 'Sobrante' }}</td>
+              <td class="end num strong">{{ formatMoney(d.amountCents) }}</td>
+              <td class="end num">{{ d.kind === 'Shortage' && d.recoveredCents > 0 ? formatMoney(d.recoveredCents) : '—' }}</td>
+              <td class="end num" [class.negative]="d.pendingCents > 0">
+                {{ d.pendingCents > 0 ? formatMoney(d.pendingCents) : '—' }}
+              </td>
+              <td><span class="pill" [class]="'pill--' + state.tone">{{ state.label }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="none">Nada coincide con lo elegido.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    @if (r.page > 1 || r.hasNextPage) {
+      <nav class="pager" aria-label="Páginas">
+        <button class="btn btn--small" type="button" [disabled]="r.page === 1" (click)="goTo(r.page - 1)">Anterior</button>
+        <span class="num">Página {{ r.page }} · {{ r.total }}</span>
+        <button class="btn btn--small" type="button" [disabled]="!r.hasNextPage" (click)="goTo(r.page + 1)">Siguiente</button>
+      </nav>
+    }
+  }
+}

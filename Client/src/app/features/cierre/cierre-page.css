@@ -164,3 +164,32 @@ button.stepper__btn:hover {
 .nav {
   justify-content: flex-end;
 }
+
+/* RF-CIE-09: days over and not closed, one click to jump to each. */
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pending__days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pending__day {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #efd9a8;
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pending__day:hover {
+  border-color: var(--c-warn-ink);
+}

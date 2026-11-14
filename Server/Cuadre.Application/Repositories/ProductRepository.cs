@@ -34,6 +34,12 @@ public interface IProductRepository
     /// <summary>Newest first.</summary>
     Task<IEnumerable<ProductPriceChange>> GetPriceHistoryAsync(Guid productId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>D-61: "keep the price" for this batch (a price change marks it by itself).</summary>
+    Task MarkPriceReviewedAsync(Guid productId, Guid? purchaseLineId, CancellationToken cancellationToken = default);
+
+    /// <summary>D-61: the "next batch will not fit in the price" warning of this batch was dismissed.</summary>
+    Task MarkCostlierSeenAsync(Guid productId, Guid? purchaseLineId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -46,9 +52,11 @@ public class ProductRepository : IProductRepository
         id, code, barcode, name, brand, presentation, category_id, subcategory_id, usual_supplier_id,
         purchase_unit, stock_unit, conversion_factor_milli, sale_price_cents, listed_price_cents,
         min_stock_milli, shrinkage_tolerance_bps, exchange_buffer_cents, markup_bps,
-        is_perishable, is_active, notes, created_at, updated_at,
+        is_perishable, shelf_life_days, is_active, notes, created_at, updated_at,
         (SELECT COALESCE(SUM(m.quantity_milli), 0) FROM stock_movements m WHERE m.product_id = products.id) AS stock_milli,
-        avg_cost_usd_micros, avg_cost_cup_micros, last_purchase_date
+        avg_cost_usd_micros, avg_cost_cup_micros, last_cost_usd_micros, last_cost_cup_micros, last_purchase_date,
+        current_cost_usd_micros, current_cost_cup_micros, current_purchase_line_id, last_purchase_line_id,
+        price_reviewed_line_id, costlier_seen_line_id
         """;
 
     // The cost cache's column names are unique on purpose, so the select list needs no table prefixes.
@@ -83,12 +91,12 @@ public class ProductRepository : IProductRepository
                 id, code, barcode, name, brand, presentation, category_id, subcategory_id, usual_supplier_id,
                 purchase_unit, stock_unit, conversion_factor_milli, sale_price_cents, listed_price_cents,
                 min_stock_milli, shrinkage_tolerance_bps, exchange_buffer_cents, markup_bps,
-                is_perishable, is_active, notes, created_at, updated_at)
+                is_perishable, shelf_life_days, is_active, notes, created_at, updated_at)
             VALUES (
                 @Id, @Code, @Barcode, @Name, @Brand, @Presentation, @CategoryId, @SubcategoryId, @UsualSupplierId,
                 @PurchaseUnit, @StockUnit, @ConversionFactorMilli, @SalePriceCents, NULL,
                 @MinStockMilli, @ShrinkageToleranceBps, @ExchangeBufferCents, @MarkupBps,
-                @IsPerishable, @IsActive, @Notes, @CreatedAt, @UpdatedAt)
+                @IsPerishable, @ShelfLifeDays, @IsActive, @Notes, @CreatedAt, @UpdatedAt)
             """, ToParameters(product), transaction, cancellationToken: cancellationToken));
 
         await InsertPriceChangeAsync(connection, transaction, priceChange, cancellationToken);
@@ -176,6 +184,7 @@ public class ProductRepository : IProductRepository
                 exchange_buffer_cents = @ExchangeBufferCents,
                 markup_bps = @MarkupBps,
                 is_perishable = @IsPerishable,
+                shelf_life_days = @ShelfLifeDays,
                 is_active = @IsActive,
                 notes = @Notes,
                 updated_at = @UpdatedAt
@@ -246,6 +255,32 @@ public class ProductRepository : IProductRepository
             Reason = priceChange.Reason.ToString(),
             priceChange.CreatedAt
         }, transaction, cancellationToken: cancellationToken));
+
+        // D-61: a new price is decided for the batch on sale now, whatever screen it came from.
+        await connection.ExecuteAsync(new CommandDefinition("""
+            UPDATE products
+            SET price_reviewed_line_id =
+                (SELECT current_purchase_line_id FROM product_costs WHERE product_id = @ProductId)
+            WHERE id = @ProductId
+            """, new { priceChange.ProductId }, transaction, cancellationToken: cancellationToken));
+    }
+
+    public async Task MarkPriceReviewedAsync(Guid productId, Guid? purchaseLineId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE products SET price_reviewed_line_id = @purchaseLineId WHERE id = @productId",
+            new { productId, purchaseLineId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task MarkCostlierSeenAsync(Guid productId, Guid? purchaseLineId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _dbConnectionFactory.CreateConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE products SET costlier_seen_line_id = @purchaseLineId WHERE id = @productId",
+            new { productId, purchaseLineId }, cancellationToken: cancellationToken));
     }
 
     /// <summary>Enums go as text explicitly: Dapper would send them as integers.</summary>
@@ -269,6 +304,7 @@ public class ProductRepository : IProductRepository
         product.ExchangeBufferCents,
         product.MarkupBps,
         product.IsPerishable,
+        product.ShelfLifeDays,
         product.IsActive,
         product.Notes,
         product.CreatedAt,

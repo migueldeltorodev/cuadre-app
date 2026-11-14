@@ -1,12 +1,3 @@
-<nav class="crumbs" aria-label="Ruta">
-  <a routerLink="/productos">Productos</a> <span aria-hidden="true">/</span>
-  @if (existing(); as p) {
-    <a [routerLink]="['/productos', p.id]">{{ p.name }}</a> <span aria-hidden="true">/</span> Editar
-  } @else {
-    Nuevo
-  }
-</nav>
-
 <h1 class="page-title">{{ editing() ? 'Editar producto' : 'Nuevo producto' }}</h1>
 
 @if (loadError(); as e) {
@@ -46,9 +37,12 @@
       </div>
 
       <div class="form__row">
-        <label class="field">
-          <span class="field__label">Categoría</span>
-          <select class="input" formControlName="categoryId" [class.input--invalid]="invalid('categoryId')"
+        <div class="field">
+          <div class="field__head">
+            <label class="field__label" for="categoryId">Categoría</label>
+            <button class="field__action" type="button" (click)="newCategory()">+ Nueva</button>
+          </div>
+          <select class="input" id="categoryId" formControlName="categoryId" [class.input--invalid]="invalid('categoryId')"
             (change)="onCategoryChange($any($event.target).value)">
             <option value="" disabled>Elegí una…</option>
             @for (category of categories().topLevel; track category.id) {
@@ -58,10 +52,15 @@
           @if (invalid('categoryId')) {
             <span class="field__error">Elegí una categoría.</span>
           }
-        </label>
-        <label class="field">
-          <span class="field__label">Subcategoría <span class="opt">(opcional)</span></span>
-          <select class="input" formControlName="subcategoryId" [attr.disabled]="subcategories().length === 0 ? '' : null">
+        </div>
+        <div class="field">
+          <div class="field__head">
+            <label class="field__label" for="subcategoryId">Subcategoría <span class="opt">(opcional)</span></label>
+            <button class="field__action" type="button" [disabled]="!value().categoryId" (click)="newSubcategory()"
+              [attr.title]="value().categoryId ? null : 'Primero elegí la categoría'">+ Nueva</button>
+          </div>
+          <select class="input" id="subcategoryId" formControlName="subcategoryId"
+            [attr.disabled]="subcategories().length === 0 ? '' : null">
             <option value="">Ninguna</option>
             @for (sub of subcategories(); track sub.id) {
               <option [value]="sub.id">{{ sub.name }}</option>
@@ -70,7 +69,7 @@
           @if (serverError('subcategoryId'); as message) {
             <span class="field__error">{{ message }}</span>
           }
-        </label>
+        </div>
       </div>
 
       <div class="form__row">
@@ -222,9 +221,12 @@
             <span class="field__hint">Lo que se pierde normalmente (granel que se riega, etc.).</span>
           }
         </label>
-        <label class="field">
-          <span class="field__label">Proveedor habitual <span class="opt">(opcional)</span></span>
-          <select class="input" formControlName="usualSupplierId">
+        <div class="field">
+          <div class="field__head">
+            <label class="field__label" for="usualSupplierId">Proveedor habitual <span class="opt">(opcional)</span></label>
+            <button class="field__action" type="button" (click)="newSupplier()">+ Nuevo</button>
+          </div>
+          <select class="input" id="usualSupplierId" formControlName="usualSupplierId">
             <option value="">Ninguno</option>
             @for (supplier of selectableSuppliers(); track supplier.id) {
               <option [value]="supplier.id">{{ supplier.name }}{{ supplier.isActive ? '' : ' (inactivo)' }}</option>
@@ -232,16 +234,38 @@
           </select>
           @if (serverError('usualSupplierId'); as message) {
             <span class="field__error">{{ message }}</span>
-          } @else if (suppliers().length === 0) {
-            <span class="field__hint"><a routerLink="/productos/proveedores">Cargar proveedores</a></span>
           }
-        </label>
+        </div>
       </div>
 
       <label class="check">
         <input type="checkbox" formControlName="isPerishable" />
         <span>Es perecedero (se vence o se echa a perder)</span>
       </label>
+
+      @if (value().isPerishable) {
+        <div class="field">
+          <label class="field__label" for="shelfLife">Se vence en <span class="opt">(opcional)</span></label>
+          <div class="shelf-life">
+            <input class="input num shelf-life__amount" id="shelfLife" formControlName="shelfLife" inputmode="numeric"
+              autocomplete="off" placeholder="15" [class.input--invalid]="shelfLifeOutOfRange() || invalid('shelfLife')" />
+            <select class="input shelf-life__unit" formControlName="shelfLifeUnit" aria-label="Unidad de la vida útil">
+              @for (unit of shelfLifeUnits; track unit.value) {
+                <option [value]="unit.value">{{ unit.label }}</option>
+              }
+            </select>
+          </div>
+          @if (invalid('shelfLife')) {
+            <span class="field__error">Escribí un número entero de días, semanas o meses.</span>
+          } @else if (shelfLifeOutOfRange()) {
+            <span class="field__error">La vida útil va de 1 día a 10 años.</span>
+          } @else if (serverError('shelfLifeDays'); as message) {
+            <span class="field__error">{{ message }}</span>
+          } @else {
+            <span class="field__hint">Lo que suele durar desde que lo comprás. Un mes cuenta 30 días.</span>
+          }
+        </div>
+      }
 
       <label class="field">
         <span class="field__label">Notas <span class="opt">(opcional)</span></span>

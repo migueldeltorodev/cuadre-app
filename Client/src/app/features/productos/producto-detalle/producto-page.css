@@ -4,15 +4,6 @@
   gap: 24px;
 }
 
-.crumbs {
-  font-size: 13.5px;
-  color: var(--c-muted);
-}
-
-.crumbs a {
-  text-decoration: none;
-}
-
 .head {
   display: flex;
   flex-wrap: wrap;
@@ -324,4 +315,14 @@
 
 .voided .strong {
   text-decoration: line-through;
+}
+
+/* Last cost vs average (D-52). */
+.costs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-line-soft);
 }

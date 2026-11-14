@@ -112,6 +112,14 @@ public class ProductValidator : AbstractValidator<Product>
         RuleFor(x => x.MarkupBps)
             .InclusiveBetween(0, 100_000).WithMessage("El recargo va de 0 % a 1000 %.")
             .When(x => x.MarkupBps is not null);
+
+        // RF-PRD-10, D-53: up to 10 years, and only a perishable has one.
+        RuleFor(x => x.ShelfLifeDays)
+            .InclusiveBetween(1, 3_650).WithMessage("La vida útil va de 1 día a 10 años.")
+            .When(x => x.ShelfLifeDays is not null);
+        RuleFor(x => x.ShelfLifeDays)
+            .Null().WithMessage("Solo un producto perecedero tiene vida útil.")
+            .When(x => !x.IsPerishable);
     }
 
     private static bool BeWhole(long milli) => milli % OneUnitMilli == 0;

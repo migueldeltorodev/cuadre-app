@@ -167,6 +167,8 @@ export interface ProductResponse {
   exchangeBufferCents: number | null;
   markupBps: number | null;
   isPerishable: boolean;
+  /** Typical shelf life in days (RF-PRD-10); only perishables. */
+  shelfLifeDays: number | null;
   isActive: boolean;
   notes: string | null;
   /** All locations; can be negative (sold before the purchase was typed). */
@@ -178,14 +180,29 @@ export interface ProductResponse {
   updatedAt: string;
 }
 
-/** Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit. */
+/**
+ * Unit costs in MILLIONTHS (`...Micros`): 0.62 USD/lb = 620000. Per STOCK unit.
+ * D-52: the suggested price, the margin and the colchón alert use the LAST purchase's cost and rate.
+ * D-60: what leaves the shelf is costed FIFO; `currentCost...` is the batch being sold now.
+ */
 export interface ProductCostResponse {
   avgCostUsdMicros: number;
   avgCostCupMicros: number;
-  averageRateCents: number;
+  lastCostUsdMicros: number;
+  lastCostCupMicros: number;
+  /** D-60: the batch being sold now (the oldest with stock; with an empty shelf, the newest). */
+  currentCostUsdMicros: number;
+  currentCostCupMicros: number;
+  /** The last purchase's rate, CUP cents per USD. */
+  lastRateCents: number;
+  /** D-61: the rate of the batch being sold, base of the suggested price and the colchón alert. */
+  currentRateCents: number;
   effectiveBufferCents: number;
   effectiveMarkupBps: number;
+  /** D-61: from the batch being sold. */
   suggestedPriceCents: number;
+  /** D-61: what the newest batch (bought, maybe still waiting) would need. */
+  newestSuggestedPriceCents: number;
   marginBps: number | null;
   todayRateCents: number | null;
   isBufferExceeded: boolean;
@@ -208,6 +225,7 @@ interface ProductRequestBase {
   exchangeBufferCents: number | null;
   markupBps: number | null;
   isPerishable: boolean;
+  shelfLifeDays: number | null;
   notes: string | null;
 }
 
@@ -698,7 +716,11 @@ export type CashMovementType =
   | 'Collection'
   | 'Allocation'
   | 'StaffPay'
-  | 'ClosingVoid';
+  | 'ClosingVoid'
+  | 'ShortageRecovery'
+  | 'ShortageRecoveryVoid'
+  | 'Expense'
+  | 'ExpenseVoid';
 
 export interface EnvelopeResponse {
   id: string;
@@ -792,6 +814,12 @@ export interface CashMovementResponse {
   stockOperationNumber: number | null;
   closingId: string | null;
   closingDate: string | null;
+  /** A shortage recovery, and the closing where that shortage came out. */
+  recoveryId: string | null;
+  recoveryClosingId: string | null;
+  /** A gasto (slice 7). */
+  expenseId: string | null;
+  expenseNumber: number | null;
   isVoided: boolean;
   createdAt: string;
 }
@@ -967,7 +995,8 @@ export interface CreateStaffPaySchemeRequest {
 
 export type DailyClosingState = 'Confirmed' | 'Voided';
 export type CashDiscrepancyType = 'Shortage' | 'Surplus';
-export type CashDiscrepancyState = 'Pending' | 'Recorded' | 'Voided';
+export type CashDiscrepancyState = 'Pending' | 'Recorded' | 'Voided' | 'Recovered' | 'Lost';
+export type ShortageRecoveryState = 'Confirmed' | 'Voided';
 
 export interface ClosingCounterLineResponse {
   productId: string;
@@ -1053,7 +1082,10 @@ export interface DailyClosingLineResponse {
   salesCents: number;
   toleranceBps: number;
   toleranceCents: number;
+  /** A2 of the line: FIFO cost + the colchón. */
   costCents: number;
+  /** The colchón part of costCents (D-60); 0 on closings made before it. */
+  bufferCents: number;
 }
 
 export interface DailyClosingCollectionResponse {
@@ -1078,12 +1110,107 @@ export interface DailyClosingAllocationResponse {
   bankCents: number;
 }
 
-export interface CashDiscrepancyResponse {
+export interface ShortageRecoveryResponse {
   id: string;
-  kind: CashDiscrepancyType;
+  date: string;
+  cashBoxId: string;
+  cashBoxName: string;
   amountCents: number;
   note: string | null;
+  status: ShortageRecoveryState;
+  voidReason: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+}
+
+export interface CashDiscrepancyResponse {
+  id: string;
+  closingId: string;
+  /** The day of the closing where it came out. */
+  date: string;
+  kind: CashDiscrepancyType;
+  amountCents: number;
+  employeeId: string | null;
+  employeeName: string | null;
+  note: string | null;
   status: CashDiscrepancyState;
+  recoveredCents: number;
+  /** What is still to claim (0 unless Pending). */
+  pendingCents: number;
+  /** Why it was written off. */
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  /** Only in the detail of a shortage. */
+  recoveries: ShortageRecoveryResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashDiscrepancyQuery {
+  kind?: CashDiscrepancyType;
+  status?: CashDiscrepancyState;
+  employeeId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RecoverShortageRequest {
+  /** Default: today. */
+  date?: string | null;
+  cashBoxId: string;
+  amountCents: number;
+  note?: string | null;
+}
+
+export interface PendingShortagesResponse {
+  count: number;
+  pendingCents: number;
+}
+
+/** RF-CIE-09: business days already over and not closed (at most 31 listed; count has them all). */
+export interface PendingClosingDaysResponse {
+  lastClosedDate: string | null;
+  count: number;
+  days: string[];
+}
+
+export interface EnvelopeEvaluationResponse {
+  envelopeId: string;
+  name: string;
+  role: EnvelopeType;
+  /** Null for Reposición. */
+  targetPercentBps: number | null;
+  receivedCents: number;
+  /** Over what the % envelopes received together. Null for Reposición or with nothing received. */
+  realPercentBps: number | null;
+}
+
+/** RF-PF-10. */
+export interface ProfitFirstEvaluationResponse {
+  from: string;
+  to: string;
+  closedDays: number;
+  cashCollectedCents: number;
+  transferCollectedCents: number;
+  /** A1. */
+  collectedCents: number;
+  /** A2. */
+  costOfSalesCents: number;
+  /** A3. */
+  realIncomeCents: number;
+  costRatioBps: number | null;
+  realIncomeRatioBps: number | null;
+  theoreticalSalesCents: number;
+  staffPayCents: number;
+  shortageCents: number;
+  surplusCents: number;
+  recoveredCents: number;
+  internalDebtCents: number;
+  envelopes: EnvelopeEvaluationResponse[];
+  /** The confirmed expenses of the period, per currency (never added up). */
+  expenses: ExpenseTotalResponse[];
 }
 
 export interface DailyClosingResponse {
@@ -1122,6 +1249,8 @@ export interface DailyClosingResponse {
   collections: DailyClosingCollectionResponse[];
   allocations: DailyClosingAllocationResponse[];
   discrepancy: CashDiscrepancyResponse | null;
+  /** Preview and create only: another closed day has exactly the same numbers (RF-CIE-11). */
+  possibleDuplicateOf: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1146,4 +1275,196 @@ export interface DailyClosingQuery {
   includeVoided?: boolean;
   page?: number;
   pageSize?: number;
+}
+
+// ---- Gastos (slice 7) ----
+// Money in cents of the CASH BOX's currency. Never edited: voided with a reason.
+
+export type ExpenseState = 'Confirmed' | 'Voided';
+export type ExpenseFrequency = 'Monthly' | 'Weekly';
+
+export interface ExpenseCategoryResponse {
+  id: string;
+  name: string;
+  isActive: boolean;
+  /** Confirmed expenses in it. */
+  expenseCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateExpenseCategoryRequest {
+  name: string;
+}
+
+export interface UpdateExpenseCategoryRequest {
+  name: string;
+  isActive: boolean;
+}
+
+export interface ExpenseResponse {
+  id: string;
+  number: number;
+  date: string;
+  categoryId: string;
+  categoryName: string;
+  description: string;
+  amountCents: number;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  envelopeId: string;
+  envelopeName: string;
+  notes: string | null;
+  /** A confirmed occurrence of a recurring expense. */
+  recurringExpenseId: string | null;
+  recurringExpenseName: string | null;
+  periodStart: string | null;
+  status: ExpenseState;
+  voidReason: string | null;
+  voidedAt: string | null;
+  /** Only right after creating it: the envelope it left below zero (allowed). */
+  warning: NegativeEnvelopeWarningResponse | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseTotalResponse {
+  currency: CurrencyCode;
+  amountCents: number;
+}
+
+export interface ExpensesResponse extends PagedResponse<ExpenseResponse> {
+  /** Confirmed expenses of the whole filter (not only the page), per currency. */
+  totals: ExpenseTotalResponse[];
+}
+
+export interface CreateExpenseRequest {
+  date: string;
+  categoryId: string;
+  description: string;
+  amountCents: number;
+  cashBoxId: string;
+  /** Null = Gastos de operación. Never Reposición. */
+  envelopeId?: string | null;
+  notes?: string | null;
+}
+
+export interface ExpenseQuery {
+  from?: string;
+  to?: string;
+  categoryId?: string;
+  cashBoxId?: string;
+  envelopeId?: string;
+  recurringExpenseId?: string;
+  includeVoided?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RecurringExpenseResponse {
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  amountCents: number;
+  cashBoxId: string;
+  cashBoxName: string;
+  currency: CurrencyCode;
+  envelopeId: string;
+  envelopeName: string;
+  frequency: ExpenseFrequency;
+  /** Monthly: day of the month (1-28). Weekly: 0 (Sunday) to 6 (Saturday). */
+  dueDay: number;
+  startsOn: string;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRecurringExpenseRequest {
+  name: string;
+  categoryId: string;
+  amountCents: number;
+  cashBoxId: string;
+  envelopeId?: string | null;
+  frequency: ExpenseFrequency;
+  dueDay: number;
+  startsOn: string;
+  notes?: string | null;
+}
+
+export interface UpdateRecurringExpenseRequest extends CreateRecurringExpenseRequest {
+  isActive: boolean;
+}
+
+/** An occurrence waiting to be paid or skipped. */
+export interface DueExpenseResponse {
+  recurring: RecurringExpenseResponse;
+  /** The 1st of the month, or the Monday of the week. */
+  periodStart: string;
+  dueDate: string;
+}
+
+/** Null = what the recurring expense says; the date defaults to today. */
+export interface ConfirmRecurringExpenseRequest {
+  periodStart: string;
+  date?: string | null;
+  amountCents?: number | null;
+  cashBoxId?: string | null;
+  notes?: string | null;
+}
+
+/** D-61: why a price needs a look. */
+export type PriceNoticeKind = 'BatchChanged' | 'NewBatchCostlier';
+
+/** D-61: a price to look at. The app never changes a price by itself. */
+export interface PriceNoticeResponse {
+  productId: string;
+  productCode: string;
+  productName: string;
+  kind: PriceNoticeKind;
+  salePriceCents: number | null;
+  suggestedPriceCents: number;
+  /** The batch the notice is about: CUP cost per stock unit, in millionths. */
+  batchCostCupMicros: number;
+  batchRateCents: number;
+  stockUnit: UnitCode;
+}
+
+export interface ResolvePriceNoticeRequest {
+  kind: PriceNoticeKind;
+  /** true = use the suggested price from today; false = keep the price. */
+  acceptSuggested: boolean;
+}
+
+// ---------- Taxes (D-62) ----------
+
+/** Sales = over what was collected (A1); Profit = over the profit before taxes (never below 0). */
+export type TaxBaseCode = 'Sales' | 'Profit';
+
+/** Only a suggestion of how much to set aside: Profit First splits the same with or without it. */
+export interface TaxResponse {
+  id: string;
+  name: string;
+  /** Basis points: 1000 = 10 %. */
+  rateBps: number;
+  base: TaxBaseCode;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaxRequest {
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+}
+
+export interface UpdateTaxRequest {
+  name: string;
+  rateBps: number;
+  base: TaxBaseCode;
+  isActive: boolean;
 }
