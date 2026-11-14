@@ -120,6 +120,7 @@ const NAV: NavGroup[] = [
           { path: '/reportes/productos', label: 'Productos' },
           { path: '/reportes/perdidas', label: 'Pérdidas' },
           { path: '/reportes/costos', label: 'Costos y proveedores' },
+          { path: '/reportes/registro', label: 'Registro de cambios' },
         ],
       },
     ],
