@@ -195,9 +195,14 @@ export interface ProductCostResponse {
   currentCostCupMicros: number;
   /** The last purchase's rate, CUP cents per USD. */
   lastRateCents: number;
+  /** D-61: the rate of the batch being sold, base of the suggested price and the colchón alert. */
+  currentRateCents: number;
   effectiveBufferCents: number;
   effectiveMarkupBps: number;
+  /** D-61: from the batch being sold. */
   suggestedPriceCents: number;
+  /** D-61: what the newest batch (bought, maybe still waiting) would need. */
+  newestSuggestedPriceCents: number;
   marginBps: number | null;
   todayRateCents: number | null;
   isBufferExceeded: boolean;
@@ -1409,4 +1414,27 @@ export interface ConfirmRecurringExpenseRequest {
   amountCents?: number | null;
   cashBoxId?: string | null;
   notes?: string | null;
+}
+
+/** D-61: why a price needs a look. */
+export type PriceNoticeKind = 'BatchChanged' | 'NewBatchCostlier';
+
+/** D-61: a price to look at. The app never changes a price by itself. */
+export interface PriceNoticeResponse {
+  productId: string;
+  productCode: string;
+  productName: string;
+  kind: PriceNoticeKind;
+  salePriceCents: number | null;
+  suggestedPriceCents: number;
+  /** The batch the notice is about: CUP cost per stock unit, in millionths. */
+  batchCostCupMicros: number;
+  batchRateCents: number;
+  stockUnit: UnitCode;
+}
+
+export interface ResolvePriceNoticeRequest {
+  kind: PriceNoticeKind;
+  /** true = use the suggested price from today; false = keep the price. */
+  acceptSuggested: boolean;
 }

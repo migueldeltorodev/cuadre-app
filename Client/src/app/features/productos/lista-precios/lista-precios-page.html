@@ -16,6 +16,8 @@
   <p class="alert alert--bad" role="alert">{{ e.message }}</p>
 }
 
+<app-price-notices (priceChanged)="onPriceChanged()" />
+
 @if (list(); as l) {
   @if (l.changedCount > 0) {
     <div class="notice" role="status">

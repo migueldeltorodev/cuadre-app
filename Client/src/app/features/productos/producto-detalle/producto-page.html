@@ -63,9 +63,7 @@
         @if (suggestion(); as suggested) {
           <div class="suggestion" role="status">
             <div class="suggestion__title num">Precio sugerido: {{ formatHundredths(suggested) }}</div>
-            @if (p.lastPurchaseDate) {
-              <div class="suggestion__sub">Con el costo de la compra del {{ formatShortDate(p.lastPurchaseDate) }}.</div>
-            }
+            <div class="suggestion__sub">Con el costo de la tanda que se está vendiendo.</div>
             <div class="suggestion__actions">
               <button class="btn btn--primary btn--small" type="button" [disabled]="savingPrice()"
                 (click)="useSuggestion(suggested)">Usar {{ formatHundredths(suggested) }}</button>
@@ -86,9 +84,9 @@
         @if (p.cost; as cost) {
           <div class="formula__title">Cómo se calcula el sugerido</div>
           <div class="formula__parts num">
-            <div><div class="formula__label">Último costo</div><div class="formula__value">{{ formatMicros(cost.lastCostUsdMicros) }} USD</div></div>
+            <div><div class="formula__label">Tanda en venta</div><div class="formula__value">{{ formatMicros(cost.currentCostUsdMicros) }} USD</div></div>
             <span class="op">×</span>
-            <div><div class="formula__label">( Tasa de esa compra</div><div class="formula__value">{{ formatHundredths(cost.lastRateCents) }}</div></div>
+            <div><div class="formula__label">( Tasa de esa tanda</div><div class="formula__value">{{ formatHundredths(cost.currentRateCents) }}</div></div>
             <span class="op">+</span>
             <div><div class="formula__label">Colchón )</div><div class="formula__value">{{ formatHundredths(cost.effectiveBufferCents) }}</div></div>
             <span class="op">×</span>
@@ -97,10 +95,17 @@
             <div><div class="formula__label">Sugerido</div><div class="formula__value formula__value--accent">{{ formatHundredths(cost.suggestedPriceCents) }}</div></div>
           </div>
           <p class="formula__note">
-            Se calcula con el costo puesto de la última compra ({{ formatMicros(cost.lastCostCupMicros) }} CUP
-            {{ perUnit(p.stockUnit) }}): el precio tiene que alcanzar para reponer. Se redondea hacia arriba al paso
-            del negocio.
+            Se calcula con el costo puesto de la tanda que se está vendiendo ({{ formatMicros(cost.currentCostCupMicros) }} CUP
+            {{ perUnit(p.stockUnit) }}): el precio tiene que alcanzar para reponer lo que sale. Se redondea hacia arriba
+            al paso del negocio. La app nunca cambia el precio sola: cuando entra otra tanda a la venta, te avisa.
           </p>
+          @if (newestNeeds(); as needed) {
+            <p class="buffer buffer--warn num">
+              <strong>La próxima tanda ya está comprada.</strong> Va a necesitar {{ formatHundredths(needed) }}.
+              Si subís antes, Reposición no se queda corta.
+              <a routerLink="/productos/lista-de-precios">Ver los avisos</a>
+            </p>
+          }
           <div class="costs num">
             <div class="fact">
               <span>Tanda que se está vendiendo</span>

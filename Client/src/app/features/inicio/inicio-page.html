@@ -21,8 +21,9 @@
 @let d = dashboard();
 @let negatives = negativeEnvelopes();
 @let backup = backupAlert();
+@let notices = priceNoticeCount();
 @if ((days?.count ?? 0) > 0 || (shortages?.count ?? 0) > 0 || dues.length > 0 || negatives.length > 0
-  || (d?.lowStockCount ?? 0) > 0 || (d?.bufferExceededCount ?? 0) > 0 || backup) {
+  || (d?.lowStockCount ?? 0) > 0 || (d?.bufferExceededCount ?? 0) > 0 || notices > 0 || backup) {
   <section class="todo" aria-label="Pendientes">
     @if (backup) {
       <!-- RF-DAT-06: first, because losing the data is the one thing nothing else fixes. -->
@@ -87,6 +88,15 @@
         <span>
           <strong>{{ d.bufferExceededCount === 1 ? 'Precio para revisar' : 'Precios para revisar' }}</strong>
           <span class="todo__sub">La tasa de hoy pasó el colchón con el que se compraron.</span>
+        </span>
+      </a>
+    }
+    @if (notices > 0) {
+      <a class="todo__item" routerLink="/productos/lista-de-precios">
+        <span class="todo__count num">{{ notices }}</span>
+        <span>
+          <strong>{{ notices === 1 ? 'Precio por tanda para revisar' : 'Precios por tanda para revisar' }}</strong>
+          <span class="todo__sub">Entró una tanda nueva a la venta, o la próxima no entra en el precio de hoy.</span>
         </span>
       </a>
     }

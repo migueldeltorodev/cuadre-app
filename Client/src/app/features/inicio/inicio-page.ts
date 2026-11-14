@@ -6,6 +6,7 @@ import { ApiError, toApiError } from '../../core/api/api-error';
 import { AppInfoService } from '../../core/api/app-info.service';
 import { BackupApi } from '../../core/api/backup-api';
 import { BackupStatusResponse } from '../../core/api/backup-models';
+import { ProductsApi } from '../../core/api/catalog-api';
 import { EnvelopesApi } from '../../core/api/envelopes-api';
 import { EnvelopeOverviewResponse } from '../../core/api/models';
 import { DashboardResponse } from '../../core/api/report-models';
@@ -37,6 +38,7 @@ export default class InicioPage implements OnInit {
   private readonly envelopesApi = inject(EnvelopesApi);
   private readonly appInfo = inject(AppInfoService);
   private readonly backupApi = inject(BackupApi);
+  private readonly productsApi = inject(ProductsApi);
   protected readonly alerts = inject(ClosingAlertsStore);
 
   protected readonly formatMoney = formatMoney;
@@ -53,6 +55,9 @@ export default class InicioPage implements OnInit {
   protected readonly overview = signal<EnvelopeOverviewResponse | null>(null);
   protected readonly loadError = signal<ApiError | null>(null);
   protected readonly backupStatus = signal<BackupStatusResponse | null>(null);
+
+  /** D-61: prices to look at because of a batch (a new one on sale, or the next one will not fit in the price). */
+  protected readonly priceNoticeCount = signal(0);
 
   /** RF-DAT-06: null = the backups are fine (or the server did not answer: the page shows that error). */
   protected readonly backupAlert = computed(() => {
@@ -153,6 +158,10 @@ export default class InicioPage implements OnInit {
     this.backupApi.status().subscribe({
       next: (status) => this.backupStatus.set(status),
       error: () => this.backupStatus.set(null),
+    });
+    this.productsApi.priceNotices().subscribe({
+      next: (response) => this.priceNoticeCount.set(response.items.length),
+      error: () => this.priceNoticeCount.set(0),
     });
   }
 }

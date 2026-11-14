@@ -104,7 +104,7 @@ export default class ProductoPage implements OnInit {
   );
 
   /**
-   * The actual recargo of the CURRENT price over the LAST CUP cost (D-52, the same base as the margin).
+   * The actual recargo of the CURRENT price over the cost of the batch on sale (D-61, the same base as the margin).
    * Display only: the server owns the suggested price; this just tells you what you are charging today.
    */
   protected readonly actualMarkupBps = computed(() => {
@@ -113,7 +113,7 @@ export default class ProductoPage implements OnInit {
     if (!product?.salePriceCents || !cost) {
       return null;
     }
-    const costCents = cost.lastCostCupMicros / 10_000;
+    const costCents = cost.currentCostCupMicros / 10_000;
     return Math.round(((product.salePriceCents - costCents) / costCents) * 10_000);
   });
 
@@ -122,8 +122,9 @@ export default class ProductoPage implements OnInit {
     if (!cost) {
       return null;
     }
-    const limit = cost.lastRateCents + cost.effectiveBufferCents;
-    const limitText = `${formatHundredths(cost.lastRateCents)} + ${formatHundredths(cost.effectiveBufferCents)} = ${formatHundredths(limit)}`;
+    // RN-04 (D-61): the rate the batch on sale was bought at, plus the colchón.
+    const limit = cost.currentRateCents + cost.effectiveBufferCents;
+    const limitText = `${formatHundredths(cost.currentRateCents)} +${formatHundredths(cost.effectiveBufferCents)} = ${formatHundredths(limit)}`;
     if (cost.todayRateCents === null) {
       return {
         tone: 'muted',
@@ -176,6 +177,12 @@ export default class ProductoPage implements OnInit {
     }
     const settings = this.settings();
     return settings ? `${formatPercent(settings.defaultMarkupBps)} (el del negocio)` : '—';
+  });
+
+  /** D-61: what the newest batch (already bought, waiting behind the one on sale) will need, when it is more. */
+  protected readonly newestNeeds = computed(() => {
+    const cost = this.product()?.cost;
+    return cost && cost.newestSuggestedPriceCents > cost.suggestedPriceCents ? cost.newestSuggestedPriceCents : null;
   });
 
   protected readonly bufferText = computed(() => {
